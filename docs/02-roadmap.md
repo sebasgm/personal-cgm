@@ -311,7 +311,9 @@ long before it is worth waking someone over.
 
 ### Next, in order
 
-1. **Trend in the expanded notification** — the status bar icon's three glyphs go to the
+1. **App lock** — a PIN or biometric gate, per the decision below. The last outstanding
+   feature request.
+2. **Trend in the expanded notification** — the status bar icon's three glyphs go to the
    number, so the trend has nowhere to live there. The open question is whether it belongs in
    the icon at all (an arrow beside the number, competing for a 24dp square) or in the
    expanded notification's content, where the title already carries arrow and delta. Worth
@@ -328,8 +330,25 @@ accounts gates sharing, and sharing gates the sharing disclaimer.
   carry it. AGPL-3.0 is the option that keeps it genuinely open while making closed-source
   exploitation unattractive. Worth deciding early — it shapes whether contributions are
   possible at all.
-- **Login and accounts.** The issue notes the conflict with local-first itself. Until it is
-  resolved as local-only / optional / sharing-only, caregiver sharing cannot be scoped.
+- **Login and accounts — decided: a local app lock, and nothing more.** "Login" in an app with
+  no server can only mean one of two things, and the useful one is a lock on the app itself: a
+  PIN or biometric gate in front of health data on a phone that gets handed around. Accounts in
+  the sense of a backend identity are not being built.
+
+- **Caregiver sharing — decided: not ours.** Abbott already does it, and this app is *built on
+  that*: it reads a LibreLinkUp follower account, which is the sharing feature. Anyone who
+  needs your readings can be invited as a follower and gets Abbott's own alerts, delivered by
+  Abbott's infrastructure rather than by your phone.
+
+  The alternative was a list of contacts with alerts sent by SMS or email *from this device*,
+  which needs no server — and fails in exactly the situation it exists for. If the phone is
+  dead, offline, or asleep under Android's background limits, the alert that should have gone
+  out does not. A sharing feature that works except when it matters is worse than none, because
+  someone will rely on it. So the sharing issue and its dedicated disclaimer both close, and
+  the reasoning is here rather than in a chat log.
+
+  This stays reversible: if a backend is ever built (see the security RFC), sharing becomes
+  worth revisiting, because a server can fan out alerts when the phone cannot.
 - **Second data source.** "Generic sensor option" needs one name to be scopeable: xDrip+,
   Juggluco, Nightscout or LibreLinkUp.
 - **Naming and branding**, **Play Store research**, the **security RFC**, and the **sensor
