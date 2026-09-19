@@ -75,8 +75,8 @@ data class GlucoseSnapshot(
     val reading: GlucoseReading,
     val range: GlucoseRange = GlucoseRange(),
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
-    /** Difference against the previous reading, in mg/dL. Null if unknown. */
-    val deltaMgdl: Double? = null,
+    /** Change since a recent earlier reading, with the interval it spans. */
+    val delta: GlucoseDelta? = null,
 ) {
     fun freshness(nowMillis: Long, policy: FreshnessPolicy = FreshnessPolicy.Default): Freshness =
         policy.evaluate(reading, nowMillis)
@@ -85,9 +85,15 @@ data class GlucoseSnapshot(
 
     fun formattedValue(): String = unit.format(reading.valueMgdl)
 
-    fun formattedDelta(): String? = deltaMgdl?.let {
-        val v = unit.from(it)
+    /**
+     * Signed change for display. A span meaningfully longer than the usual five
+     * minutes is labelled, so "+40 / 15m" can never be misread as "+40 / 5m".
+     */
+    fun formattedDelta(): String? = delta?.let { d ->
+        val v = unit.from(d.valueMgdl)
         val sign = if (v >= 0) "+" else ""
-        if (unit.decimals == 0) "$sign${v.toInt()}" else String.format("%s%.1f", sign, v)
+        val magnitude =
+            if (unit.decimals == 0) "$sign${v.toInt()}" else String.format("%s%.1f", sign, v)
+        if (d.isConventional) magnitude else "$magnitude / ${d.spanMillis / 60_000}m"
     }
 }

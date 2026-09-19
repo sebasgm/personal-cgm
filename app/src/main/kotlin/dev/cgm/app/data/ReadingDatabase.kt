@@ -64,6 +64,9 @@ interface ReadingDao {
     @Query("SELECT * FROM readings ORDER BY timestampMillis DESC LIMIT 1")
     suspend fun latest(): ReadingEntity?
 
+    @Query("SELECT * FROM readings WHERE timestampMillis >= :sinceMillis ORDER BY timestampMillis ASC")
+    suspend fun since(sinceMillis: Long): List<ReadingEntity>
+
     @Query("SELECT COUNT(*) FROM readings")
     suspend fun count(): Int
 

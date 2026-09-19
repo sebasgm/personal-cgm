@@ -81,7 +81,7 @@ class WatchPayloadTest {
             snapshot = GlucoseSnapshot(
                 reading = GlucoseReading(112.0, now, TrendArrow.RISING),
                 unit = GlucoseUnit.MMOLL,
-                deltaMgdl = 7.0,
+                delta = GlucoseDelta(7.0, 5 * 60_000L),
             ),
             history = history(10),
             sentAtMillis = now,
@@ -125,7 +125,7 @@ class SnapshotTest {
         val s = GlucoseSnapshot(
             reading = GlucoseReading(112.0, 0L),
             unit = GlucoseUnit.MGDL,
-            deltaMgdl = -7.0,
+            delta = GlucoseDelta(-7.0, 5 * 60_000L),
         )
         assertEquals("-7", s.formattedDelta())
         assertEquals("112", s.formattedValue())
@@ -165,5 +165,67 @@ class PollSchedulerTest {
         assertEquals(120_000L, scheduler.nextDelayMillis(t, consecutiveFailures = 3))
         assertEquals(300_000L, scheduler.nextDelayMillis(t, consecutiveFailures = 9))
         assertEquals(300_000L, scheduler.nextDelayMillis(t, consecutiveFailures = 99))
+    }
+}
+
+class DeltaCalculatorTest {
+    private val now = 1_800_000_000_000L
+
+    private fun reading(minutesAgo: Int, value: Double) =
+        GlucoseReading(valueMgdl = value, timestampMillis = now - minutesAgo * 60_000L)
+
+    private val current = reading(0, 120.0)
+
+    @Test
+    fun `prefers the reading closest to five minutes back`() {
+        val history = listOf(
+            reading(15, 80.0),
+            reading(5, 110.0),
+            reading(1, 118.0),
+        )
+        val delta = DeltaCalculator.compute(current, history)!!
+        assertEquals(10.0, delta.valueMgdl)
+        assertEquals(5 * 60_000L, delta.spanMillis)
+        assertTrue(delta.isConventional)
+    }
+
+    @Test
+    fun `falls back to a coarse span and flags it as unconventional`() {
+        // What LibreLinkUp's ~15-minute graphData actually offers.
+        val delta = DeltaCalculator.compute(current, listOf(reading(15, 80.0)))!!
+        assertEquals(40.0, delta.valueMgdl)
+        assertEquals(15 * 60_000L, delta.spanMillis)
+        assertTrue(!delta.isConventional, "a 15-minute span must not pass as a 5-minute delta")
+    }
+
+    @Test
+    fun `refuses to report a delta over a uselessly long span`() {
+        assertEquals(null, DeltaCalculator.compute(current, listOf(reading(45, 80.0))))
+    }
+
+    @Test
+    fun `ignores readings at or after the current one`() {
+        val history = listOf(reading(-5, 200.0), reading(0, 120.0))
+        assertEquals(null, DeltaCalculator.compute(current, history))
+    }
+
+    @Test
+    fun `normalises a coarse delta onto the five-minute convention`() {
+        val delta = GlucoseDelta(valueMgdl = 45.0, spanMillis = 15 * 60_000L)
+        assertEquals(15.0, delta.normalisedPerFiveMinutes(), 0.001)
+    }
+
+    @Test
+    fun `labels an unconventional span in the formatted output`() {
+        val snapshot = GlucoseSnapshot(
+            reading = current,
+            delta = GlucoseDelta(40.0, 15 * 60_000L),
+        )
+        assertEquals("+40 / 15m", snapshot.formattedDelta())
+    }
+
+    @Test
+    fun `returns null when there is no history at all`() {
+        assertEquals(null, DeltaCalculator.compute(current, emptyList()))
     }
 }

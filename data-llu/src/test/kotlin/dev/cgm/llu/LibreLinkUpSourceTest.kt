@@ -46,8 +46,9 @@ class LibreLinkUpSourceTest {
         assertEquals(GlucoseUnit.MGDL, result.snapshot.unit)
         assertEquals(70.0, result.snapshot.range.lowMgdl)
         assertEquals(180.0, result.snapshot.range.highMgdl)
-        // 112 now, 105 in the preceding graph point.
-        assertEquals(7.0, result.snapshot.deltaMgdl)
+        // 112 now, 105 in the graph point five minutes earlier.
+        assertEquals(7.0, result.snapshot.delta!!.valueMgdl)
+        assertEquals(5 * 60_000L, result.snapshot.delta!!.spanMillis)
         assertEquals(2, result.history.size)
     }
 

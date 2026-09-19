@@ -4,6 +4,7 @@ import dev.cgm.core.GlucoseRange
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseSource
+import dev.cgm.core.DeltaCalculator
 import dev.cgm.core.GlucoseSourceException
 import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.SourceResult
@@ -134,9 +135,10 @@ class LibreLinkUpSource(
                 "unparseable timestamp: ${current.factoryTimestamp}"
             )
 
-        // Delta against the most recent *earlier* reading, not just the last
-        // element: the graph occasionally contains a point newer than `current`.
-        val previous = history.lastOrNull { it.timestampMillis < reading.timestampMillis }
+        // graphData comes back at roughly 15-minute spacing, so the delta it
+        // yields is coarse and is labelled as such downstream. The phone
+        // refines it from its own finer history once it has some.
+        val delta = DeltaCalculator.compute(reading, history)
 
         return SourceResult(
             snapshot = GlucoseSnapshot(
@@ -146,7 +148,7 @@ class LibreLinkUpSource(
                     highMgdl = connection.targetHigh ?: GlucoseRange().highMgdl,
                 ),
                 unit = unit,
-                deltaMgdl = previous?.let { reading.valueMgdl - it.valueMgdl },
+                delta = delta,
             ),
             history = history,
         )

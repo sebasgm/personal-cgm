@@ -1,7 +1,9 @@
 package dev.cgm.app.data
 
+import dev.cgm.core.DeltaCalculator
 import dev.cgm.core.Freshness
 import dev.cgm.core.FreshnessPolicy
+import dev.cgm.core.GlucoseDelta
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseSourceException
@@ -102,8 +104,9 @@ class GlucoseRepository(
         val client = sourceFor(credentials)
 
         return try {
-            val result = client.fetch()
-            persist(result)
+            val fetched = client.fetch()
+            persist(fetched)
+            val result = fetched.withRefinedDelta(refineDelta(fetched))
             _state.update {
                 it.copy(
                     configured = true,
@@ -124,6 +127,20 @@ class GlucoseRepository(
                 else -> PollOutcome.Transient()
             }
         }
+    }
+
+    /**
+     * Recompute the delta against our own stored readings.
+     *
+     * LibreLinkUp's graph is ~15-minute aggregated, but we poll the current value
+     * about once a minute and keep every sample, so after a few minutes of
+     * running we can offer a proper ~5-minute delta where the API cannot.
+     */
+    private suspend fun refineDelta(result: SourceResult): GlucoseDelta? {
+        val reading = result.snapshot.reading
+        val window = dao.since(reading.timestampMillis - DELTA_LOOKBACK_MILLIS)
+            .map { it.toReading() }
+        return DeltaCalculator.compute(reading, window)
     }
 
     private suspend fun persist(result: SourceResult) {
@@ -158,8 +175,16 @@ class GlucoseRepository(
     private companion object {
         /** Ninety days is plenty for the graph and keeps the table small. */
         const val HISTORY_RETENTION_MILLIS = 90L * 24 * 60 * 60 * 1000
+
+        /** Only need enough context to find a reading ~5 minutes back. */
+        const val DELTA_LOOKBACK_MILLIS = 30L * 60 * 1000
     }
 }
+
+/** Keeps the API's coarse delta when our own history has nothing better yet. */
+private fun SourceResult.withRefinedDelta(refined: GlucoseDelta?): SourceResult =
+    if (refined == null) this
+    else copy(snapshot = snapshot.copy(delta = refined))
 
 private fun GlucoseSourceException.toErrorState(): ErrorState = when (this) {
     is GlucoseSourceException.AuthFailed ->
