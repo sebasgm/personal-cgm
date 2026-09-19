@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
                     val state by vm.state.collectAsState()
 
                     if (state.configured) {
-                        StatusScreen(
+                        HomeScreen(
                             viewModel = vm,
                             onStartService = { PollingService.start(this) },
                             onStopService = { PollingService.stop(this) },

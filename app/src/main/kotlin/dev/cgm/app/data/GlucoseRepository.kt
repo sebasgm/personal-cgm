@@ -8,6 +8,7 @@ import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseSourceException
 import dev.cgm.core.PollOutcome
+import dev.cgm.core.SensorInfo
 import dev.cgm.core.SourceResult
 import dev.cgm.llu.LibreLinkUpCredentials
 import dev.cgm.llu.LibreLinkUpSource
@@ -36,6 +37,7 @@ data class CgmState(
     val lastSuccessMillis: Long? = null,
     val error: ErrorState? = null,
     val policy: FreshnessPolicy = FreshnessPolicy.Default,
+    val sensor: SensorInfo? = null,
 ) {
     /**
      * Derived from the clock every time it is asked, never cached: a reading does
@@ -114,6 +116,7 @@ class GlucoseRepository(
                     lastSuccessMillis = clock(),
                     error = null,
                     policy = currentPolicy(),
+                    sensor = result.sensor ?: it.sensor,
                 )
             }
             _results.emit(result)

@@ -20,22 +20,62 @@ class GlucoseUnitTest {
     }
 }
 
-class GlucoseRangeTest {
-    private val range = GlucoseRange(lowMgdl = 70.0, highMgdl = 180.0)
+class GlucoseThresholdsTest {
+    private val t = GlucoseThresholds()
 
     @Test
-    fun `classifies zones including urgent low`() {
-        assertEquals(Zone.URGENT_LOW, range.classify(50.0))
-        assertEquals(Zone.LOW, range.classify(65.0))
-        assertEquals(Zone.IN_RANGE, range.classify(120.0))
-        assertEquals(Zone.HIGH, range.classify(220.0))
+    fun `classifies all five zones`() {
+        assertEquals(Zone.URGENT_LOW, t.classify(50.0))
+        assertEquals(Zone.LOW, t.classify(65.0))
+        assertEquals(Zone.IN_RANGE, t.classify(120.0))
+        assertEquals(Zone.HIGH, t.classify(220.0))
+        assertEquals(Zone.VERY_HIGH, t.classify(311.0))
+    }
+
+    @Test
+    fun `defaults to the account in-range band over issue defaults`() {
+        val fromAccount = t.withAccountTargets(targetLow = 70.0, targetHigh = 180.0)
+        assertEquals(70.0, fromAccount.lowMgdl)
+        assertEquals(180.0, fromAccount.highMgdl)
+        // Urgent-low and very-high have no API equivalent and must survive.
+        assertEquals(55.0, fromAccount.urgentLowMgdl)
+        assertEquals(240.0, fromAccount.veryHighMgdl)
+    }
+
+    @Test
+    fun `keeps its own defaults when the account supplies nothing`() {
+        val unchanged = t.withAccountTargets(null, null)
+        assertEquals(t, unchanged)
     }
 
     @Test
     fun `fraction is clamped for the ranged-value complication`() {
-        assertEquals(0f, range.fraction(40.0))
-        assertEquals(1f, range.fraction(400.0))
-        assertEquals(0.5f, range.fraction(125.0), 0.001f)
+        assertEquals(0f, t.fraction(40.0))
+        assertEquals(1f, t.fraction(400.0))
+        assertEquals(0.5f, t.fraction(125.0), 0.001f)
+    }
+
+    @Test
+    fun `repairs out-of-order boundaries instead of rejecting them`() {
+        // What a half-finished edit in Settings looks like.
+        val broken = GlucoseThresholds(
+            urgentLowMgdl = 200.0,
+            lowMgdl = 70.0,
+            highMgdl = 180.0,
+            veryHighMgdl = 240.0,
+        ).sanitised()
+
+        assertTrue(broken.urgentLowMgdl < broken.lowMgdl)
+        assertTrue(broken.lowMgdl < broken.highMgdl)
+        assertTrue(broken.highMgdl < broken.veryHighMgdl)
+    }
+
+    @Test
+    fun `zone helpers group lows and highs`() {
+        assertTrue(Zone.URGENT_LOW.isLow && Zone.LOW.isLow)
+        assertTrue(Zone.HIGH.isHigh && Zone.VERY_HIGH.isHigh)
+        assertTrue(!Zone.IN_RANGE.needsAttention)
+        assertTrue(Zone.VERY_HIGH.needsAttention)
     }
 }
 
@@ -227,5 +267,108 @@ class DeltaCalculatorTest {
     @Test
     fun `returns null when there is no history at all`() {
         assertEquals(null, DeltaCalculator.compute(current, emptyList()))
+    }
+}
+
+class StatisticsTest {
+    private val now = 1_800_000_000_000L
+    private val dayAgo = now - 24 * 60 * 60 * 1000L
+    private val thresholds = GlucoseThresholds()
+
+    private fun series(values: List<Double>, spacingMinutes: Int = 5): List<GlucoseReading> =
+        values.mapIndexed { i, v ->
+            GlucoseReading(
+                valueMgdl = v,
+                timestampMillis = dayAgo + i * spacingMinutes * 60_000L,
+            )
+        }
+
+    @Test
+    fun `splits time across zones`() {
+        val stats = StatisticsCalculator.compute(
+            series(listOf(50.0, 65.0, 120.0, 120.0, 220.0, 300.0)),
+            thresholds, dayAgo, now,
+        )
+        assertEquals(6, stats.readingCount)
+        assertEquals(2.0 / 6, stats.timeInRange!!, 0.001)
+        assertEquals(1.0 / 6, stats.zoneFractions[Zone.URGENT_LOW]!!, 0.001)
+        assertEquals(1.0 / 6, stats.zoneFractions[Zone.VERY_HIGH]!!, 0.001)
+    }
+
+    @Test
+    fun `zone fractions sum to one`() {
+        val stats = StatisticsCalculator.compute(
+            series(listOf(50.0, 90.0, 120.0, 200.0, 300.0)), thresholds, dayAgo, now,
+        )
+        assertEquals(1.0, stats.zoneFractions.values.sum(), 0.001)
+    }
+
+    @Test
+    fun `reports low coverage when the window is mostly empty`() {
+        // One hour of readings inside a 24-hour window.
+        val stats = StatisticsCalculator.compute(
+            series(List(12) { 120.0 }), thresholds, dayAgo, now,
+        )
+        assertTrue(stats.coverage < 0.1, "coverage was ${stats.coverage}")
+        assertTrue(!stats.isReliable, "a mostly-empty window must not read as reliable")
+    }
+
+    @Test
+    fun `reports high coverage when the window is full`() {
+        // 5-minute readings across the whole day.
+        val stats = StatisticsCalculator.compute(
+            series(List(288) { 120.0 }), thresholds, dayAgo, now,
+        )
+        assertTrue(stats.coverage > 0.95, "coverage was ${stats.coverage}")
+        assertTrue(stats.isReliable)
+    }
+
+    @Test
+    fun `coverage survives irregular cadence`() {
+        // The 15-minute graph backfill must not look like missing data beyond
+        // what it actually is.
+        val stats = StatisticsCalculator.compute(
+            series(List(96) { 120.0 }, spacingMinutes = 15), thresholds, dayAgo, now,
+        )
+        assertTrue(stats.coverage > 0.3, "coverage was ${stats.coverage}")
+    }
+
+    @Test
+    fun `empty window yields empty stats not a crash`() {
+        val stats = StatisticsCalculator.compute(emptyList(), thresholds, dayAgo, now)
+        assertEquals(GlucoseStatistics.Empty, stats)
+        assertEquals(null, stats.timeInRange)
+    }
+
+    @Test
+    fun `ignores readings outside the window`() {
+        val old = GlucoseReading(300.0, dayAgo - 60 * 60 * 1000L)
+        val stats = StatisticsCalculator.compute(
+            series(listOf(120.0)) + old, thresholds, dayAgo, now,
+        )
+        assertEquals(1, stats.readingCount)
+    }
+}
+
+class SensorInfoTest {
+    private val now = 1_800_000_000_000L
+    private val day = 24 * 60 * 60 * 1000L
+
+    @Test
+    fun `counts the session day from one`() {
+        assertEquals(1, SensorInfo(startedAtMillis = now - 3 * 60 * 60 * 1000L).dayOfSession(now))
+        assertEquals(8, SensorInfo(startedAtMillis = now - 7 * day).dayOfSession(now))
+    }
+
+    @Test
+    fun `flags an expired sensor`() {
+        assertTrue(!SensorInfo(startedAtMillis = now - 10 * day).isExpired(now))
+        assertTrue(SensorInfo(startedAtMillis = now - 15 * day).isExpired(now))
+    }
+
+    @Test
+    fun `unknown start is not an expired sensor`() {
+        assertEquals(null, SensorInfo().dayOfSession(now))
+        assertTrue(!SensorInfo().isExpired(now))
     }
 }

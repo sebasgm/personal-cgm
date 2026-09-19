@@ -73,7 +73,7 @@ data class FreshnessPolicy(
 @Serializable
 data class GlucoseSnapshot(
     val reading: GlucoseReading,
-    val range: GlucoseRange = GlucoseRange(),
+    val thresholds: GlucoseThresholds = GlucoseThresholds.Default,
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
     /** Change since a recent earlier reading, with the interval it spans. */
     val delta: GlucoseDelta? = null,
@@ -81,7 +81,7 @@ data class GlucoseSnapshot(
     fun freshness(nowMillis: Long, policy: FreshnessPolicy = FreshnessPolicy.Default): Freshness =
         policy.evaluate(reading, nowMillis)
 
-    fun zone(): Zone = range.classify(reading.valueMgdl)
+    fun zone(): Zone = thresholds.classify(reading.valueMgdl)
 
     fun formattedValue(): String = unit.format(reading.valueMgdl)
 

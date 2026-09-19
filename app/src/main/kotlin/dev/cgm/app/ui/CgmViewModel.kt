@@ -7,19 +7,27 @@ import dev.cgm.app.data.CgmState
 import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.data.SecureSettings
 import dev.cgm.core.GlucoseReading
+import dev.cgm.core.GlucoseStatistics
+import dev.cgm.core.GlucoseThresholds
+import dev.cgm.core.StatisticsCalculator
 import dev.cgm.llu.LibreLinkUpCredentials
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CgmViewModel(
     private val repository: GlucoseRepository,
     private val settings: SecureSettings,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
     val state: StateFlow<CgmState> = repository.state
@@ -27,28 +35,51 @@ class CgmViewModel(
     private val _signingIn = MutableStateFlow(false)
     val signingIn: StateFlow<Boolean> = _signingIn.asStateFlow()
 
-    /** Last three hours, which is what the watch graph will show in stage 5. */
-    val history: StateFlow<List<GlucoseReading>> =
-        repository.historySince(System.currentTimeMillis() - GRAPH_WINDOW_MILLIS)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val _window = MutableStateFlow(GraphWindow.Default)
+    val window: StateFlow<GraphWindow> = _window.asStateFlow()
+
+    /** Readings inside the selected window, re-queried when the chip changes. */
+    val history: StateFlow<List<GlucoseReading>> = _window
+        .flatMapLatest { repository.historySince(clock() - it.millis) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Stats over the same window the graph shows, so the strip and the picture
+     * can never disagree.
+     */
+    val statistics: StateFlow<GlucoseStatistics> = combine(
+        history,
+        _window,
+        state,
+    ) { readings, window, state ->
+        val now = clock()
+        StatisticsCalculator.compute(
+            readings = readings,
+            thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
+            windowStartMillis = now - window.millis,
+            windowEndMillis = now,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GlucoseStatistics.Empty)
 
     init {
         viewModelScope.launch { repository.refreshConfiguration() }
     }
 
+    fun selectWindow(window: GraphWindow) {
+        _window.value = window
+    }
+
     /**
-     * Saves credentials and immediately proves they work, so the user learns
-     * about a typo here rather than from a silent service that never updates.
+     * Saves credentials and immediately proves they work, so a typo surfaces
+     * here rather than as a service that silently never updates.
      */
     fun signIn(email: String, password: String, onDone: (Boolean) -> Unit) {
         viewModelScope.launch {
             _signingIn.value = true
             try {
-                settings.saveCredentials(
-                    LibreLinkUpCredentials(email.trim(), password)
-                )
+                settings.saveCredentials(LibreLinkUpCredentials(email.trim(), password))
                 repository.refreshConfiguration()
-                val outcome = withContext(Dispatchers.IO) { repository.pollOnce() }
+                withContext(Dispatchers.IO) { repository.pollOnce() }
                 val ok = repository.state.value.error?.needsUser != true
                 if (!ok) settings.clearCredentials()
                 onDone(ok)
@@ -67,8 +98,6 @@ class CgmViewModel(
     }
 
     companion object {
-        const val GRAPH_WINDOW_MILLIS = 3L * 60 * 60 * 1000
-
         fun factory(repository: GlucoseRepository, settings: SecureSettings) =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")

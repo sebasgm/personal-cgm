@@ -84,15 +84,15 @@ Issue #9 wants four configurable zones. #1 wants a low alert. Reconciled as **fi
 | Zone | Default | Source |
 |---|---|---|
 | Urgent low | < 55 | needed by #1; not in #9 but required for a useful alert |
-| Low | < 80 | #9 |
-| In range | 80 – 180 | #9 |
+| Low | < 70 | account (**decided**) |
+| In range | 70 – 180 | account (**decided**) |
 | High | 180 – 240 | #9 |
 | Very high | > 240 | #9 ("too high") |
 
-⚠️ **Discrepancy to resolve:** #9 specifies in-range starting at **80**, but your
-LibreLinkUp account reports a target of **70**–180. Two different numbers for the same
-concept. Options: take the account's values as defaults, use #9's literally, or ask once
-at setup. Needs your call — see the questions at the end.
+**Resolved:** #9 specified 80, the account reports 70. Decision is to take
+`targetLow`/`targetHigh` **from the LibreLinkUp account** as the defaults, so the app
+agrees with what LibreLink itself shows. All five boundaries stay user-overridable in
+Settings; the account only supplies the defaults.
 
 This replaces `GlucoseRange`/`Zone` in `:core`. Doing it now is cheap; doing it after four
 charts are built is not.
@@ -171,13 +171,19 @@ absolute timestamps, `WatchPayload`) keep this unblocked.
 
 ---
 
-## 4. Open questions
+## 4. Decisions
 
-1. **In-range lower bound: 70 or 80?** #9 says 80; your account says 70. Which wins as the
-   default?
-2. **Urgent low.** #9 has no "too low" band, but a low alert without one is blunt. Add a
-   fifth zone at a configurable default of 55?
-3. **LibreView CSV import** — do you have access to the LibreView web portal for this
-   account? If so this moves up, because it unlocks Phase 3 immediately.
-4. **#11 "tray bar"** — confirming this means the Android **status bar** (the persistent
-   number next to the clock), not a home-screen widget.
+1. **In-range bounds come from the account** (70–180 here), not #9's literal 80.
+   Overridable in Settings.
+2. **Five zones**, with a configurable urgent low defaulting to 55, so #1's alert has
+   something meaningful to fire on.
+3. **No LibreView CSV import for now** — portal access unconfirmed. Analytics accumulate
+   from polling instead, which makes running the service early even more important. The
+   importer stays in the backlog: if portal access turns up later it is worth building,
+   because it would retroactively fill the gap.
+4. **Build order after the foundation: Home screen first.**
+
+### Still open
+
+- **#11 "tray bar"** — assumed to mean the Android **status bar** (the persistent number
+  beside the clock, as xDrip does), not a home-screen widget. Say if that is wrong.

@@ -30,7 +30,34 @@ interface GlucoseSource {
 data class SourceResult(
     val snapshot: GlucoseSnapshot,
     val history: List<GlucoseReading> = emptyList(),
+    val sensor: SensorInfo? = null,
 )
+
+/** Sensor session metadata, where the source can tell us. */
+@kotlinx.serialization.Serializable
+data class SensorInfo(
+    val serial: String? = null,
+    /** Activation instant, epoch millis. */
+    val startedAtMillis: Long? = null,
+) {
+    /**
+     * Day of the sensor session, 1-based, or null if unknown.
+     *
+     * Libre sensors run 14 days, so day 15 means it has already expired and any
+     * reading is suspect.
+     */
+    fun dayOfSession(nowMillis: Long): Int? = startedAtMillis?.let {
+        ((nowMillis - it) / DAY_MILLIS).toInt() + 1
+    }
+
+    fun isExpired(nowMillis: Long): Boolean =
+        (dayOfSession(nowMillis) ?: 0) > SESSION_DAYS
+
+    companion object {
+        const val SESSION_DAYS = 14
+        private const val DAY_MILLIS = 24L * 60 * 60 * 1000
+    }
+}
 
 /**
  * Failure modes the UI has to tell apart. "Something went wrong" is not good

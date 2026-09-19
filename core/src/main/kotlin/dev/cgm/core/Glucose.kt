@@ -73,27 +73,3 @@ data class GlucoseReading(
     override fun compareTo(other: GlucoseReading): Int =
         timestampMillis.compareTo(other.timestampMillis)
 }
-
-/** The user's target band, in mg/dL. Defaults match the common clinical 70-180. */
-@Serializable
-data class GlucoseRange(
-    @SerialName("lo") val lowMgdl: Double = 70.0,
-    @SerialName("hi") val highMgdl: Double = 180.0,
-) {
-    fun classify(mgdl: Double): Zone = when {
-        mgdl < URGENT_LOW_MGDL -> Zone.URGENT_LOW
-        mgdl < lowMgdl -> Zone.LOW
-        mgdl > highMgdl -> Zone.HIGH
-        else -> Zone.IN_RANGE
-    }
-
-    /** Position within the band, clamped to 0..1. Feeds RANGED_VALUE complications. */
-    fun fraction(mgdl: Double): Float =
-        ((mgdl - lowMgdl) / (highMgdl - lowMgdl)).coerceIn(0.0, 1.0).toFloat()
-
-    companion object {
-        const val URGENT_LOW_MGDL = 55.0
-    }
-}
-
-enum class Zone { URGENT_LOW, LOW, IN_RANGE, HIGH }

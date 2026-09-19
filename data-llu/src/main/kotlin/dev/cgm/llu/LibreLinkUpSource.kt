@@ -1,12 +1,13 @@
 package dev.cgm.llu
 
-import dev.cgm.core.GlucoseRange
+import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseSource
 import dev.cgm.core.DeltaCalculator
 import dev.cgm.core.GlucoseSourceException
 import dev.cgm.core.GlucoseUnit
+import dev.cgm.core.SensorInfo
 import dev.cgm.core.SourceResult
 import dev.cgm.core.TrendArrow
 import kotlinx.coroutines.sync.Mutex
@@ -143,14 +144,24 @@ class LibreLinkUpSource(
         return SourceResult(
             snapshot = GlucoseSnapshot(
                 reading = reading,
-                range = GlucoseRange(
-                    lowMgdl = connection.targetLow ?: GlucoseRange().lowMgdl,
-                    highMgdl = connection.targetHigh ?: GlucoseRange().highMgdl,
+                // The account's own in-range band, so we agree with LibreLink.
+                // Urgent-low and very-high have no API equivalent and stay at
+                // their defaults until the user overrides them in Settings.
+                thresholds = GlucoseThresholds.Default.withAccountTargets(
+                    targetLow = connection.targetLow,
+                    targetHigh = connection.targetHigh,
                 ),
                 unit = unit,
                 delta = delta,
             ),
             history = history,
+            sensor = connection.sensor?.let {
+                SensorInfo(
+                    serial = it.sn,
+                    // Abbott sends activation as epoch seconds.
+                    startedAtMillis = it.a?.times(1000),
+                )
+            },
         )
     }
 
