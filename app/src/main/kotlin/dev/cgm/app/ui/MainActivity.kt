@@ -105,10 +105,14 @@ private fun MainScaffold(
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (current) {
-                Destination.Home -> HomeScreen(viewModel, onStartService, onStopService)
+                Destination.Home -> HomeScreen(viewModel)
                 Destination.Trends -> TrendsScreen(viewModel)
                 Destination.Logbook -> LogbookScreen(viewModel)
-                Destination.Settings -> SettingsScreen(viewModel) { stack = stack + it }
+                Destination.Settings -> SettingsScreen(
+                    viewModel = viewModel,
+                    onStartService = onStartService,
+                    onStopService = onStopService,
+                ) { stack = stack + it }
                 Destination.Alarms -> AlarmsScreen(viewModel) { stack = stack + it }
                 Destination.Ranges -> RangesScreen(viewModel)
                 is Destination.AlarmDetail -> AlarmDetailScreen(viewModel, current.kind)

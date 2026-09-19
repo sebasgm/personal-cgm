@@ -257,12 +257,20 @@ long before it is worth waking someone over.
 
 ### Next, in order
 
-1. **Chart interaction** — pinch and button zoom; day-by-day history browsing with a date
-   picker. Stateful, and wants the window model reworked from fixed chips to a movable range.
-2. **Unit switching** (mg/dL ↔ mmol/L) — must reach the chart, the current value, alarm
+1. **Chart interaction** — **pinch only, decided**; zoom buttons are dropped for now, and the
+   preset chips stay as the coarse control. Then day-by-day history browsing with a date
+   picker. Both want the same change underneath: the window stops being one of four fixed
+   spans ending at *now* and becomes a viewport with its own span and end, which is what lets
+   it be both zoomed and moved back through history.
+2. **Trend in the expanded notification** — the status bar icon's three glyphs go to the
+   number, so the trend has nowhere to live there. The open question is whether it belongs in
+   the icon at all (an arrow beside the number, competing for a 24dp square) or in the
+   expanded notification's content, where the title already carries arrow and delta. Worth
+   looking at the built version before deciding, since the expanded view may already say it.
+3. **Unit switching** (mg/dL ↔ mmol/L) — must reach the chart, the current value, alarm
    thresholds and anything exported. The unit currently comes from the account, so this needs
    a user override; `ThresholdOverrides` is the pattern to copy.
-3. **Medical disclaimer** — first-run acceptance plus a permanent copy in Settings, and
+4. **Medical disclaimer** — first-run acceptance plus a permanent copy in Settings, and
    `CHANGELOG.md`.
 
 ### Needs a decision before any code

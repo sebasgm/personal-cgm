@@ -3,10 +3,12 @@ package dev.cgm.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.cgm.core.ChartZoom
 import dev.cgm.core.Freshness
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseStatistics
@@ -43,15 +46,12 @@ import kotlin.math.roundToInt
  * docs/03-ui-design.md for why the density lives one tap away instead of here.
  */
 @Composable
-fun HomeScreen(
-    viewModel: CgmViewModel,
-    onStartService: () -> Unit,
-    onStopService: () -> Unit,
-) {
+fun HomeScreen(viewModel: CgmViewModel) {
     val state by viewModel.state.collectAsState()
     val history by viewModel.history.collectAsState()
     val stats by viewModel.statistics.collectAsState()
-    val window by viewModel.window.collectAsState()
+    val span by viewModel.spanMillis.collectAsState()
+    val preset by viewModel.preset.collectAsState()
 
     // Ticks regardless of whether data arrives. A frozen "2 min ago" over a dead
     // feed is the exact failure this screen exists to prevent.
@@ -92,28 +92,25 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(vertical = 12.dp),
+            onZoom = viewModel::zoomBy,
         )
 
-        WindowChips(selected = window, onSelect = viewModel::selectWindow)
+        WindowChips(
+            selected = preset,
+            spanLabel = ChartZoom.label(span),
+            onSelect = viewModel::selectWindow,
+            onRefresh = viewModel::refreshNow,
+        )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
 
         StatStrip(
             stats = stats,
-            windowLabel = window.label,
+            windowLabel = ChartZoom.label(span),
             unit = snapshot?.unit,
             sensor = state.sensor,
             now = now,
         )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = viewModel::refreshNow) { Text("Refresh") }
-            TextButton(onClick = onStartService) { Text("Start") }
-            TextButton(onClick = onStopService) { Text("Stop") }
-            TextButton(onClick = viewModel::signOut) { Text("Sign out") }
-        }
     }
 }
 
@@ -264,14 +261,41 @@ private fun AttentionBanner(message: String, needsUser: Boolean) {
 }
 
 @Composable
-private fun WindowChips(selected: GraphWindow, onSelect: (GraphWindow) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun WindowChips(
+    selected: GraphWindow?,
+    spanLabel: String,
+    onSelect: (GraphWindow) -> Unit,
+    onRefresh: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         GraphWindow.entries.forEach { w ->
             FilterChip(
                 selected = w == selected,
                 onClick = { onSelect(w) },
                 label = { Text(w.label) },
             )
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        // After a pinch the span is no longer any chip's, so no chip is selected
+        // and the real span is shown here instead. Saying "3h" while showing 1h47
+        // would be the one thing this row must not do.
+        if (selected == null) {
+            Text(
+                spanLabel,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.width(4.dp))
+        }
+
+        TextButton(onClick = onRefresh, contentPadding = PaddingValues(horizontal = 8.dp)) {
+            Text("Refresh")
         }
     }
 }

@@ -194,3 +194,64 @@ class ChartSeriesTest {
         assertEquals(input.map { it.timestampMillis }.sorted(), kept.map { it.timestampMillis })
     }
 }
+
+class ChartZoomTest {
+
+    private val threeHours = 3L * 60 * 60 * 1000
+
+    @Test
+    fun `fingers apart zooms in, which shortens the span`() {
+        assertEquals(threeHours / 2, ChartZoom.zoomed(threeHours, 2f))
+    }
+
+    @Test
+    fun `fingers together zooms out, which lengthens the span`() {
+        assertEquals(threeHours * 2, ChartZoom.zoomed(threeHours, 0.5f))
+    }
+
+    @Test
+    fun `cannot zoom past the limits`() {
+        assertEquals(ChartZoom.MIN_SPAN_MILLIS, ChartZoom.zoomed(threeHours, 1000f))
+        assertEquals(ChartZoom.MAX_SPAN_MILLIS, ChartZoom.zoomed(threeHours, 0.0001f))
+    }
+
+    /**
+     * A gesture cannot really produce these, but a zero or negative span would
+     * divide by zero somewhere downstream, so they are refused here rather than
+     * trusted.
+     */
+    @Test
+    fun `nonsense gesture factors leave the span alone`() {
+        assertEquals(threeHours, ChartZoom.zoomed(threeHours, 0f))
+        assertEquals(threeHours, ChartZoom.zoomed(threeHours, -2f))
+        assertEquals(threeHours, ChartZoom.zoomed(threeHours, Float.NaN))
+        assertEquals(threeHours, ChartZoom.zoomed(threeHours, Float.POSITIVE_INFINITY))
+    }
+
+    @Test
+    fun `a span is never zero or negative however it is reached`() {
+        listOf(0L, -5L, 1L, Long.MAX_VALUE).forEach { span ->
+            assertTrue(ChartZoom.clamp(span) >= ChartZoom.MIN_SPAN_MILLIS, "clamp($span)")
+        }
+    }
+
+    /**
+     * The chips stay on as presets, so a span that came from tapping one has to
+     * read back as that chip's own label rather than as something approximate.
+     */
+    @Test
+    fun `preset spans read back as their chip labels`() {
+        assertEquals("3h", ChartZoom.label(threeHours))
+        assertEquals("6h", ChartZoom.label(6L * 60 * 60 * 1000))
+        assertEquals("12h", ChartZoom.label(12L * 60 * 60 * 1000))
+        assertEquals("24h", ChartZoom.label(24L * 60 * 60 * 1000))
+    }
+
+    @Test
+    fun `labels stay in whole units at every scale`() {
+        assertEquals("15m", ChartZoom.label(ChartZoom.MIN_SPAN_MILLIS))
+        assertEquals("45m", ChartZoom.label(45L * 60 * 1000))
+        assertEquals("2h", ChartZoom.label(118L * 60 * 1000))
+        assertEquals("7d", ChartZoom.label(ChartZoom.MAX_SPAN_MILLIS))
+    }
+}

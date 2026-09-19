@@ -9,6 +9,7 @@ import dev.cgm.app.data.SecureSettings
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
+import dev.cgm.core.ChartZoom
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,12 +42,33 @@ class CgmViewModel(
     private val _signingIn = MutableStateFlow(false)
     val signingIn: StateFlow<Boolean> = _signingIn.asStateFlow()
 
-    private val _window = MutableStateFlow(GraphWindow.Default)
-    val window: StateFlow<GraphWindow> = _window.asStateFlow()
+    /**
+     * How much time the chart shows.
+     *
+     * A continuous span rather than one of four chips, because pinch zoom makes it
+     * continuous. The chips remain as presets that set it to a round number.
+     */
+    private val _spanMillis = MutableStateFlow(GraphWindow.Default.millis)
+    val spanMillis: StateFlow<Long> = _spanMillis.asStateFlow()
 
-    /** Readings inside the selected window, re-queried when the chip changes. */
-    val history: StateFlow<List<GlucoseReading>> = _window
-        .flatMapLatest { repository.historySince(clock() - it.millis) }
+    /**
+     * The preset the span currently matches exactly, or null once a pinch has
+     * moved it off one. Drives which chip looks selected — after zooming, none
+     * should, because claiming "3h" while showing 1h 47m would be a lie.
+     */
+    val preset: StateFlow<GraphWindow?> = _spanMillis
+        .map { millis -> GraphWindow.entries.firstOrNull { it.millis == millis } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GraphWindow.Default)
+
+    /**
+     * Readings inside the current span, re-queried when it changes.
+     *
+     * No `distinctUntilChanged` here: a StateFlow is already distinct by equality,
+     * so a pinch that lands on the span it started from costs nothing, and
+     * flatMapLatest cancels the query a further pinch supersedes.
+     */
+    val history: StateFlow<List<GlucoseReading>> = _spanMillis
+        .flatMapLatest { repository.historySince(clock() - it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
@@ -54,14 +77,14 @@ class CgmViewModel(
      */
     val statistics: StateFlow<GlucoseStatistics> = combine(
         history,
-        _window,
+        _spanMillis,
         state,
-    ) { readings, window, state ->
+    ) { readings, span, state ->
         val now = clock()
         StatisticsCalculator.compute(
             readings = readings,
             thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
-            windowStartMillis = now - window.millis,
+            windowStartMillis = now - span,
             windowEndMillis = now,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GlucoseStatistics.Empty)
@@ -133,7 +156,18 @@ class CgmViewModel(
     }
 
     fun selectWindow(window: GraphWindow) {
-        _window.value = window
+        _spanMillis.value = window.millis
+    }
+
+    /**
+     * A pinch on the chart.
+     *
+     * Called continuously through the gesture with each event's incremental scale,
+     * so the span is scaled repeatedly rather than set once — which is what makes
+     * the zoom track the fingers instead of jumping when they lift.
+     */
+    fun zoomBy(factor: Float) {
+        _spanMillis.value = ChartZoom.zoomed(_spanMillis.value, factor)
     }
 
     /**

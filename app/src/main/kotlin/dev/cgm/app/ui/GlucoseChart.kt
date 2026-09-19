@@ -1,6 +1,7 @@
 package dev.cgm.app.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -49,6 +51,7 @@ fun GlucoseChart(
     unit: GlucoseUnit,
     stale: Boolean,
     modifier: Modifier = Modifier,
+    onZoom: (Float) -> Unit = {},
 ) {
     val band = ChartColors.band
     val staleColor = ZoneColors.stale
@@ -58,7 +61,15 @@ fun GlucoseChart(
     val emptyColor = MaterialTheme.colorScheme.onSurfaceVariant
     val measurer = rememberTextMeasurer()
 
-    Box(modifier) {
+    Box(
+        modifier.pointerInput(Unit) {
+            // Reported incrementally through the gesture, and 1f means the fingers
+            // rotated or panned without scaling — nothing to do with zoom.
+            detectTransformGestures { _, _, zoom, _ ->
+                if (zoom != 1f) onZoom(zoom)
+            }
+        }
+    ) {
         if (readings.isEmpty()) {
             Text(
                 "no readings in this window yet",

@@ -90,6 +90,13 @@ This is a core architectural constraint — it should be settled before any feat
 "${GH[@]}" --title "Allow switching units between mg/dL and mmol/L" --label "enhancement" --body \
 "Add a setting to toggle measurement units. Must apply consistently across the chart, the current-value display, alert thresholds, and any shared or exported data."
 
+"${GH[@]}" --title "Show the trend in the expanded status bar notification" --label "enhancement" --label "ui" --body \
+"The status bar carries the glucose value as the ongoing notification's small icon. When that notification is dropped down in the shade, the trend should be shown alongside it.
+
+**Needs clarification:** whether the trend belongs *in the icon itself* — an arrow beside the number, which competes for space in what is effectively a 24dp square — or in the expanded notification's own content.
+
+Current behaviour, for reference: the collapsed status bar icon shows the number only (three glyphs is its budget), while the expanded notification's title already carries value, unit, trend arrow and delta."
+
 "${GH[@]}" --title "Show an explicit red signal-loss state after 5 minutes without data" --label "enhancement" --label "safety" --body \
 "If no new reading is received for 5 minutes, the app must display a clear, explicit signal-loss indicator in red.
 

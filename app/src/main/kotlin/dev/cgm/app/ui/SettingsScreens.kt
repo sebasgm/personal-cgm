@@ -46,6 +46,8 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsScreen(
     viewModel: CgmViewModel,
+    onStartService: () -> Unit,
+    onStopService: () -> Unit,
     onOpen: (Destination) -> Unit,
 ) {
     val context = LocalContext.current
@@ -71,6 +73,19 @@ fun SettingsScreen(
         ) { onOpen(Destination.Ranges) }
         SettingsRow("System notification settings", "Sounds, importance, badges") {
             context.safeStart(AlarmNotifier.appNotificationSettingsIntent(context))
+        }
+
+        Spacer(Modifier.height(12.dp))
+        SectionHeader("Service")
+        Text(
+            "The reading is only current while the poller is running. It starts itself on " +
+                "boot; these are for stopping or restarting it by hand.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onStartService) { Text("Start") }
+            OutlinedButton(onClick = onStopService) { Text("Stop") }
         }
 
         Spacer(Modifier.height(12.dp))
