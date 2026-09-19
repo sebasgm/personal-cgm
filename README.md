@@ -8,6 +8,7 @@ by Abbott, and the cloud path adds minutes of latency. The official app stays th
 for any dosing decision. See [docs/00-research.md](docs/00-research.md) §6.
 
 Research: [docs/00-research.md](docs/00-research.md) · Staged plan: [docs/01-plan.md](docs/01-plan.md)
+Issue roadmap: [docs/02-roadmap.md](docs/02-roadmap.md) · UI design: [docs/03-ui-design.md](docs/03-ui-design.md)
 
 ## Status
 
