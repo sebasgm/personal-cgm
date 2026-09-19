@@ -282,10 +282,21 @@ private val AXIS_GUTTER = 34.dp
 private val LABEL_GAP = 6.dp
 private val TRACE_STROKE = 3.dp
 private val GRID_STROKE = 1.dp
-private val DOT_RADIUS = 2.dp
-private val CURRENT_RADIUS = 5.dp
+/**
+ * Measured points have to out-read the line joining them, so the dot is wider than
+ * the stroke rather than merely wider than half of it. At a 2dp radius the dot was
+ * 4dp across against a 3dp line — technically larger, visually a slight bulge.
+ */
+private val DOT_RADIUS = 3.5.dp
+
+/** The current reading stays unmistakably the largest thing on the trace. */
+private val CURRENT_RADIUS = 6.dp
 private val DASH_ON = 4.dp
 private val DASH_OFF = 4.dp
 
-/** Below this, dots merge into the line and stop carrying information. */
-private val MIN_DOT_SPACING = 7.dp
+/**
+ * Below this, dots merge into the line and stop carrying information. Raised with
+ * the dot size — wider dots run into each other sooner, and a solid row of them is
+ * just a fatter line that costs more to draw.
+ */
+private val MIN_DOT_SPACING = 9.dp
