@@ -1,8 +1,6 @@
 package dev.cgm.app.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,9 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -25,22 +21,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.cgm.core.Freshness
-import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
+import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.SensorInfo
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -78,29 +68,35 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CurrentReading(snapshot, freshness, now)
 
-        Spacer(Modifier.height(20.dp))
+        SignalLossBanner(snapshot, freshness, now)
 
-        state.error?.let { AttentionBanner(it.message, it.needsUser) }
+        state.error?.let {
+            Spacer(Modifier.height(12.dp))
+            AttentionBanner(it.message, it.needsUser)
+        }
 
-        GlucoseGraph(
+        // The chart takes whatever is left rather than a fixed 160dp inside a
+        // scroller. It is the reason this screen exists, so it gets the space,
+        // and nothing here scrolls out of reach on a glance.
+        GlucoseChart(
             readings = history,
             thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
+            unit = snapshot?.unit ?: GlucoseUnit.MGDL,
             stale = freshness == Freshness.STALE,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp)
+                .weight(1f)
                 .padding(vertical = 12.dp),
         )
 
         WindowChips(selected = window, onSelect = viewModel::selectWindow)
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
 
         StatStrip(
             stats = stats,
@@ -110,13 +106,62 @@ fun HomeScreen(
             now = now,
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(8.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onClick = viewModel::refreshNow) { Text("Refresh") }
             TextButton(onClick = onStartService) { Text("Start") }
             TextButton(onClick = onStopService) { Text("Stop") }
             TextButton(onClick = viewModel::signOut) { Text("Sign out") }
+        }
+    }
+}
+
+/**
+ * The red signal-loss state.
+ *
+ * Silent staleness is the failure mode that matters: an old number looks exactly
+ * like a current one, and it is the kind of thing someone doses on. So once the
+ * feed goes quiet this says so in the one colour reserved for "what you are
+ * looking at may not be true".
+ *
+ * It appears at the five-minute mark, which is earlier than the signal-loss
+ * *alarm* at twenty. That gap is deliberate and is the same principle recorded in
+ * docs/04-alarms.md: the screen should stop claiming a value is current long
+ * before it is worth waking someone over.
+ */
+@Composable
+private fun SignalLossBanner(snapshot: GlucoseSnapshot?, freshness: Freshness, now: Long) {
+    if (freshness == Freshness.FRESH) return
+
+    val minutes = snapshot?.reading?.ageMillis(now)?.div(60_000)
+    val detail = when {
+        minutes == null -> "no reading yet"
+        freshness == Freshness.STALE -> "$minutes min — value above is not current"
+        else -> "$minutes min without data"
+    }
+
+    Spacer(Modifier.height(10.dp))
+    // Deliberately one compact line. It appears above the chart, and a three-line
+    // card would squeeze the trace on a short screen exactly when the feed is
+    // misbehaving and the history matters most.
+    Card(
+        colors = CardDefaults.cardColors(containerColor = ChartColors.signalLoss),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "NO SIGNAL",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = Color.White)
         }
     }
 }
@@ -286,93 +331,5 @@ private fun StatCell(label: String, value: String, muted: Boolean) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-/**
- * Trend graph with the configured thresholds drawn in.
- *
- * Also the dry run for the bitmap the Wear app renders in stage 5, so the
- * scaling and banding logic is worth getting right on a screen that is easy to
- * iterate on.
- */
-@Composable
-private fun GlucoseGraph(
-    readings: List<GlucoseReading>,
-    thresholds: GlucoseThresholds,
-    stale: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val bandColor = MaterialTheme.colorScheme.surfaceVariant
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
-    val lineColor =
-        if (stale) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
-    val emptyColor = MaterialTheme.colorScheme.onSurfaceVariant
-
-    Box(modifier) {
-        if (readings.size < 2) {
-            Text(
-                "not enough data for this window yet",
-                style = MaterialTheme.typography.bodySmall,
-                color = emptyColor,
-                modifier = Modifier.align(Alignment.Center),
-            )
-            return@Box
-        }
-
-        Canvas(Modifier.fillMaxSize()) {
-            val values = readings.map { it.valueMgdl }
-            // Always include the target band so the graph does not rescale wildly
-            // when every reading happens to sit inside it.
-            val minValue = minOf(values.min(), thresholds.lowMgdl) - 15
-            val maxValue = maxOf(values.max(), thresholds.highMgdl) + 15
-            val span = (maxValue - minValue).coerceAtLeast(1.0)
-
-            val firstTime = readings.first().timestampMillis
-            val lastTime = readings.last().timestampMillis
-            val timeSpan = (lastTime - firstTime).coerceAtLeast(1L)
-
-            fun x(t: Long) = ((t - firstTime).toFloat() / timeSpan) * size.width
-            fun y(v: Double) = (1f - ((v - minValue) / span).toFloat()) * size.height
-
-            // In-range band
-            drawRect(
-                color = bandColor,
-                topLeft = Offset(0f, y(thresholds.highMgdl)),
-                size = Size(
-                    size.width,
-                    (y(thresholds.lowMgdl) - y(thresholds.highMgdl)).coerceAtLeast(0f),
-                ),
-            )
-
-            // Threshold lines, so the zones read without a legend.
-            val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
-            listOf(thresholds.veryHighMgdl, thresholds.urgentLowMgdl).forEach { level ->
-                if (level in minValue..maxValue) {
-                    drawLine(
-                        color = gridColor,
-                        start = Offset(0f, y(level)),
-                        end = Offset(size.width, y(level)),
-                        strokeWidth = 2f,
-                        pathEffect = dash,
-                    )
-                }
-            }
-
-            val path = Path().apply {
-                moveTo(x(readings.first().timestampMillis), y(readings.first().valueMgdl))
-                readings.drop(1).forEach { lineTo(x(it.timestampMillis), y(it.valueMgdl)) }
-            }
-            drawPath(path, color = lineColor, style = Stroke(width = 4f, cap = StrokeCap.Round))
-
-            // Current point
-            readings.last().let {
-                drawCircle(
-                    color = if (stale) emptyColor else Color(ZoneColors.of(thresholds.classify(it.valueMgdl)).value),
-                    radius = 7f,
-                    center = Offset(x(it.timestampMillis), y(it.valueMgdl)),
-                )
-            }
-        }
     }
 }

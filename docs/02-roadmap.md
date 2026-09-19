@@ -217,3 +217,70 @@ absolute timestamps, `WatchPayload`) keep this unblocked.
   clock, as xDrip does), not a home-screen widget, and **built on that reading**. If a
   home-screen widget was meant instead, the label logic in `StatusIconLabel` carries over
   unchanged; only the surface would be new work.
+
+---
+
+## 5. Second issue wave
+
+`create-issues.sh` carries a larger and newer set than the eleven above — 23 issues. Six of
+them are the chart, which is the signal worth reading: the app has been in daily use and the
+trace is what grates.
+
+### Built
+
+**Chart rewrite** (5 issues at once, because they all touched the same eighty lines and doing
+them in sequence would have meant rewriting it five times). Now `ui/GlucoseChart.kt`, out of
+`HomeScreen.kt`, because it is the screen's centre of gravity rather than a detail of it.
+
+- *Full area and Y resolution.* The chart was 160dp inside a scroller; it now takes whatever
+  the column has left. `ValueAxis` in `:core` replaces the old `min-15 … max+15`: bounds are
+  snapped to a 10 mg/dL grid so they do not crawl as readings arrive, hold a minimum 60 mg/dL
+  span so a flat hour does not get magnified into mountains, and always keep the in-range
+  band in view because the band is the reference the trace is read against.
+- *LibreLink colours.* Pale green in-range stripe, with a dark-mode variant.
+- *Thicker, high-contrast trace.* 3dp, near-black in light and near-white in dark. Chosen for
+  the worst case rather than the average: the line has to stay legible over the green band,
+  over plain background, and inverted. The old stroke was `4f` — raw pixels, about 1dp on a
+  4x display, which is the whole reason it looked like a hair.
+- *A dot per real measurement.* Plus the corollary the issue implies: `ChartSeries.segments`
+  breaks the line wherever the sensor stopped reporting, because one unbroken line through a
+  forty-minute hole draws readings that were never taken, on a chart someone may dose from.
+  Dots are dropped below 7dp spacing — at 24 hours a dot per reading is not a dot, it is a
+  thicker line that costs more to draw.
+- *Red signal loss at five minutes.* A compact red bar above the chart, in the one colour
+  reserved for "what you are looking at may not be true". Nothing else may use red.
+
+**On the five minutes:** the display now says NO SIGNAL at 5 minutes, drops the value's zone
+colour at 10, and the *alarm* still waits until 20. That spread is deliberate and is the
+principle already in `docs/04-alarms.md` — the screen should stop claiming a value is current
+long before it is worth waking someone over.
+
+### Next, in order
+
+1. **Chart interaction** — pinch and button zoom; day-by-day history browsing with a date
+   picker. Stateful, and wants the window model reworked from fixed chips to a movable range.
+2. **Unit switching** (mg/dL ↔ mmol/L) — must reach the chart, the current value, alarm
+   thresholds and anything exported. The unit currently comes from the account, so this needs
+   a user override; `ThresholdOverrides` is the pattern to copy.
+3. **Medical disclaimer** — first-run acceptance plus a permanent copy in Settings, and
+   `CHANGELOG.md`.
+
+### Needs a decision before any code
+
+These are not blocked on effort, they are blocked on answers, and several gate each other —
+accounts gates sharing, and sharing gates the sharing disclaimer.
+
+- **License.** The issue states the tension itself: "allow modification and redistribution,
+  prohibit commercial exploitation" is not OSI open source, and F-Droid-style repos will not
+  carry it. AGPL-3.0 is the option that keeps it genuinely open while making closed-source
+  exploitation unattractive. Worth deciding early — it shapes whether contributions are
+  possible at all.
+- **Login and accounts.** The issue notes the conflict with local-first itself. Until it is
+  resolved as local-only / optional / sharing-only, caregiver sharing cannot be scoped.
+- **Second data source.** "Generic sensor option" needs one name to be scopeable: xDrip+,
+  Juggluco, Nightscout or LibreLinkUp.
+- **Naming and branding**, **Play Store research**, the **security RFC**, and the **sensor
+  compatibility matrix** are all written deliverables rather than code.
+- **Android Auto**, **non-Wear watches** and **direct Wi-Fi/BLE** stay where the first
+  roadmap put them: behind a working Wear OS path. Direct BLE in particular means giving up
+  the official LibreLink app, since only one app can hold the sensor's connection.
