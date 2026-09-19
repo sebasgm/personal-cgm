@@ -2,6 +2,8 @@ package dev.cgm.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import dev.cgm.core.Zone
@@ -61,4 +63,64 @@ object ChartColors {
      * be true. Nothing else in the app may use it, or it stops meaning that.
      */
     val signalLoss = Color(0xFFD32F2F)
+}
+
+/**
+ * The app's palette, seeded from #E1CA96.
+ *
+ * That seed is a light, desaturated sand, which decides how it can be used: as a
+ * light scheme's `primary` it needs *dark* text on top, not white, so `onPrimary`
+ * is a deep brown rather than the usual white. Getting that backwards is how a warm
+ * theme ends up with unreadable buttons.
+ *
+ * Surfaces are warmed to match rather than left neutral grey, because a warm accent
+ * on cold grey reads as a mistake. The zone colours in [ZoneColors] and the signal
+ * loss red in [ChartColors] are deliberately *not* derived from this: they carry
+ * meaning, and meaning must not shift when someone changes the theme.
+ */
+object CgmPalette {
+
+    val seed = Color(0xFFE1CA96)
+
+    val light = lightColorScheme(
+        primary = seed,
+        onPrimary = Color(0xFF3A2E14),
+        primaryContainer = Color(0xFFF3E7C9),
+        onPrimaryContainer = Color(0xFF241B06),
+        secondary = Color(0xFF6D5D3F),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFF1E4C3),
+        onSecondaryContainer = Color(0xFF241A04),
+        tertiary = Color(0xFF52643F),
+        onTertiary = Color(0xFFFFFFFF),
+        background = Color(0xFFFFFBF2),
+        onBackground = Color(0xFF1E1B13),
+        surface = Color(0xFFFFFBF2),
+        onSurface = Color(0xFF1E1B13),
+        surfaceVariant = Color(0xFFEAE1CC),
+        onSurfaceVariant = Color(0xFF4B4639),
+        outline = Color(0xFF7C7767),
+        outlineVariant = Color(0xFFCDC5B0),
+    )
+
+    val dark = darkColorScheme(
+        primary = seed,
+        onPrimary = Color(0xFF382E12),
+        primaryContainer = Color(0xFF534526),
+        onPrimaryContainer = Color(0xFFFEE6BC),
+        secondary = Color(0xFFD5C5A1),
+        onSecondary = Color(0xFF3A2F15),
+        secondaryContainer = Color(0xFF52452A),
+        onSecondaryContainer = Color(0xFFF1E4C3),
+        tertiary = Color(0xFFB9CBA0),
+        onTertiary = Color(0xFF253515),
+        background = Color(0xFF15130B),
+        onBackground = Color(0xFFE8E2D4),
+        surface = Color(0xFF15130B),
+        onSurface = Color(0xFFE8E2D4),
+        surfaceVariant = Color(0xFF4B4639),
+        onSurfaceVariant = Color(0xFFCEC6B4),
+        outline = Color(0xFF979080),
+        outlineVariant = Color(0xFF4B4639),
+    )
 }

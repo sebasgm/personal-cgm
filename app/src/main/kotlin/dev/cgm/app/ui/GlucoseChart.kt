@@ -280,12 +280,17 @@ private fun DrawScope.drawCurrentPoint(
 
 private val AXIS_GUTTER = 34.dp
 private val LABEL_GAP = 6.dp
-private val TRACE_STROKE = 3.dp
+/**
+ * Thin on purpose. The line is context; the dots are the measurements, and every
+ * bit taken off the stroke makes them stand out more without growing them further.
+ */
+private val TRACE_STROKE = 2.25.dp
 private val GRID_STROKE = 1.dp
 /**
  * Measured points have to out-read the line joining them, so the dot is wider than
  * the stroke rather than merely wider than half of it. At a 2dp radius the dot was
- * 4dp across against a 3dp line — technically larger, visually a slight bulge.
+ * 4dp across against a 3dp line — technically larger, visually a slight bulge. At
+ * 3.5dp against a 2.25dp stroke it is over three times the width of the line.
  */
 private val DOT_RADIUS = 3.5.dp
 
