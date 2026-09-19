@@ -1,5 +1,8 @@
 package dev.cgm.app.ui
 
+import androidx.annotation.StringRes
+import dev.cgm.app.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -31,30 +35,20 @@ object Disclaimer {
 
     const val VERSION = 1
 
-    const val TITLE = "Before you use this"
+    @StringRes
+    val TITLE = R.string.disc_title
 
+    /**
+     * Ordered, because the argument runs in order: what this is not, then what not
+     * to do with it, then why it can be wrong, then that the alarms can fail, then
+     * what to trust instead.
+     */
     val PARAGRAPHS = listOf(
-        "This app is not a medical device and it is not a source of truth. It reads " +
-            "glucose values from your LibreLinkUp account and shows them. It does not " +
-            "measure anything itself.",
-
-        "Do not make treatment decisions on what you see here. If a number matters — " +
-            "if you are deciding whether to eat, dose or drive — check the official " +
-            "FreeStyle Libre app or scan your sensor. If this app and the official app " +
-            "disagree, the official app is right and this one is wrong.",
-
-        "Values can be wrong, late, or missing. They pass through Abbott's servers, your " +
-            "network and Android's background limits before reaching this screen, and any " +
-            "of those can delay or drop them. A number on screen with no warning beside " +
-            "it still only means \"this is the most recent value we managed to fetch\".",
-
-        "Alarms can fail to arrive. Android may delay or suppress notifications while the " +
-            "phone is asleep, in Do Not Disturb, or saving battery, and this app cannot " +
-            "override all of that. Never rely on it to wake you. Treat a silent night as " +
-            "no evidence that nothing happened.",
-
-        "If you feel unwell, believe what your body is telling you over what this app " +
-            "shows, and seek medical advice. Nothing here replaces your clinician.",
+        R.string.disc_p1,
+        R.string.disc_p2,
+        R.string.disc_p3,
+        R.string.disc_p4,
+        R.string.disc_p5,
     )
 }
 
@@ -75,14 +69,14 @@ fun DisclaimerScreen(onAccept: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
-            Disclaimer.TITLE,
+            stringResource(Disclaimer.TITLE),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )
         DisclaimerBody()
         Spacer(Modifier.height(8.dp))
         Button(onClick = onAccept, modifier = Modifier.fillMaxWidth()) {
-            Text("I understand")
+            Text(stringResource(R.string.disc_accept))
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -98,7 +92,7 @@ fun DisclaimerReadOnlyScreen() {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        SectionTitle(Disclaimer.TITLE)
+        SectionTitle(stringResource(Disclaimer.TITLE))
         DisclaimerBody()
     }
 }
@@ -111,6 +105,6 @@ private fun SectionTitle(text: String) {
 @Composable
 private fun DisclaimerBody() {
     Disclaimer.PARAGRAPHS.forEach {
-        Text(it, style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(it), style = MaterialTheme.typography.bodyMedium)
     }
 }

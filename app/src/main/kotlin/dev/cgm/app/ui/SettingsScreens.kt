@@ -35,6 +35,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.app.Activity
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+import dev.cgm.app.Locales
+import dev.cgm.app.R
 import dev.cgm.app.alarm.AlarmNotifier
 import dev.cgm.app.service.PollingService
 import dev.cgm.core.AlarmKind
@@ -54,6 +59,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
+    val languageTag by viewModel.languageTag.collectAsState()
 
     Column(
         Modifier
@@ -62,41 +68,52 @@ fun SettingsScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        SectionHeader("Alerts")
-        SettingsRow("Alarms", "Low, high and signal loss") { onOpen(Destination.Alarms) }
+        SectionHeader(stringResource(R.string.set_alerts))
+        SettingsRow(stringResource(R.string.set_alarms), stringResource(R.string.set_alarms_subtitle)) { onOpen(Destination.Alarms) }
 
         Spacer(Modifier.height(12.dp))
-        SectionHeader("Display")
+        SectionHeader(stringResource(R.string.set_display))
         UnitPicker(
             selected = state.unitOverride,
             accountUnit = state.accountUnit,
             onSelect = viewModel::setUnit,
         )
         HorizontalDivider()
+        LanguagePicker(
+            selected = languageTag,
+            onSelect = { tag ->
+                viewModel.setLanguage(tag) { (context as? Activity)?.recreate() }
+            },
+        )
+        HorizontalDivider()
         SettingsRow(
-            title = "Ranges",
+            title = stringResource(R.string.set_ranges),
             subtitle = state.snapshot?.thresholds?.let {
-                "${state.unit.format(it.lowMgdl)}–${state.unit.format(it.highMgdl)} " +
-                    "${state.unit.suffix} in range"
-            } ?: "Target band and zone boundaries",
+                stringResource(
+                    R.string.set_ranges_subtitle_values,
+                    state.unit.format(it.lowMgdl),
+                    state.unit.format(it.highMgdl),
+                    state.unit.suffix,
+                )
+            } ?: stringResource(R.string.set_ranges_subtitle_default),
         ) { onOpen(Destination.Ranges) }
-        SettingsRow("System notification settings", "Sounds, importance, badges") {
+        SettingsRow(stringResource(R.string.set_system_notifications), stringResource(R.string.set_system_notifications_subtitle)) {
             context.safeStart(AlarmNotifier.appNotificationSettingsIntent(context))
         }
 
         Spacer(Modifier.height(12.dp))
-        SectionHeader("Safety")
+        SectionHeader(stringResource(R.string.set_safety))
         SettingsRow(
-            title = "Medical disclaimer",
-            subtitle = "What this app is not, and when to trust the official app instead",
+            title = stringResource(R.string.set_disclaimer),
+            subtitle = stringResource(R.string.set_disclaimer_subtitle),
         ) { onOpen(Destination.Disclaimer) }
 
         Spacer(Modifier.height(12.dp))
-        SectionHeader("Service")
+        SectionHeader(stringResource(R.string.set_service))
         val polling by PollingService.running.collectAsState()
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (polling) "Polling" else "Stopped",
+                if (polling) stringResource(R.string.set_polling) else stringResource(R.string.set_stopped),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = if (polling) {
@@ -107,29 +124,25 @@ fun SettingsScreen(
             )
         }
         Text(
-            if (polling) {
-                "The value in the status bar is this service's notification, so it is " +
-                    "there while this says Polling."
-            } else {
-                "Nothing is being fetched, so there is no reading and no value in the " +
-                    "status bar. It starts itself when the app opens and after a reboot."
-            },
+            stringResource(
+                if (polling) R.string.set_polling_note else R.string.set_stopped_note
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onStartService) { Text("Start") }
-            OutlinedButton(onClick = onStopService) { Text("Stop") }
-            OutlinedButton(onClick = viewModel::refreshNow) { Text("Refresh") }
+            OutlinedButton(onClick = onStartService) { Text(stringResource(R.string.set_start)) }
+            OutlinedButton(onClick = onStopService) { Text(stringResource(R.string.set_stop)) }
+            OutlinedButton(onClick = viewModel::refreshNow) { Text(stringResource(R.string.set_refresh)) }
         }
 
         Spacer(Modifier.height(12.dp))
-        SectionHeader("Account")
+        SectionHeader(stringResource(R.string.set_account))
         SettingsRow(
-            title = "LibreLinkUp",
-            subtitle = if (state.configured) "Signed in" else "Not signed in",
+            title = stringResource(R.string.set_librelinkup),
+            subtitle = if (state.configured) stringResource(R.string.set_signed_in) else stringResource(R.string.set_not_signed_in),
         ) {}
-        TextButton(onClick = viewModel::signOut) { Text("Sign out") }
+        TextButton(onClick = viewModel::signOut) { Text(stringResource(R.string.set_sign_out)) }
     }
 }
 
@@ -152,7 +165,7 @@ fun AlarmsScreen(viewModel: CgmViewModel, onOpen: (Destination) -> Unit) {
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
     ) {
-        SectionHeader("Alarms")
+        SectionHeader(stringResource(R.string.set_alarms))
 
         AlarmKind.entries.forEach { kind ->
             val setting = settings[kind]
@@ -164,7 +177,7 @@ fun AlarmsScreen(viewModel: CgmViewModel, onOpen: (Destination) -> Unit) {
                     .padding(vertical = 12.dp),
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(kind.displayName(), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(kind.labelRes()), style = MaterialTheme.typography.bodyLarge)
                     Text(
                         kind.summary(setting, unit),
                         style = MaterialTheme.typography.bodySmall,
@@ -182,11 +195,9 @@ fun AlarmsScreen(viewModel: CgmViewModel, onOpen: (Destination) -> Unit) {
         if (!hasPolicyAccess) {
             Spacer(Modifier.height(16.dp))
             InfoCard(
-                title = "Do Not Disturb override is unavailable",
-                body = "Android will not let an app sound through Do Not Disturb until " +
-                    "you grant it Notification Policy Access. Without it, the override " +
-                    "switch inside each alarm has no effect.",
-                actionLabel = "Grant access",
+                title = stringResource(R.string.alarm_dnd_unavailable),
+                body = stringResource(R.string.alarm_dnd_unavailable_body),
+                actionLabel = stringResource(R.string.alarm_grant_access),
             ) { context.safeStart(AlarmNotifier.policyAccessIntent()) }
         }
     }
@@ -212,48 +223,51 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        SectionHeader(kind.displayName())
+        SectionHeader(stringResource(kind.labelRes()))
 
-        SwitchRow("Enabled", null, setting.enabled) { update { s -> s.copy(enabled = it) } }
+        SwitchRow(stringResource(R.string.alarm_enabled), null, setting.enabled) { update { s -> s.copy(enabled = it) } }
         HorizontalDivider()
 
         if (kind.isGlucose) {
             SliderRow(
-                label = "Alarm at",
+                label = stringResource(R.string.alarm_at),
                 value = setting.thresholdMgdl,
                 valueText = "${unit.format(setting.thresholdMgdl)} ${unit.suffix}",
                 range = if (kind.isLow) 40f..110f else 140f..350f,
-                helper = "Independent of the display range — where you want to be " +
-                    "warned and where the graph stops calling a value in range are " +
-                    "different questions.",
+                helper = stringResource(R.string.alarm_at_helper),
             ) { update { s -> s.copy(thresholdMgdl = it.toDouble()) } }
         } else {
             SliderRow(
-                label = "Warn after",
+                label = stringResource(R.string.alarm_warn_after),
                 value = (setting.afterMillis / 60_000).toDouble(),
-                valueText = "${setting.afterMillis / 60_000} minutes without a reading",
+                valueText = stringResource(
+                    R.string.alarm_warn_after_value,
+                    setting.afterMillis / 60_000,
+                ),
                 range = 5f..60f,
-                helper = "On this connection a reading normally arrives within about " +
-                    "3 minutes, so anything past 20 means something is wrong.",
+                helper = stringResource(R.string.alarm_warn_after_helper),
             ) { update { s -> s.copy(afterMillis = (it.toLong() * 60_000)) } }
         }
 
         HorizontalDivider()
         SliderRow(
-            label = "Repeat every",
+            label = stringResource(R.string.alarm_repeat_every),
             value = (setting.repeatEveryMillis / 60_000).toDouble(),
-            valueText = "${setting.repeatEveryMillis / 60_000} minutes",
+            valueText = stringResource(
+                R.string.alarm_minutes,
+                setting.repeatEveryMillis / 60_000,
+            ),
             range = 1f..60f,
         ) { update { s -> s.copy(repeatEveryMillis = it.toLong() * 60_000) } }
 
         if (kind.isGlucose) {
             HorizontalDivider()
             SwitchRow(
-                title = "Stay quiet while recovering",
+                title = stringResource(R.string.alarm_quiet_recovering),
                 subtitle = if (kind.isLow) {
-                    "Sound once, then stay silent while the trend is rising."
+                    stringResource(R.string.alarm_quiet_rising)
                 } else {
-                    "Sound once, then stay silent while the trend is falling."
+                    stringResource(R.string.alarm_quiet_falling)
                 },
                 checked = setting.silenceWhileRecovering,
             ) { update { s -> s.copy(silenceWhileRecovering = it) } }
@@ -261,11 +275,11 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
 
         HorizontalDivider()
         SwitchRow(
-            title = "Override Do Not Disturb",
+            title = stringResource(R.string.alarm_override_dnd),
             subtitle = if (hasPolicyAccess) {
-                "This alarm will sound even when Do Not Disturb is on."
+                stringResource(R.string.alarm_override_dnd_on)
             } else {
-                "Needs Notification Policy Access before Android will honour it."
+                stringResource(R.string.alarm_override_dnd_needs_access)
             },
             checked = setting.overrideDnd,
             enabled = hasPolicyAccess,
@@ -275,10 +289,9 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
 
         if (!hasPolicyAccess) {
             InfoCard(
-                title = "Grant Notification Policy Access",
-                body = "Android does not let an app decide on its own to sound through " +
-                    "Do Not Disturb. You grant it once, in system settings.",
-                actionLabel = "Open system settings",
+                title = stringResource(R.string.alarm_grant_policy_title),
+                body = stringResource(R.string.alarm_grant_policy_body),
+                actionLabel = stringResource(R.string.alarm_open_system_settings),
             ) { context.safeStart(AlarmNotifier.policyAccessIntent()) }
         }
 
@@ -292,11 +305,10 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
                 )
             },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Sound & vibration for this alarm") }
+        ) { Text(stringResource(R.string.alarm_sound_vibration)) }
 
         Text(
-            "Sound, vibration and importance belong to Android once an alarm exists, " +
-                "so they are changed there rather than here.",
+            stringResource(R.string.alarm_sound_vibration_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -318,12 +330,12 @@ fun RangesScreen(viewModel: CgmViewModel) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        SectionHeader("Ranges")
+        SectionHeader(stringResource(R.string.set_ranges))
 
         if (effective == null) {
-            Text("Waiting for the first reading.")
+            Text(stringResource(R.string.range_waiting))
             Text(
-                "Ranges start from your LibreLinkUp account, so they arrive with it.",
+                stringResource(R.string.range_waiting_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -348,23 +360,18 @@ fun RangesScreen(viewModel: CgmViewModel) {
 
         if (!overrides.isEmpty) {
             OutlinedButton(onClick = { viewModel.resetThresholds() }) {
-                Text("Follow my account again")
+                Text(stringResource(R.string.range_follow_account_again))
             }
         }
 
         Text(
-            "Low and high start from your LibreLinkUp account, so the app agrees with " +
-                "what LibreLink shows. Change one here and it stops following the " +
-                "account until you hand it back. Urgent low and very high have no " +
-                "equivalent in the account and are always yours.",
+            stringResource(R.string.range_explanation),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "These decide colour, zones and time-in-range \u2014 not when you get woken. " +
-                "Alarm levels are set per alarm under Alarms, deliberately separately: " +
-                "an alarm at the edge of your target band would fire all day.",
+            stringResource(R.string.range_alarm_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -409,7 +416,7 @@ private fun RangeRow(
 
     Column(Modifier.padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(boundary.label(), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(boundary.labelRes()), style = MaterialTheme.typography.bodyLarge)
             Spacer(Modifier.weight(1f))
             Text(
                 "${unit.format(live.toDouble())} ${unit.suffix}",
@@ -429,30 +436,32 @@ private fun RangeRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (isOverridden && boundary.comesFromAccount && accountValue != null) {
-                TextButton(onClick = onUseAccount) { Text("Use account") }
+                TextButton(onClick = onUseAccount) { Text(stringResource(R.string.range_use_account)) }
             }
         }
     }
 }
 
-private fun ThresholdBoundary.label(): String = when (this) {
-    ThresholdBoundary.URGENT_LOW -> "Urgent low below"
-    ThresholdBoundary.LOW -> "Low below"
-    ThresholdBoundary.HIGH -> "High above"
-    ThresholdBoundary.VERY_HIGH -> "Very high above"
+@StringRes
+private fun ThresholdBoundary.labelRes(): Int = when (this) {
+    ThresholdBoundary.URGENT_LOW -> R.string.range_urgent_low_below
+    ThresholdBoundary.LOW -> R.string.range_low_below
+    ThresholdBoundary.HIGH -> R.string.range_high_above
+    ThresholdBoundary.VERY_HIGH -> R.string.range_very_high_above
 }
 
 /** Says where this number came from, so an edited band is never mistaken for the account's. */
+@Composable
 private fun ThresholdBoundary.provenance(
     isOverridden: Boolean,
     accountValue: Double?,
     unit: GlucoseUnit,
 ): String = when {
-    !comesFromAccount -> "Yours \u2014 your account has no equivalent"
+    !comesFromAccount -> stringResource(R.string.range_yours_no_equivalent)
     isOverridden && accountValue != null ->
-        "Yours \u2014 account says ${unit.format(accountValue)}"
-    isOverridden -> "Yours"
-    else -> "From your LibreLinkUp account"
+        stringResource(R.string.range_yours_account_says, unit.format(accountValue))
+    isOverridden -> stringResource(R.string.range_yours)
+    else -> stringResource(R.string.range_from_account)
 }
 
 // -- small shared pieces ---------------------------------------------------
@@ -564,19 +573,54 @@ private fun InfoCard(
     }
 }
 
-private fun AlarmKind.displayName(): String = when (this) {
-    AlarmKind.URGENT_LOW -> "Urgent low"
-    AlarmKind.LOW -> "Low"
-    AlarmKind.HIGH -> "High"
-    AlarmKind.VERY_HIGH -> "Very high"
-    AlarmKind.SIGNAL_LOSS -> "Signal loss"
+@StringRes
+internal fun AlarmKind.labelRes(): Int = when (this) {
+    AlarmKind.URGENT_LOW -> R.string.zone_urgent_low
+    AlarmKind.LOW -> R.string.zone_low
+    AlarmKind.HIGH -> R.string.zone_high
+    AlarmKind.VERY_HIGH -> R.string.zone_very_high
+    AlarmKind.SIGNAL_LOSS -> R.string.zone_signal_loss
 }
 
+@Composable
 private fun AlarmKind.summary(setting: AlarmSetting, unit: GlucoseUnit): String = when {
-    !setting.enabled -> "Off"
-    this == AlarmKind.SIGNAL_LOSS -> "After ${setting.afterMillis / 60_000} min without data"
-    isLow -> "Below ${unit.format(setting.thresholdMgdl)} ${unit.suffix}"
-    else -> "Above ${unit.format(setting.thresholdMgdl)} ${unit.suffix}"
+    !setting.enabled -> stringResource(R.string.alarm_off)
+    this == AlarmKind.SIGNAL_LOSS ->
+        stringResource(R.string.alarm_after_minutes, setting.afterMillis / 60_000)
+    isLow -> stringResource(R.string.alarm_below, unit.format(setting.thresholdMgdl), unit.suffix)
+    else -> stringResource(R.string.alarm_above, unit.format(setting.thresholdMgdl), unit.suffix)
+}
+
+/**
+ * The app's language.
+ *
+ * Changing it recreates the activity, because Android resolves resources when a
+ * context is attached — strings already composed cannot re-resolve themselves.
+ * "System" is not the same as Spanish: Spanish is what the default resources hold,
+ * so following the system yields Spanish on everything except an English device.
+ */
+@Composable
+private fun LanguagePicker(selected: String?, onSelect: (String?) -> Unit) {
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Text(stringResource(R.string.set_language), style = MaterialTheme.typography.bodyLarge)
+        Row(
+            modifier = Modifier.padding(top = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            FilterChip(
+                selected = selected == null,
+                onClick = { onSelect(null) },
+                label = { Text(stringResource(R.string.set_language_system)) },
+            )
+            Locales.SUPPORTED.forEach { tag ->
+                FilterChip(
+                    selected = selected == tag,
+                    onClick = { onSelect(tag) },
+                    label = { Text(Locales.displayName(tag)) },
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -594,7 +638,7 @@ private fun UnitPicker(
     onSelect: (GlucoseUnit?) -> Unit,
 ) {
     Column(Modifier.padding(vertical = 8.dp)) {
-        Text("Units", style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(R.string.set_units), style = MaterialTheme.typography.bodyLarge)
         Row(
             modifier = Modifier.padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -602,7 +646,12 @@ private fun UnitPicker(
             FilterChip(
                 selected = selected == null,
                 onClick = { onSelect(null) },
-                label = { Text(accountUnit?.let { "Account (${it.suffix})" } ?: "Account") },
+                label = {
+                    Text(
+                        accountUnit?.let { stringResource(R.string.set_units_account, it.suffix) }
+                            ?: stringResource(R.string.set_units_account_plain)
+                    )
+                },
             )
             GlucoseUnit.entries.forEach { candidate ->
                 FilterChip(

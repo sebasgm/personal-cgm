@@ -40,6 +40,10 @@ decision and a pass over the security plan.
 - Trends: time in range, GMI and estimated A1C, each gated behind a coverage threshold and
   labelled with the coverage it was computed from.
 - A medical disclaimer, shown before first use and reachable from Settings thereafter.
+- Spanish, as the default language, with English available and a language setting. Every
+  user-facing string is a resource: 162 of them, in `values/` (Spanish) and `values-en/`.
+  The chosen language also reaches the ongoing notification, the alarms and the error
+  messages, not just the screens.
 - Freshness thresholds tuned against recorded live data rather than guessed, with the
   measurements and their limits recorded in the code.
 

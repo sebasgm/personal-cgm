@@ -129,6 +129,22 @@ class SecureSettings(private val context: Context) : SessionStore {
     val disclaimerAcceptedVersion: Flow<Int> =
         context.dataStore.data.map { it[KEY_DISCLAIMER] ?: 0 }
 
+    /**
+     * The app's language as a BCP-47 tag, or null to follow the device.
+     *
+     * Null is meaningful rather than a default: Spanish is what `values/` holds, so
+     * following the device still gives Spanish everywhere except an English phone.
+     */
+    val languageTag: Flow<String?> = context.dataStore.data.map { it[KEY_LANGUAGE] }
+
+    suspend fun languageTagOnce(): String? = languageTag.first()
+
+    suspend fun saveLanguageTag(tag: String?) {
+        context.dataStore.edit {
+            if (tag == null) it.remove(KEY_LANGUAGE) else it[KEY_LANGUAGE] = tag
+        }
+    }
+
     suspend fun acceptDisclaimer(version: Int) {
         context.dataStore.edit { it[KEY_DISCLAIMER] = version }
     }
@@ -186,5 +202,6 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_RANGES: Preferences.Key<String> = stringPreferencesKey("threshold_overrides")
         val KEY_UNIT: Preferences.Key<String> = stringPreferencesKey("display_unit")
         val KEY_DISCLAIMER: Preferences.Key<Int> = intPreferencesKey("disclaimer_version")
+        val KEY_LANGUAGE: Preferences.Key<String> = stringPreferencesKey("language_tag")
     }
 }

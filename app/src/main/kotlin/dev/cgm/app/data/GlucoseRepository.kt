@@ -1,5 +1,8 @@
 package dev.cgm.app.data
 
+import androidx.annotation.StringRes
+import dev.cgm.app.R
+
 import dev.cgm.core.DeltaCalculator
 import dev.cgm.core.Freshness
 import dev.cgm.core.FreshnessPolicy
@@ -29,9 +32,15 @@ import kotlinx.coroutines.flow.update
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-/** Why the last poll failed, in terms the UI can act on. */
+/**
+ * Why the last poll failed, in terms the UI can act on.
+ *
+ * A resource id rather than a sentence: this is built in the data layer, which has
+ * no business holding display text and no localised context to resolve it with. The
+ * screen or the notification resolves it, in the app's chosen language.
+ */
 data class ErrorState(
-    val message: String,
+    @StringRes val messageRes: Int,
     /** True when retrying will not help: the user has to do something. */
     val needsUser: Boolean,
 )
@@ -205,7 +214,7 @@ class GlucoseRepository(
             _state.update {
                 it.copy(
                     configured = false,
-                    error = ErrorState("Not signed in to LibreLinkUp", needsUser = true),
+                    error = ErrorState(R.string.err_not_signed_in, needsUser = true),
                 )
             }
             return PollOutcome.Fatal
@@ -355,15 +364,15 @@ private fun CgmState.withPreferencesApplied(
 
 private fun GlucoseSourceException.toErrorState(): ErrorState = when (this) {
     is GlucoseSourceException.AuthFailed ->
-        ErrorState(message ?: "Sign-in rejected", needsUser = true)
+        ErrorState(R.string.err_sign_in_rejected, needsUser = true)
     is GlucoseSourceException.AccountActionRequired ->
-        ErrorState(message ?: "LibreLinkUp needs attention", needsUser = true)
+        ErrorState(R.string.err_account_action, needsUser = true)
     is GlucoseSourceException.NoData ->
-        ErrorState(message ?: "No reading available", needsUser = false)
+        ErrorState(R.string.err_no_reading, needsUser = false)
     is GlucoseSourceException.RateLimited ->
-        ErrorState("Rate limited by Abbott; backing off", needsUser = false)
+        ErrorState(R.string.err_rate_limited, needsUser = false)
     is GlucoseSourceException.Unreachable ->
-        ErrorState("Offline", needsUser = false)
+        ErrorState(R.string.err_offline, needsUser = false)
     is GlucoseSourceException.Unexpected ->
-        ErrorState(message ?: "Unexpected API response", needsUser = false)
+        ErrorState(R.string.err_unexpected, needsUser = false)
 }

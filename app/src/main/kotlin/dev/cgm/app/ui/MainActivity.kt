@@ -16,6 +16,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,10 +27,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.content.Context
 import dev.cgm.app.CgmApplication
+import dev.cgm.app.Locales
 import dev.cgm.app.service.PollingService
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Applies the chosen language before any resource is resolved.
+     *
+     * Safe to read [Locales.current] synchronously here: Application.onCreate has
+     * already primed it, and it runs before any activity is created.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(Locales.wrap(newBase))
+    }
 
     private val requestNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -116,7 +129,7 @@ private fun MainScaffold(
                         selected = t == tab,
                         onClick = { stack = listOf(t.root) },
                         icon = {},
-                        label = { Text(t.label) },
+                        label = { Text(stringResource(t.labelRes)) },
                     )
                 }
             }

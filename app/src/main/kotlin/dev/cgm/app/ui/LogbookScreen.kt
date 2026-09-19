@@ -1,5 +1,7 @@
 package dev.cgm.app.ui
 
+import android.content.Context
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import dev.cgm.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -43,13 +48,14 @@ fun LogbookScreen(viewModel: CgmViewModel) {
     val readings by viewModel.logbook.collectAsState()
     val state by viewModel.state.collectAsState()
     val thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default
+    val context = LocalContext.current
     val zone = remember { ZoneId.systemDefault() }
     val timeFormat = remember { DateTimeFormatter.ofPattern("HH:mm") }
 
     if (readings.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                "No readings stored yet.",
+                stringResource(R.string.log_empty),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -80,6 +86,7 @@ private fun DayHeader(
     readings: List<GlucoseReading>,
     thresholds: GlucoseThresholds,
 ) {
+    val context = LocalContext.current
     val mean = readings.map { it.valueMgdl }.average()
     val inRange = readings.count { thresholds.classify(it.valueMgdl) == dev.cgm.core.Zone.IN_RANGE }
     val tir = (inRange * 100.0 / readings.size).roundToInt()
@@ -91,18 +98,23 @@ private fun DayHeader(
             .padding(horizontal = 20.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(dayLabel(day), fontWeight = FontWeight.Medium)
+        Text(dayLabel(day, context), fontWeight = FontWeight.Medium)
         Text(
-            "avg ${mean.roundToInt()} · in range $tir% · ${readings.size} readings",
+            stringResource(R.string.log_day_summary, mean.roundToInt().toString(), tir, readings.size),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
-private fun dayLabel(day: LocalDate): String = when (day) {
-    LocalDate.now() -> "Today"
-    LocalDate.now().minusDays(1) -> "Yesterday"
+/**
+ * Takes a [Context] because it is not a composable and the day names have to come
+ * from the app's chosen language, not the process default.
+ */
+private fun dayLabel(day: LocalDate, context: Context): String = when (day) {
+    LocalDate.now() -> context.getString(R.string.log_today)
+    LocalDate.now().minusDays(1) -> context.getString(R.string.log_yesterday)
+    // Month and weekday names follow the default locale, which Locales.wrap sets.
     else -> day.format(DateTimeFormatter.ofPattern("EEE d MMM"))
 }
 

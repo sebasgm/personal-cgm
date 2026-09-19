@@ -21,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.cgm.app.R
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -41,20 +43,17 @@ fun SetupScreen(viewModel: CgmViewModel, onSignedIn: () -> Unit) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Connect LibreLinkUp", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.setup_title), style = MaterialTheme.typography.headlineSmall)
 
         Text(
-            "Sign in with the LibreLinkUp follower account — the one that was " +
-                "invited to follow the sensor, not the LibreView account wearing it. " +
-                "If you have not set that up yet, invite a second email address from " +
-                "the LibreLink app and accept the invitation first.",
+            stringResource(R.string.setup_explanation),
             style = MaterialTheme.typography.bodyMedium,
         )
 
         OutlinedTextField(
             value = email,
             onValueChange = { email = it; failed = false },
-            label = { Text("Follower email") },
+            label = { Text(stringResource(R.string.setup_email)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email,
@@ -66,7 +65,7 @@ fun SetupScreen(viewModel: CgmViewModel, onSignedIn: () -> Unit) {
         OutlinedTextField(
             value = password,
             onValueChange = { password = it; failed = false },
-            label = { Text("Password") },
+            label = { Text(stringResource(R.string.setup_password)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(
@@ -92,14 +91,15 @@ fun SetupScreen(viewModel: CgmViewModel, onSignedIn: () -> Unit) {
                     strokeWidth = 2.dp,
                 )
             }
-            Text(if (busy) "Checking…" else "Sign in")
+            Text(if (busy) stringResource(R.string.setup_checking) else stringResource(R.string.setup_sign_in))
         }
 
         // Credentials are verified against the live API before being kept, so
         // the error here is the real reason rather than a generic failure.
         if (failed) {
             Text(
-                state.error?.message ?: "Sign-in failed",
+                state.error?.let { stringResource(it.messageRes) }
+                    ?: stringResource(R.string.setup_failed),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.align(Alignment.Start),
@@ -107,8 +107,7 @@ fun SetupScreen(viewModel: CgmViewModel, onSignedIn: () -> Unit) {
         }
 
         Text(
-            "Your password is encrypted with a key held in the device's hardware " +
-                "keystore and is only ever sent to Abbott's servers.",
+            stringResource(R.string.setup_key_note),
             style = MaterialTheme.typography.bodySmall,
         )
     }

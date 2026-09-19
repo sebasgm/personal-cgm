@@ -27,6 +27,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.cgm.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.cgm.core.GlucoseStatistics
@@ -67,7 +69,7 @@ fun TrendsScreen(viewModel: CgmViewModel) {
 
         if (stats.readingCount == 0) {
             Text(
-                "Nothing recorded in this window yet.",
+                stringResource(R.string.trends_empty),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             return@Column
@@ -97,14 +99,18 @@ private fun CoverageNotice(stats: GlucoseStatistics, period: TrendPeriod) {
     ) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "Based on roughly $daysCovered of ${period.days} days ($percent% coverage)",
+                stringResource(
+                    R.string.trends_coverage_based_on,
+                    daysCovered,
+                    period.days,
+                    percent,
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
             )
             if (!stats.isReliable) {
                 Text(
-                    "Below 70% coverage these figures are not reliable. History cannot " +
-                        "be backfilled, so this fills in as the app keeps running.",
+                    stringResource(R.string.trends_coverage_warning),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -116,17 +122,20 @@ private fun CoverageNotice(stats: GlucoseStatistics, period: TrendPeriod) {
 private fun TimeInRangeCard(stats: GlucoseStatistics) {
     Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("Time in range", style = MaterialTheme.typography.titleSmall)
+            Text(
+                stringResource(R.string.trends_time_in_range),
+                style = MaterialTheme.typography.titleSmall,
+            )
             Spacer(Modifier.height(12.dp))
             listOf(
-                Zone.VERY_HIGH to "Very high",
-                Zone.HIGH to "High",
-                Zone.IN_RANGE to "In range",
-                Zone.LOW to "Low",
-                Zone.URGENT_LOW to "Urgent low",
-            ).forEach { (zone, label) ->
+                Zone.VERY_HIGH to R.string.zone_very_high,
+                Zone.HIGH to R.string.zone_high,
+                Zone.IN_RANGE to R.string.zone_in_range,
+                Zone.LOW to R.string.zone_low,
+                Zone.URGENT_LOW to R.string.zone_urgent_low,
+            ).forEach { (zone, labelRes) ->
                 val fraction = stats.zoneFractions[zone] ?: 0.0
-                ZoneBar(label, fraction, zone, muted = !stats.isReliable)
+                ZoneBar(stringResource(labelRes), fraction, zone, muted = !stats.isReliable)
             }
         }
     }
@@ -184,20 +193,33 @@ private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Metric("GMI", stats.gmiPercent?.let { "%.1f%%".format(it) } ?: "—")
-                Metric("Est. A1C", stats.estimatedA1cPercent?.let { "%.1f%%".format(it) } ?: "—")
+                Metric(
+                    stringResource(R.string.trends_gmi),
+                    stats.gmiPercent?.let { "%.1f%%".format(it) } ?: "—",
+                )
+                Metric(
+                    stringResource(R.string.trends_a1c),
+                    stats.estimatedA1cPercent?.let { "%.1f%%".format(it) } ?: "—",
+                )
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                if (showExplanation) EXPLANATION else "What are these?",
+                if (showExplanation) {
+                    stringResource(R.string.trends_formula_explanation)
+                } else {
+                    stringResource(R.string.trends_what_are_these)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.clickable { showExplanation = !showExplanation },
             )
             if (!enoughDays) {
                 Text(
-                    "Both need about ${GlucoseStatistics.MIN_DAYS_FOR_A1C} days of data " +
-                        "to mean anything; this window is ${period.days}.",
+                    stringResource(
+                        R.string.trends_a1c_needs_days,
+                        GlucoseStatistics.MIN_DAYS_FOR_A1C,
+                        period.days,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -206,12 +228,6 @@ private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
     }
 }
 
-private const val EXPLANATION =
-    "GMI = 3.31 + 0.02392 × mean glucose (mg/dL). " +
-        "Estimated A1C = (mean glucose + 46.7) / 28.7. " +
-        "Both are estimates calculated from sensor readings, not laboratory " +
-        "measurements, and they legitimately disagree with each other and with a " +
-        "blood test."
 
 @Composable
 private fun SummaryCard(stats: GlucoseStatistics) {
@@ -220,8 +236,11 @@ private fun SummaryCard(stats: GlucoseStatistics) {
             Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            Metric("Average", stats.meanMgdl?.roundToInt()?.toString() ?: "—")
-            Metric("Readings", stats.readingCount.toString())
+            Metric(
+                stringResource(R.string.home_stat_average),
+                stats.meanMgdl?.roundToInt()?.toString() ?: "—",
+            )
+            Metric(stringResource(R.string.trends_readings), stats.readingCount.toString())
         }
     }
 }

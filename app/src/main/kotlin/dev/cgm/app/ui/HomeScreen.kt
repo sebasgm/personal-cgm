@@ -1,5 +1,7 @@
 package dev.cgm.app.ui
 
+import android.content.Context
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,10 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.cgm.app.R
 import dev.cgm.core.ChartZoom
 import dev.cgm.core.Freshness
 import dev.cgm.core.GlucoseSnapshot
@@ -91,7 +96,7 @@ fun HomeScreen(viewModel: CgmViewModel) {
 
         state.error?.let {
             Spacer(Modifier.height(12.dp))
-            AttentionBanner(it.message, it.needsUser)
+            AttentionBanner(stringResource(it.messageRes), it.needsUser)
         }
 
         // Only while browsing. On the live edge there is nothing to say, and a
@@ -180,7 +185,7 @@ private fun BrowseBar(windowEnd: Long, onStepDays: (Int) -> Unit, onGoLive: () -
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = { onStepDays(1) }) { Text("›") }
-            TextButton(onClick = onGoLive) { Text("Now") }
+            TextButton(onClick = onGoLive) { Text(stringResource(R.string.home_now_button)) }
         }
     }
 }
@@ -212,9 +217,11 @@ private fun DayPicker(initialMillis: Long, onPick: (Long) -> Unit, onDismiss: ()
                     }
                     onDismiss()
                 }
-            ) { Text("Show") }
+            ) { Text(stringResource(R.string.home_picker_show)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_picker_cancel)) }
+        },
     ) {
         DatePicker(state = state)
     }
@@ -245,9 +252,10 @@ private fun SignalLossBanner(snapshot: GlucoseSnapshot?, freshness: Freshness, n
 
     val minutes = snapshot?.reading?.ageMillis(now)?.div(60_000)
     val detail = when {
-        minutes == null -> "no reading yet"
-        freshness == Freshness.STALE -> "$minutes min — value above is not current"
-        else -> "$minutes min without data"
+        minutes == null -> stringResource(R.string.home_no_signal_none)
+        freshness == Freshness.STALE ->
+            stringResource(R.string.home_no_signal_stale, minutes)
+        else -> stringResource(R.string.home_no_signal_aging, minutes)
     }
 
     Spacer(Modifier.height(10.dp))
@@ -265,7 +273,7 @@ private fun SignalLossBanner(snapshot: GlucoseSnapshot?, freshness: Freshness, n
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                "NO SIGNAL",
+                stringResource(R.string.home_no_signal),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -288,12 +296,15 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
     if (snapshot == null) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                "——",
+                stringResource(R.string.home_empty_value),
                 fontSize = 84.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text("no reading yet", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.home_no_reading),
+                style = MaterialTheme.typography.bodyLarge,
+            )
         }
         return
     }
@@ -324,7 +335,7 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
 
         Spacer(Modifier.height(10.dp))
         Text(
-            text = ageText(snapshot, freshness, now),
+            text = ageText(snapshot, freshness, now, LocalContext.current),
             style = MaterialTheme.typography.bodyMedium,
             color = when (freshness) {
                 Freshness.FRESH -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -335,17 +346,22 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
     }
 }
 
-private fun ageText(snapshot: GlucoseSnapshot, freshness: Freshness, now: Long): String {
+private fun ageText(
+    snapshot: GlucoseSnapshot,
+    freshness: Freshness,
+    now: Long,
+    context: Context,
+): String {
     val seconds = snapshot.reading.ageMillis(now) / 1000
     val age = when {
-        seconds < 60 -> "$seconds seconds ago"
-        seconds < 120 -> "1 minute ago"
-        else -> "${seconds / 60} minutes ago"
+        seconds < 60 -> context.getString(R.string.home_age_seconds, seconds)
+        seconds < 120 -> context.getString(R.string.home_age_one_minute)
+        else -> context.getString(R.string.home_age_minutes, seconds / 60)
     }
     return when (freshness) {
         Freshness.FRESH -> age
-        Freshness.AGING -> "$age · later than usual"
-        Freshness.STALE -> "$age · NOT CURRENT"
+        Freshness.AGING -> context.getString(R.string.home_age_later_than_usual, age)
+        Freshness.STALE -> context.getString(R.string.home_age_not_current, age)
     }
 }
 
@@ -364,7 +380,9 @@ private fun AttentionBanner(message: String, needsUser: Boolean) {
     ) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                if (needsUser) "Needs your attention" else "Last poll failed",
+                stringResource(
+                    if (needsUser) R.string.home_needs_attention else R.string.home_last_poll_failed
+                ),
                 style = MaterialTheme.typography.labelLarge,
             )
             Text(message, style = MaterialTheme.typography.bodyMedium)
@@ -407,7 +425,7 @@ private fun WindowChips(
         }
 
         TextButton(onClick = onPickDate, contentPadding = PaddingValues(horizontal = 8.dp)) {
-            Text("Date")
+            Text(stringResource(R.string.home_date_button))
         }
     }
 }
@@ -435,23 +453,26 @@ private fun StatStrip(
         // history — so with a few hours of data every window from 3h to 24h holds
         // the same readings and reports the same percentage. Without the coverage
         // beside it, that reads as a control that does not work.
-        val coverageNote = if (stats.isReliable) null else stats.coverageNote()
+        val context = LocalContext.current
+        val coverageNote = if (stats.isReliable) null else stats.coverageNote(context)
 
         StatCell(
-            label = "In range $windowLabel",
+            label = stringResource(R.string.home_stat_in_range, windowLabel),
             value = stats.timeInRange?.let { "${(it * 100).roundToInt()}%" } ?: "—",
             muted = !stats.isReliable,
             note = coverageNote,
         )
         StatCell(
-            label = "Average",
+            label = stringResource(R.string.home_stat_average),
             value = stats.meanMgdl?.let { unit?.format(it) ?: it.roundToInt().toString() } ?: "—",
             muted = !stats.isReliable,
             note = coverageNote,
         )
         StatCell(
-            label = "Sensor",
-            value = sensor?.dayOfSession(now)?.let { "day $it/${SensorInfo.SESSION_DAYS}" } ?: "—",
+            label = stringResource(R.string.home_stat_sensor),
+            value = sensor?.dayOfSession(now)
+                ?.let { stringResource(R.string.home_sensor_day, it, SensorInfo.SESSION_DAYS) }
+                ?: "—",
             muted = sensor?.isExpired(now) == true,
         )
     }
@@ -492,11 +513,11 @@ private fun StatCell(label: String, value: String, muted: Boolean, note: String?
  * is rounded up to "<1%" rather than shown as 0%, which would read as no data at
  * all when there is some.
  */
-private fun GlucoseStatistics.coverageNote(): String {
+private fun GlucoseStatistics.coverageNote(context: Context): String {
     val percent = coverage * 100
     return when {
-        percent <= 0.0 -> "no data"
-        percent < 1.0 -> "<1% of window"
-        else -> "${percent.roundToInt()}% of window"
+        percent <= 0.0 -> context.getString(R.string.home_coverage_none)
+        percent < 1.0 -> context.getString(R.string.home_coverage_under_one)
+        else -> context.getString(R.string.home_coverage_percent, percent.roundToInt())
     }
 }

@@ -1,5 +1,8 @@
 package dev.cgm.app.ui
 
+import androidx.annotation.StringRes
+import dev.cgm.app.R
+
 import dev.cgm.core.AlarmKind
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -37,11 +40,16 @@ sealed interface Destination {
     data object Disclaimer : Destination
 }
 
-enum class Tab(val label: String, val root: Destination) {
-    HOME("Now", Destination.Home),
-    TRENDS("Trends", Destination.Trends),
-    LOGBOOK("Logbook", Destination.Logbook),
-    SETTINGS("Settings", Destination.Settings);
+/**
+ * Labels are resource ids, not strings: an enum constant is built once per process,
+ * long before a localised context exists, so a `String` here would freeze whatever
+ * language happened to be active at class-load time.
+ */
+enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
+    HOME(R.string.nav_now, Destination.Home),
+    TRENDS(R.string.nav_trends, Destination.Trends),
+    LOGBOOK(R.string.nav_logbook, Destination.Logbook),
+    SETTINGS(R.string.nav_settings, Destination.Settings);
 
     companion object {
         fun of(destination: Destination): Tab = when (destination) {

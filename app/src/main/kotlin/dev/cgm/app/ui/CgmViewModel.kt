@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import dev.cgm.app.data.CgmState
 import dev.cgm.app.data.GlucoseRepository
+import dev.cgm.app.Locales
 import dev.cgm.app.data.SecureSettings
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
@@ -153,6 +154,27 @@ class CgmViewModel(
 
     fun resetThresholds() {
         viewModelScope.launch { repository.setThresholdOverrides(ThresholdOverrides.None) }
+    }
+
+    // -- language -----------------------------------------------------------
+
+    /** The chosen language tag, or null while following the device. */
+    val languageTag: StateFlow<String?> = settings.languageTag
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Locales.current)
+
+    /**
+     * Change the app's language.
+     *
+     * [onApplied] runs once the choice is stored and cached, and is where the caller
+     * recreates the activity — resources are resolved when a context is attached, so
+     * nothing already on screen can re-resolve itself in the new language.
+     */
+    fun setLanguage(tag: String?, onApplied: () -> Unit) {
+        viewModelScope.launch {
+            settings.saveLanguageTag(tag)
+            Locales.current = tag
+            onApplied()
+        }
     }
 
     // -- disclaimer ---------------------------------------------------------

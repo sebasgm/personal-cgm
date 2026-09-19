@@ -11,6 +11,7 @@ import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import dev.cgm.app.CgmApplication
+import dev.cgm.app.Locales
 import dev.cgm.app.R
 import dev.cgm.app.alarm.AlarmNotifier
 import dev.cgm.app.data.GlucoseRepository
@@ -44,6 +45,7 @@ class PollingService : LifecycleService() {
     private val scheduler = PollScheduler()
     private val alarms = AlarmEngine()
     private var loop: Job? = null
+    private lateinit var strings: Context
 
     override fun onCreate() {
         super.onCreate()
@@ -51,13 +53,15 @@ class PollingService : LifecycleService() {
         repository = app.repository
         settings = app.settings
         notifier = AlarmNotifier(this)
+        // Notification text must follow the app's chosen language, not the device's.
+        strings = Locales.wrap(this)
         _running.value = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
-        startForegroundCompat(buildNotification("Starting…", null, StatusIconLabel.NO_DATA))
+        startForegroundCompat(buildNotification(strings.getString(R.string.notif_starting), null, StatusIconLabel.NO_DATA))
         if (loop?.isActive != true) {
             loop = lifecycleScope.launch { pollLoop() }
         }
@@ -127,7 +131,7 @@ class PollingService : LifecycleService() {
         val now = System.currentTimeMillis()
 
         val title = when {
-            snapshot == null -> "No reading yet"
+            snapshot == null -> strings.getString(R.string.notif_no_reading_yet)
             else -> buildString {
                 append(snapshot.formattedValue())
                 append(' ')
@@ -139,15 +143,20 @@ class PollingService : LifecycleService() {
         }
 
         val detail = when {
-            state.error?.needsUser == true -> state.error.message
-            snapshot == null -> state.error?.message ?: "Waiting for the first reading"
+            state.error?.needsUser == true -> strings.getString(state.error.messageRes)
+            snapshot == null -> state.error?.let { strings.getString(it.messageRes) }
+                ?: strings.getString(R.string.notif_waiting_first)
             else -> {
                 val minutes = snapshot.reading.ageMillis(now) / 60_000
-                val age = if (minutes < 1) "just now" else "$minutes min ago"
+                val age = if (minutes < 1) {
+                    strings.getString(R.string.notif_just_now)
+                } else {
+                    strings.getString(R.string.notif_minutes_ago, minutes)
+                }
                 when (state.freshness(now)) {
                     Freshness.FRESH -> age
-                    Freshness.AGING -> "$age — later than expected"
-                    Freshness.STALE -> "$age — STALE, do not rely on this"
+                    Freshness.AGING -> strings.getString(R.string.notif_later_than_expected, age)
+                    Freshness.STALE -> strings.getString(R.string.notif_stale, age)
                 }
             }
         }

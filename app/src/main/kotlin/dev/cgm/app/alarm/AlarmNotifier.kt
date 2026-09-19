@@ -10,6 +10,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
+import dev.cgm.app.Locales
 import dev.cgm.app.R
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.AlarmKind
@@ -38,6 +39,15 @@ class AlarmNotifier(private val context: Context) {
 
     private val manager: NotificationManager =
         context.getSystemService(NotificationManager::class.java)
+
+    /**
+     * Resources in the app's chosen language rather than the device's.
+     *
+     * Note the limit this cannot escape: a channel's *name* is fixed when the
+     * channel is created, so channels created before a language change keep their
+     * old name in system settings. The notifications themselves follow immediately.
+     */
+    private val strings: Context = Locales.wrap(context)
 
     /** Whether the OS will honour a DND bypass for this app at all. */
     fun hasPolicyAccess(): Boolean = manager.isNotificationPolicyAccessGranted
@@ -124,7 +134,7 @@ class AlarmNotifier(private val context: Context) {
             .setOnlyAlertOnce(!makeSound)
             .addAction(
                 0,
-                "Snooze 30 min",
+                strings.getString(R.string.alarm_snooze),
                 PendingIntent.getBroadcast(
                     context,
                     1000 + kind.ordinal,
@@ -144,12 +154,18 @@ class AlarmNotifier(private val context: Context) {
 
     private fun notificationId(kind: AlarmKind) = 100 + kind.ordinal
 
-    private fun title(kind: AlarmKind, snapshot: GlucoseSnapshot?): String = when (kind) {
-        AlarmKind.URGENT_LOW -> "Urgent low — ${snapshot?.formattedValue() ?: "?"}"
-        AlarmKind.LOW -> "Low — ${snapshot?.formattedValue() ?: "?"}"
-        AlarmKind.HIGH -> "High — ${snapshot?.formattedValue() ?: "?"}"
-        AlarmKind.VERY_HIGH -> "Very high — ${snapshot?.formattedValue() ?: "?"}"
-        AlarmKind.SIGNAL_LOSS -> "No recent reading"
+    private fun title(kind: AlarmKind, snapshot: GlucoseSnapshot?): String {
+        if (kind == AlarmKind.SIGNAL_LOSS) {
+            return strings.getString(R.string.alarm_no_recent_reading)
+        }
+        val value = snapshot?.formattedValue() ?: "?"
+        val template = when (kind) {
+            AlarmKind.URGENT_LOW -> R.string.alarm_title_urgent_low
+            AlarmKind.LOW -> R.string.alarm_title_low
+            AlarmKind.HIGH -> R.string.alarm_title_high
+            else -> R.string.alarm_title_very_high
+        }
+        return strings.getString(template, value)
     }
 
     private fun body(
@@ -157,31 +173,31 @@ class AlarmNotifier(private val context: Context) {
         setting: AlarmSetting,
         snapshot: GlucoseSnapshot?,
     ): String = when (kind) {
-        AlarmKind.SIGNAL_LOSS -> {
-            val minutes = setting.afterMillis / 60_000
-            "Nothing new for over $minutes minutes. The value on screen is not current."
-        }
+        AlarmKind.SIGNAL_LOSS ->
+            strings.getString(R.string.alarm_body_signal_loss, setting.afterMillis / 60_000)
         else -> buildString {
             snapshot?.reading?.trend?.glyph?.let { append(it).append("  ") }
             snapshot?.formattedDelta()?.let { append(it).append("  ") }
-            append("alarm at ${setting.thresholdMgdl.toInt()}")
+            append(strings.getString(R.string.alarm_body_threshold, setting.thresholdMgdl.toInt()))
         }
     }
 
     private fun channelName(kind: AlarmKind, bypassDnd: Boolean): String {
-        val base = when (kind) {
-            AlarmKind.URGENT_LOW -> "Urgent low"
-            AlarmKind.LOW -> "Low"
-            AlarmKind.HIGH -> "High"
-            AlarmKind.VERY_HIGH -> "Very high"
-            AlarmKind.SIGNAL_LOSS -> "Signal loss"
-        }
-        return if (bypassDnd) "$base (through Do Not Disturb)" else base
+        val base = strings.getString(
+            when (kind) {
+                AlarmKind.URGENT_LOW -> R.string.zone_urgent_low
+                AlarmKind.LOW -> R.string.zone_low
+                AlarmKind.HIGH -> R.string.zone_high
+                AlarmKind.VERY_HIGH -> R.string.zone_very_high
+                AlarmKind.SIGNAL_LOSS -> R.string.zone_signal_loss
+            }
+        )
+        return if (bypassDnd) strings.getString(R.string.alarm_through_dnd, base) else base
     }
 
     private fun channelDescription(kind: AlarmKind): String = when (kind) {
-        AlarmKind.SIGNAL_LOSS -> "Fires when no new reading has arrived for a while."
-        else -> "Fires when glucose crosses the configured level."
+        AlarmKind.SIGNAL_LOSS -> strings.getString(R.string.alarm_channel_signal_loss)
+        else -> strings.getString(R.string.alarm_channel_glucose)
     }
 
     companion object {
