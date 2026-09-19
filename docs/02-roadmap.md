@@ -275,6 +275,20 @@ scales the span, browsing moves the end.
 - The stat strip follows the browsed window too, so its coverage figure never describes a
   window nobody is looking at.
 
+**Unit switching** (mg/dL ↔ mmol/L). Three choices, not two: following the account is the
+default, so switching units in the official LibreLink app does not have to be remembered here
+as well. `CgmState.unit` carries the effective unit and exists before the first reading, so
+Settings works on a fresh install; `accountUnit` is kept beside it so "follow my account" has
+something to follow.
+
+Values are stored in mg/dL whatever is displayed — a unit is a way of reading a number, not a
+different number. That is why the alarm sliders still move in mg/dL steps while showing mmol/L:
+the stored threshold is unchanged by how it is read, so switching units can never silently move
+an alarm. The chosen unit reaches the chart axis, the big value, the stat strip, the status bar
+icon, the notification, the range editor, the alarm list and the alarm editor. It also reaches
+the watch, since `WatchPayload` carries the snapshot and the snapshot now carries the effective
+unit.
+
 **On the five minutes:** the display now says NO SIGNAL at 5 minutes, drops the value's zone
 colour at 10, and the *alarm* still waits until 20. That spread is deliberate and is the
 principle already in `docs/04-alarms.md` — the screen should stop claiming a value is current
@@ -287,10 +301,7 @@ long before it is worth waking someone over.
    the icon at all (an arrow beside the number, competing for a 24dp square) or in the
    expanded notification's content, where the title already carries arrow and delta. Worth
    looking at the built version before deciding, since the expanded view may already say it.
-2. **Unit switching** (mg/dL ↔ mmol/L) — must reach the chart, the current value, alarm
-   thresholds and anything exported. The unit currently comes from the account, so this needs
-   a user override; `ThresholdOverrides` is the pattern to copy.
-3. **Medical disclaimer** — first-run acceptance plus a permanent copy in Settings, and
+2. **Medical disclaimer** — first-run acceptance plus a permanent copy in Settings, and
    `CHANGELOG.md`.
 
 ### Needs a decision before any code

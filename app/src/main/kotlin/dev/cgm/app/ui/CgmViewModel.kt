@@ -14,6 +14,7 @@ import dev.cgm.core.ChartZoom
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
+import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.StatisticsCalculator
 import dev.cgm.core.ThresholdBoundary
 import dev.cgm.core.ThresholdOverrides
@@ -143,6 +144,11 @@ class CgmViewModel(
         viewModelScope.launch {
             repository.setThresholdOverrides(state.value.overrides.with(boundary, mgdl))
         }
+    }
+
+    /** Choose a unit, or pass null to follow the LibreLinkUp account again. */
+    fun setUnit(unit: GlucoseUnit?) {
+        viewModelScope.launch { repository.setUnitOverride(unit) }
     }
 
     fun resetThresholds() {

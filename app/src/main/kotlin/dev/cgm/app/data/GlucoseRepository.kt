@@ -8,6 +8,7 @@ import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
+import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.StatisticsCalculator
 import dev.cgm.core.ThresholdOverrides
 import dev.cgm.core.Zone
@@ -53,6 +54,14 @@ data class CgmState(
      */
     val accountThresholds: GlucoseThresholds? = null,
     val overrides: ThresholdOverrides = ThresholdOverrides.None,
+    /**
+     * The unit everything displays in, available before the first reading so that
+     * Settings can show and change it on a fresh install.
+     */
+    val unit: GlucoseUnit = GlucoseUnit.MGDL,
+    /** What the account is set to, for "follow my account" to have something to follow. */
+    val accountUnit: GlucoseUnit? = null,
+    val unitOverride: GlucoseUnit? = null,
 ) {
     /**
      * Derived from the clock every time it is asked, never cached: a reading does
@@ -142,12 +151,14 @@ class GlucoseRepository(
     suspend fun refreshConfiguration() {
         val credentials = settings.credentials()
         val overrides = currentOverrides()
+        val unitOverride = currentUnitOverride()
         _state.update {
             it.copy(
                 configured = credentials != null,
                 policy = currentPolicy(),
                 overrides = overrides,
-            ).withOverridesApplied(overrides)
+                unitOverride = unitOverride,
+            ).withPreferencesApplied(overrides, unitOverride)
         }
     }
 
@@ -156,6 +167,9 @@ class GlucoseRepository(
 
     private suspend fun currentOverrides(): ThresholdOverrides =
         runCatching { settings.thresholdOverridesOnce() }.getOrDefault(ThresholdOverrides.None)
+
+    private suspend fun currentUnitOverride(): GlucoseUnit? =
+        runCatching { settings.unitOverrideOnce() }.getOrNull()
 
     /**
      * Take over a boundary, or hand it back to the account with a null value.
@@ -166,7 +180,22 @@ class GlucoseRepository(
      */
     suspend fun setThresholdOverrides(overrides: ThresholdOverrides) {
         settings.saveThresholdOverrides(overrides)
-        _state.update { it.copy(overrides = overrides).withOverridesApplied(overrides) }
+        _state.update {
+            it.copy(overrides = overrides).withPreferencesApplied(overrides, it.unitOverride)
+        }
+    }
+
+    /**
+     * Choose a unit, or pass null to follow the account again.
+     *
+     * Applied to current state as well as saved, so the whole screen changes unit on
+     * the tap rather than at the next poll.
+     */
+    suspend fun setUnitOverride(unit: GlucoseUnit?) {
+        settings.saveUnitOverride(unit)
+        _state.update {
+            it.copy(unitOverride = unit).withPreferencesApplied(it.overrides, unit)
+        }
     }
 
     /** One fetch. Never throws; failures come back as [PollOutcome]. */
@@ -196,7 +225,11 @@ class GlucoseRepository(
             // reading differently to the phone.
             val account = refined.snapshot.thresholds
             val overrides = currentOverrides()
-            val result = refined.withThresholds(overrides.applyTo(account))
+            val accountUnit = refined.snapshot.unit
+            val unitOverride = currentUnitOverride()
+            val result = refined
+                .withThresholds(overrides.applyTo(account))
+                .withUnit(unitOverride ?: accountUnit)
 
             _state.update {
                 it.copy(
@@ -208,6 +241,9 @@ class GlucoseRepository(
                     sensor = result.sensor ?: it.sensor,
                     accountThresholds = account,
                     overrides = overrides,
+                    unit = unitOverride ?: accountUnit,
+                    accountUnit = accountUnit,
+                    unitOverride = unitOverride,
                 )
             }
             _results.emit(result)
@@ -288,6 +324,9 @@ private fun SourceResult.withRefinedDelta(refined: GlucoseDelta?): SourceResult 
 private fun SourceResult.withThresholds(thresholds: GlucoseThresholds): SourceResult =
     copy(snapshot = snapshot.copy(thresholds = thresholds))
 
+private fun SourceResult.withUnit(unit: GlucoseUnit): SourceResult =
+    copy(snapshot = snapshot.copy(unit = unit))
+
 /**
  * Re-derive the effective thresholds from the account's values and [overrides].
  *
@@ -295,12 +334,22 @@ private fun SourceResult.withThresholds(thresholds: GlucoseThresholds): SourceRe
  * snapshot currently carries, because removing an override has to restore the
  * account's number — and only the account copy still knows it.
  */
-private fun CgmState.withOverridesApplied(overrides: ThresholdOverrides): CgmState {
-    val account = accountThresholds ?: snapshot?.thresholds ?: return this
-    val snapshot = snapshot ?: return copy(accountThresholds = account)
+private fun CgmState.withPreferencesApplied(
+    overrides: ThresholdOverrides,
+    unitOverride: GlucoseUnit?,
+): CgmState {
+    val accountUnit = accountUnit ?: snapshot?.unit
+    val unit = unitOverride ?: accountUnit ?: GlucoseUnit.MGDL
+    val account = accountThresholds ?: snapshot?.thresholds
+    val thresholds = account?.let(overrides::applyTo)
+
     return copy(
+        unit = unit,
+        accountUnit = accountUnit,
         accountThresholds = account,
-        snapshot = snapshot.copy(thresholds = overrides.applyTo(account)),
+        snapshot = snapshot?.let { snap ->
+            snap.copy(thresholds = thresholds ?: snap.thresholds, unit = unit)
+        },
     )
 }
 

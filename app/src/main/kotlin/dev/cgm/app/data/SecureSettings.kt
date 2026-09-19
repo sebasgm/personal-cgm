@@ -9,6 +9,7 @@ import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmRuntimeState
 import dev.cgm.core.AlarmSettings
 import dev.cgm.core.FreshnessPolicy
+import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.ThresholdOverrides
 import dev.cgm.llu.LibreLinkUpCredentials
 import dev.cgm.llu.LibreLinkUpSession
@@ -104,6 +105,26 @@ class SecureSettings(private val context: Context) : SessionStore {
         context.dataStore.edit { it[KEY_RANGES] = json.encodeToString(overrides) }
     }
 
+    /**
+     * The unit the user chose, or null to keep following the account.
+     *
+     * Null is a real state rather than a default: LibreLinkUp reports which unit the
+     * account is set to, and following it means someone who switches their official
+     * app does not have to switch this one too. An unrecognised stored value falls
+     * back to following the account rather than guessing.
+     */
+    val unitOverride: Flow<GlucoseUnit?> = context.dataStore.data.map { prefs ->
+        prefs[KEY_UNIT]?.let { name -> runCatching { GlucoseUnit.valueOf(name) }.getOrNull() }
+    }
+
+    suspend fun unitOverrideOnce(): GlucoseUnit? = unitOverride.first()
+
+    suspend fun saveUnitOverride(unit: GlucoseUnit?) {
+        context.dataStore.edit {
+            if (unit == null) it.remove(KEY_UNIT) else it[KEY_UNIT] = unit.name
+        }
+    }
+
     // -- alarms -----------------------------------------------------------
 
     /**
@@ -149,5 +170,6 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_SESSION: Preferences.Key<String> = stringPreferencesKey("llu_session_enc")
         val KEY_FRESHNESS: Preferences.Key<String> = stringPreferencesKey("freshness_policy")
         val KEY_RANGES: Preferences.Key<String> = stringPreferencesKey("threshold_overrides")
+        val KEY_UNIT: Preferences.Key<String> = stringPreferencesKey("display_unit")
     }
 }

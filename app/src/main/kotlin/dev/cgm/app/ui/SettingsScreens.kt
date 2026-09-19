@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -65,10 +66,17 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(12.dp))
         SectionHeader("Display")
+        UnitPicker(
+            selected = state.unitOverride,
+            accountUnit = state.accountUnit,
+            onSelect = viewModel::setUnit,
+        )
+        HorizontalDivider()
         SettingsRow(
             title = "Ranges",
             subtitle = state.snapshot?.thresholds?.let {
-                "${it.lowMgdl.roundToInt()}–${it.highMgdl.roundToInt()} mg/dL in range"
+                "${state.unit.format(it.lowMgdl)}–${state.unit.format(it.highMgdl)} " +
+                    "${state.unit.suffix} in range"
             } ?: "Target band and zone boundaries",
         ) { onOpen(Destination.Ranges) }
         SettingsRow("System notification settings", "Sounds, importance, badges") {
@@ -106,6 +114,8 @@ fun SettingsScreen(
 @Composable
 fun AlarmsScreen(viewModel: CgmViewModel, onOpen: (Destination) -> Unit) {
     val settings by viewModel.alarmSettings.collectAsState()
+    val state by viewModel.state.collectAsState()
+    val unit = state.unit
     val context = LocalContext.current
     val notifier = remember { AlarmNotifier(context) }
     val hasPolicyAccess = notifier.hasPolicyAccess()
@@ -130,7 +140,7 @@ fun AlarmsScreen(viewModel: CgmViewModel, onOpen: (Destination) -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text(kind.displayName(), style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        kind.summary(setting),
+                        kind.summary(setting, unit),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -159,6 +169,8 @@ fun AlarmsScreen(viewModel: CgmViewModel, onOpen: (Destination) -> Unit) {
 @Composable
 fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
     val settings by viewModel.alarmSettings.collectAsState()
+    val state by viewModel.state.collectAsState()
+    val unit = state.unit
     val setting = settings[kind]
     val context = LocalContext.current
     val notifier = remember { AlarmNotifier(context) }
@@ -183,7 +195,7 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
             SliderRow(
                 label = "Alarm at",
                 value = setting.thresholdMgdl,
-                valueText = "${setting.thresholdMgdl.roundToInt()} mg/dL",
+                valueText = "${unit.format(setting.thresholdMgdl)} ${unit.suffix}",
                 range = if (kind.isLow) 40f..110f else 140f..350f,
                 helper = "Independent of the display range — where you want to be " +
                     "warned and where the graph stops calling a value in range are " +
@@ -271,7 +283,7 @@ fun RangesScreen(viewModel: CgmViewModel) {
     val effective = state.snapshot?.thresholds
     val account = state.accountThresholds
     val overrides = state.overrides
-    val unit = state.snapshot?.unit ?: GlucoseUnit.MGDL
+    val unit = state.unit
 
     Column(
         Modifier
@@ -534,11 +546,47 @@ private fun AlarmKind.displayName(): String = when (this) {
     AlarmKind.SIGNAL_LOSS -> "Signal loss"
 }
 
-private fun AlarmKind.summary(setting: AlarmSetting): String = when {
+private fun AlarmKind.summary(setting: AlarmSetting, unit: GlucoseUnit): String = when {
     !setting.enabled -> "Off"
     this == AlarmKind.SIGNAL_LOSS -> "After ${setting.afterMillis / 60_000} min without data"
-    isLow -> "Below ${setting.thresholdMgdl.roundToInt()} mg/dL"
-    else -> "Above ${setting.thresholdMgdl.roundToInt()} mg/dL"
+    isLow -> "Below ${unit.format(setting.thresholdMgdl)} ${unit.suffix}"
+    else -> "Above ${unit.format(setting.thresholdMgdl)} ${unit.suffix}"
+}
+
+/**
+ * The unit everything is shown in.
+ *
+ * Three choices rather than two: following the account is the default, so someone
+ * who switches units in the official LibreLink app does not have to remember to
+ * switch them here as well. Values are always stored in mg/dL whatever is picked —
+ * a unit is a way of reading a number, not a different number.
+ */
+@Composable
+private fun UnitPicker(
+    selected: GlucoseUnit?,
+    accountUnit: GlucoseUnit?,
+    onSelect: (GlucoseUnit?) -> Unit,
+) {
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Text("Units", style = MaterialTheme.typography.bodyLarge)
+        Row(
+            modifier = Modifier.padding(top = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            FilterChip(
+                selected = selected == null,
+                onClick = { onSelect(null) },
+                label = { Text(accountUnit?.let { "Account (${it.suffix})" } ?: "Account") },
+            )
+            GlucoseUnit.entries.forEach { candidate ->
+                FilterChip(
+                    selected = selected == candidate,
+                    onClick = { onSelect(candidate) },
+                    label = { Text(candidate.suffix) },
+                )
+            }
+        }
+    }
 }
 
 /** System screens can be missing on odd ROMs; never crash trying to open one. */
