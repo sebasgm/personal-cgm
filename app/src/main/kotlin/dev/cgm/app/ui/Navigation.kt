@@ -34,6 +34,7 @@ sealed interface Destination {
     data object Alarms : Destination
     data class AlarmDetail(val kind: AlarmKind) : Destination
     data object Ranges : Destination
+    data object Disclaimer : Destination
 }
 
 enum class Tab(val label: String, val root: Destination) {
@@ -50,6 +51,7 @@ enum class Tab(val label: String, val root: Destination) {
             Destination.Settings,
             Destination.Alarms,
             Destination.Ranges,
+            Destination.Disclaimer,
             is Destination.AlarmDetail -> SETTINGS
         }
     }

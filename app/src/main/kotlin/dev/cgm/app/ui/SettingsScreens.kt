@@ -84,6 +84,13 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+        SectionHeader("Safety")
+        SettingsRow(
+            title = "Medical disclaimer",
+            subtitle = "What this app is not, and when to trust the official app instead",
+        ) { onOpen(Destination.Disclaimer) }
+
+        Spacer(Modifier.height(12.dp))
         SectionHeader("Service")
         Text(
             "The reading is only current while the poller is running. It starts itself on " +

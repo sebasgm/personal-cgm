@@ -3,6 +3,7 @@ package dev.cgm.app.data
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.cgm.core.AlarmKind
@@ -119,6 +120,19 @@ class SecureSettings(private val context: Context) : SessionStore {
 
     suspend fun unitOverrideOnce(): GlucoseUnit? = unitOverride.first()
 
+    /**
+     * Which version of the disclaimer has been accepted, or 0 for none.
+     *
+     * A version rather than a flag so that materially rewording it can ask again,
+     * which a boolean could never do.
+     */
+    val disclaimerAcceptedVersion: Flow<Int> =
+        context.dataStore.data.map { it[KEY_DISCLAIMER] ?: 0 }
+
+    suspend fun acceptDisclaimer(version: Int) {
+        context.dataStore.edit { it[KEY_DISCLAIMER] = version }
+    }
+
     suspend fun saveUnitOverride(unit: GlucoseUnit?) {
         context.dataStore.edit {
             if (unit == null) it.remove(KEY_UNIT) else it[KEY_UNIT] = unit.name
@@ -171,5 +185,6 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_FRESHNESS: Preferences.Key<String> = stringPreferencesKey("freshness_policy")
         val KEY_RANGES: Preferences.Key<String> = stringPreferencesKey("threshold_overrides")
         val KEY_UNIT: Preferences.Key<String> = stringPreferencesKey("display_unit")
+        val KEY_DISCLAIMER: Preferences.Key<Int> = intPreferencesKey("disclaimer_version")
     }
 }

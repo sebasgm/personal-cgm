@@ -155,6 +155,22 @@ class CgmViewModel(
         viewModelScope.launch { repository.setThresholdOverrides(ThresholdOverrides.None) }
     }
 
+    // -- disclaimer ---------------------------------------------------------
+
+    /**
+     * Null until the stored value has been read.
+     *
+     * Three states, not two: showing the disclaimer while still loading would flash
+     * it at everyone who already accepted it on every cold start.
+     */
+    val disclaimerAccepted: StateFlow<Boolean?> = settings.disclaimerAcceptedVersion
+        .map { it >= Disclaimer.VERSION }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun acceptDisclaimer() {
+        viewModelScope.launch { settings.acceptDisclaimer(Disclaimer.VERSION) }
+    }
+
     // -- logbook (issue #10) -----------------------------------------------
 
     val logbook: StateFlow<List<GlucoseReading>> = repository.recentReadings(LOGBOOK_LIMIT)

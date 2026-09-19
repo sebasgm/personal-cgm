@@ -48,8 +48,16 @@ class MainActivity : ComponentActivity() {
                     factory = CgmViewModel.factory(app.repository, app.settings)
                 )
                 val state by vm.state.collectAsState()
+                val accepted by vm.disclaimerAccepted.collectAsState()
 
-                if (state.configured) {
+                // Ahead of sign-in on purpose: it governs how every number in the
+                // app should be read, so it is not something to meet afterwards.
+                if (accepted == false) {
+                    DisclaimerScreen(onAccept = vm::acceptDisclaimer)
+                } else if (accepted == null) {
+                    // Still reading the stored acceptance. Blank rather than a flash
+                    // of the disclaimer at someone who accepted it months ago.
+                } else if (state.configured) {
                     MainScaffold(
                         viewModel = vm,
                         onStartService = { PollingService.start(this) },
@@ -115,6 +123,7 @@ private fun MainScaffold(
                 ) { stack = stack + it }
                 Destination.Alarms -> AlarmsScreen(viewModel) { stack = stack + it }
                 Destination.Ranges -> RangesScreen(viewModel)
+                Destination.Disclaimer -> DisclaimerReadOnlyScreen()
                 is Destination.AlarmDetail -> AlarmDetailScreen(viewModel, current.kind)
             }
         }

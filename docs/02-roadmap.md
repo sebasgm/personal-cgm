@@ -289,6 +289,21 @@ icon, the notification, the range editor, the alarm list and the alarm editor. I
 the watch, since `WatchPayload` carries the snapshot and the snapshot now carries the effective
 unit.
 
+**Medical disclaimer**, shown before first use and kept in Settings for ever after. Ahead of
+sign-in deliberately: it governs how every number in the app should be read, so it is not
+something to meet afterwards. Stored as an accepted *version* rather than a flag, so materially
+rewording it can ask again.
+
+It carries one caveat the issue did not ask for, because this app's own behaviour demands it:
+alarms can fail to arrive. Android may delay or suppress notifications while the phone is
+asleep, in Do Not Disturb or saving battery, and the app cannot override all of that. Promising
+an alarm it cannot guarantee would be the most dangerous thing on the screen. The separate
+*sharing* disclaimer stays open, since there is nothing to share yet.
+
+**`CHANGELOG.md`**, Keep a Changelog plus semver. Everything sits under Unreleased, which is
+honest: nothing has been tagged, and the first version should not be cut until the disclaimer,
+the license decision and the security pass are done.
+
 **On the five minutes:** the display now says NO SIGNAL at 5 minutes, drops the value's zone
 colour at 10, and the *alarm* still waits until 20. That spread is deliberate and is the
 principle already in `docs/04-alarms.md` — the screen should stop claiming a value is current
@@ -301,8 +316,7 @@ long before it is worth waking someone over.
    the icon at all (an arrow beside the number, competing for a 24dp square) or in the
    expanded notification's content, where the title already carries arrow and delta. Worth
    looking at the built version before deciding, since the expanded view may already say it.
-2. **Medical disclaimer** — first-run acceptance plus a permanent copy in Settings, and
-   `CHANGELOG.md`.
+*(Both done — see Built above.)*
 
 ### Needs a decision before any code
 
