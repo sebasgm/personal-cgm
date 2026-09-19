@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Personal CGM</string>
+    <string name="channel_status">Glucose status</string>
+    <string name="channel_status_description">Ongoing notification while readings are being fetched.</string>
+</resources>

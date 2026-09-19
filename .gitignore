@@ -1,0 +1,20 @@
+# Secrets & local state
+.env
+spike/.llu_cache.json
+
+# Recorded readings (may contain personal health data)
+spike/fixtures/*.jsonl
+!spike/fixtures/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.apk
+*.keystore
+.idea/
+.kotlin/

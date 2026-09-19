@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A glucose trace crossing a target band. Vector so there are no density assets. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Target band -->
+    <path
+        android:fillColor="#1F6F52"
+        android:pathData="M26,50 H82 V64 H26 Z" />
+
+    <!-- Trend line -->
+    <path
+        android:strokeColor="#7CE0B0"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M28,70 L40,66 L50,54 L62,44 L72,48 L82,38" />
+
+    <!-- Current reading -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82,38 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
+</vector>
