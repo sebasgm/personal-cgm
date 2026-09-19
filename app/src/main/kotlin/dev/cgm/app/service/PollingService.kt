@@ -22,6 +22,9 @@ import dev.cgm.core.PollOutcome
 import dev.cgm.core.PollScheduler
 import dev.cgm.core.StatusIconLabel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -48,6 +51,7 @@ class PollingService : LifecycleService() {
         repository = app.repository
         settings = app.settings
         notifier = AlarmNotifier(this)
+        _running.value = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -196,11 +200,24 @@ class PollingService : LifecycleService() {
 
     override fun onDestroy() {
         loop?.cancel()
+        _running.value = false
         super.onDestroy()
     }
 
     companion object {
         private const val NOTIFICATION_ID = 1
+
+        private val _running = MutableStateFlow(false)
+
+        /**
+         * Whether the poller is alive.
+         *
+         * Settings shows this because its absence is otherwise invisible: no service
+         * means no ongoing notification, which means no value in the status bar and
+         * nothing at all to explain why. Static state, so it dies with the process,
+         * which is exactly right — a killed process has no poller either.
+         */
+        val running: StateFlow<Boolean> = _running.asStateFlow()
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, PollingService::class.java))

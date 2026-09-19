@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +41,9 @@ class MainActivity : ComponentActivity() {
         val app = application as CgmApplication
         ensureNotificationPermission()
 
+        val startService = { PollingService.start(this) }
+        val stopService = { PollingService.stop(this) }
+
         setContent {
             MaterialTheme(
                 colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
@@ -58,13 +62,22 @@ class MainActivity : ComponentActivity() {
                     // Still reading the stored acceptance. Blank rather than a flash
                     // of the disclaimer at someone who accepted it months ago.
                 } else if (state.configured) {
+                    // Nothing else brings the poller back. It started on sign-in and
+                    // on boot, so installing a new build — which kills the service
+                    // without a reboot — left it dead until someone pressed Start by
+                    // hand, with no reading, no status bar value and no explanation.
+                    // Starting it whenever a configured app opens is the difference
+                    // between a gap in the record and no gap; the service's own loop
+                    // guard makes a second start a no-op.
+                    LaunchedEffect(Unit) { startService() }
+
                     MainScaffold(
                         viewModel = vm,
-                        onStartService = { PollingService.start(this) },
-                        onStopService = { PollingService.stop(this) },
+                        onStartService = startService,
+                        onStopService = stopService,
                     )
                 } else {
-                    SetupScreen(viewModel = vm, onSignedIn = { PollingService.start(this) })
+                    SetupScreen(viewModel = vm, onSignedIn = startService)
                 }
             }
         }

@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.cgm.app.alarm.AlarmNotifier
+import dev.cgm.app.service.PollingService
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.GlucoseThresholds
@@ -92,9 +93,27 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(12.dp))
         SectionHeader("Service")
+        val polling by PollingService.running.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (polling) "Polling" else "Stopped",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = if (polling) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    ChartColors.signalLoss
+                },
+            )
+        }
         Text(
-            "The reading is only current while the poller is running. It starts itself on " +
-                "boot; these are for stopping or restarting it by hand.",
+            if (polling) {
+                "The value in the status bar is this service's notification, so it is " +
+                    "there while this says Polling."
+            } else {
+                "Nothing is being fetched, so there is no reading and no value in the " +
+                    "status bar. It starts itself when the app opens and after a reboot."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

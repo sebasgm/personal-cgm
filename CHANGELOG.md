@@ -59,6 +59,11 @@ decision and a pass over the security plan.
   thing it must not do.
 - The delta now carries the interval it spans, so a fifteen-minute change cannot be read as a
   five-minute one.
+- The poller no longer stays dead after the app is reinstalled. It previously started only on
+  sign-in and on boot, so replacing the build killed the service and nothing brought it back
+  until someone pressed Start by hand — with no reading, no value in the status bar, and no
+  indication why. It now starts whenever a configured app opens, and Settings says plainly
+  whether it is polling or stopped.
 
 ### Security
 
