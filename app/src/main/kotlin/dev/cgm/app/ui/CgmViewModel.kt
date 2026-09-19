@@ -9,6 +9,7 @@ import dev.cgm.app.data.SecureSettings
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
+import dev.cgm.core.ChartHistory
 import dev.cgm.core.ChartZoom
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
@@ -61,14 +62,39 @@ class CgmViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GraphWindow.Default)
 
     /**
-     * Readings inside the current span, re-queried when it changes.
+     * Where the chart's window ends, or null while it is following the clock.
+     *
+     * Null rather than "now" on purpose: storing an instant would freeze the chart
+     * the moment it was set, and every new reading would appear to fall outside the
+     * window. Null means *keep asking the clock*.
+     */
+    private val _endMillis = MutableStateFlow<Long?>(null)
+
+    /** True while the chart is showing the live edge rather than browsing back. */
+    val isLive: StateFlow<Boolean> = _endMillis
+        .map { it == null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** The window's end as an instant, resolving live to the current clock. */
+    val endMillis: StateFlow<Long> = _endMillis
+        .map { it ?: clock() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), clock())
+
+    /**
+     * Readings inside the current window, re-queried when span or end changes.
      *
      * No `distinctUntilChanged` here: a StateFlow is already distinct by equality,
      * so a pinch that lands on the span it started from costs nothing, and
      * flatMapLatest cancels the query a further pinch supersedes.
      */
-    val history: StateFlow<List<GlucoseReading>> = _spanMillis
-        .flatMapLatest { repository.historySince(clock() - it) }
+    val history: StateFlow<List<GlucoseReading>> = combine(_spanMillis, _endMillis) { s, e -> s to e }
+        .flatMapLatest { (span, end) ->
+            if (end == null) {
+                repository.historySince(clock() - span)
+            } else {
+                repository.historyBetween(end - span, end)
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
@@ -78,14 +104,18 @@ class CgmViewModel(
     val statistics: StateFlow<GlucoseStatistics> = combine(
         history,
         _spanMillis,
+        _endMillis,
         state,
-    ) { readings, span, state ->
-        val now = clock()
+    ) { readings, span, end, state ->
+        // The window the stats describe follows the chart wherever it is browsed
+        // to. Computing them against now while the chart showed last Tuesday would
+        // report a coverage figure for a window nobody is looking at.
+        val windowEnd = end ?: clock()
         StatisticsCalculator.compute(
             readings = readings,
             thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
-            windowStartMillis = now - span,
-            windowEndMillis = now,
+            windowStartMillis = windowEnd - span,
+            windowEndMillis = windowEnd,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GlucoseStatistics.Empty)
 
@@ -168,6 +198,44 @@ class CgmViewModel(
      */
     fun zoomBy(factor: Float) {
         _spanMillis.value = ChartZoom.zoomed(_spanMillis.value, factor)
+    }
+
+    // -- browsing history (from the main chart view) -------------------------
+
+    /**
+     * A horizontal drag on the chart, as a fraction of its width.
+     *
+     * Dragging back off the live edge detaches the window from the clock; dragging
+     * forward until it reaches now re-attaches it, so returning to live needs no
+     * separate gesture — though the button is there for when the span is a week and
+     * dragging would take a while.
+     */
+    fun panByFraction(fractionOfSpan: Float) {
+        val now = clock()
+        val panned = ChartHistory.panned(
+            endMillis = _endMillis.value ?: now,
+            spanMillis = _spanMillis.value,
+            fractionOfSpan = fractionOfSpan,
+            nowMillis = now,
+        )
+        _endMillis.value = if (ChartHistory.isLive(panned, now)) null else panned
+    }
+
+    fun stepDays(days: Int) {
+        val now = clock()
+        val stepped = ChartHistory.steppedDays(_endMillis.value ?: now, days, now)
+        _endMillis.value = if (ChartHistory.isLive(stepped, now)) null else stepped
+    }
+
+    /** Jump to a date from the picker, landing at the end of that day. */
+    fun showDayEnding(endOfDayMillis: Long) {
+        val now = clock()
+        val clamped = ChartHistory.clampEnd(endOfDayMillis, now)
+        _endMillis.value = if (ChartHistory.isLive(clamped, now)) null else clamped
+    }
+
+    fun goLive() {
+        _endMillis.value = null
     }
 
     /**

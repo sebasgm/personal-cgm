@@ -86,6 +86,7 @@ fun SettingsScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onStartService) { Text("Start") }
             OutlinedButton(onClick = onStopService) { Text("Stop") }
+            OutlinedButton(onClick = viewModel::refreshNow) { Text("Refresh") }
         }
 
         Spacer(Modifier.height(12.dp))

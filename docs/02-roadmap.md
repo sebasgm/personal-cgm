@@ -250,6 +250,31 @@ them in sequence would have meant rewriting it five times). Now `ui/GlucoseChart
 - *Red signal loss at five minutes.* A compact red bar above the chart, in the one colour
   reserved for "what you are looking at may not be true". Nothing else may use red.
 
+**Chart interaction** (2 issues). Pinch only, as decided — zoom buttons dropped, preset chips
+kept as the coarse control.
+
+Both issues needed the same change underneath, which is why they landed together: the window
+stopped being one of four fixed spans ending at *now* and became a span plus an end. Zoom
+scales the span, browsing moves the end.
+
+- *Zoom* is clamped to 15 minutes — below which the trace is a zigzag between individual
+  samples rather than a curve — and 7 days, beyond which the line is denser than the pixels
+  and the question has become a Trends question. After a pinch no chip is selected and the
+  real span is shown beside them, because a chip reading "3h" over a 1h 47m chart is the one
+  thing that row must not do.
+- *Browsing* is a horizontal drag on the same gesture detector, plus day arrows, a date
+  picker and a "Now" button — the button because at a week's span dragging back to the
+  present would take a while. The end is stored as null while live rather than as an
+  instant: storing "now" would freeze the chart the moment it was set, and every new reading
+  would appear to fall outside the window.
+- Two things follow from browsing that are easy to get wrong. The newest reading on screen
+  loses its emphasis while browsing, because it is the last reading of a window that has
+  passed rather than the current value. And staleness stops colouring the trace, because
+  stale is a fact about the live feed — a window from yesterday is not stale, it is history,
+  and history is not in doubt.
+- The stat strip follows the browsed window too, so its coverage figure never describes a
+  window nobody is looking at.
+
 **On the five minutes:** the display now says NO SIGNAL at 5 minutes, drops the value's zone
 colour at 10, and the *alarm* still waits until 20. That spread is deliberate and is the
 principle already in `docs/04-alarms.md` — the screen should stop claiming a value is current
@@ -257,20 +282,15 @@ long before it is worth waking someone over.
 
 ### Next, in order
 
-1. **Chart interaction** — **pinch only, decided**; zoom buttons are dropped for now, and the
-   preset chips stay as the coarse control. Then day-by-day history browsing with a date
-   picker. Both want the same change underneath: the window stops being one of four fixed
-   spans ending at *now* and becomes a viewport with its own span and end, which is what lets
-   it be both zoomed and moved back through history.
-2. **Trend in the expanded notification** — the status bar icon's three glyphs go to the
+1. **Trend in the expanded notification** — the status bar icon's three glyphs go to the
    number, so the trend has nowhere to live there. The open question is whether it belongs in
    the icon at all (an arrow beside the number, competing for a 24dp square) or in the
    expanded notification's content, where the title already carries arrow and delta. Worth
    looking at the built version before deciding, since the expanded view may already say it.
-3. **Unit switching** (mg/dL ↔ mmol/L) — must reach the chart, the current value, alarm
+2. **Unit switching** (mg/dL ↔ mmol/L) — must reach the chart, the current value, alarm
    thresholds and anything exported. The unit currently comes from the account, so this needs
    a user override; `ThresholdOverrides` is the pattern to copy.
-4. **Medical disclaimer** — first-run acceptance plus a permanent copy in Settings, and
+3. **Medical disclaimer** — first-run acceptance plus a permanent copy in Settings, and
    `CHANGELOG.md`.
 
 ### Needs a decision before any code

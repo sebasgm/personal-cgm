@@ -1,6 +1,7 @@
 package dev.cgm.core
 
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.minutes
@@ -253,5 +254,89 @@ class ChartZoomTest {
         assertEquals("45m", ChartZoom.label(45L * 60 * 1000))
         assertEquals("2h", ChartZoom.label(118L * 60 * 1000))
         assertEquals("7d", ChartZoom.label(ChartZoom.MAX_SPAN_MILLIS))
+    }
+}
+
+class ChartHistoryTest {
+
+    private val now = 1_800_000_000_000L
+    private val threeHours = 3L * 60 * 60 * 1000
+    private val day = 24L * 60 * 60 * 1000
+
+    @Test
+    fun `an end at now is live`() {
+        assertTrue(ChartHistory.isLive(now, now))
+    }
+
+    /**
+     * Live has to be a range: the end is compared against a moving clock, so exact
+     * equality would fall out of live mode a millisecond after entering it.
+     */
+    @Test
+    fun `a few seconds behind is still live`() {
+        assertTrue(ChartHistory.isLive(now - 30_000, now))
+    }
+
+    @Test
+    fun `an hour behind is browsing, not live`() {
+        assertFalse(ChartHistory.isLive(now - 60 * 60 * 1000, now))
+    }
+
+    @Test
+    fun `the end never moves into the future`() {
+        assertEquals(now, ChartHistory.clampEnd(now + day, now))
+        assertEquals(now, ChartHistory.panned(now, threeHours, -5f, now))
+    }
+
+    @Test
+    fun `cannot browse past where the data is kept`() {
+        val farBack = ChartHistory.clampEnd(now - 10 * 365 * day, now)
+
+        assertEquals(now - ChartHistory.MAX_LOOKBACK_MILLIS, farBack)
+    }
+
+    /**
+     * Dragging right pulls older data in, so the end moves back. Getting this
+     * backwards makes the chart feel like a scrollbar rather than paper.
+     */
+    @Test
+    fun `dragging right moves the window backwards`() {
+        val panned = ChartHistory.panned(now, threeHours, 0.5f, now)
+
+        assertEquals(now - threeHours / 2, panned)
+    }
+
+    @Test
+    fun `dragging forward from the past returns towards live`() {
+        val browsing = now - 2 * day
+
+        val panned = ChartHistory.panned(browsing, threeHours, -1f, now)
+
+        assertEquals(browsing + threeHours, panned)
+    }
+
+    @Test
+    fun `a pan is proportional to the span, so zoom changes its reach`() {
+        val wide = ChartHistory.panned(now, day, 1f, now)
+        val narrow = ChartHistory.panned(now, threeHours, 1f, now)
+
+        assertEquals(now - day, wide)
+        assertEquals(now - threeHours, narrow)
+    }
+
+    @Test
+    fun `nonsense drag fractions leave the end alone`() {
+        assertEquals(now, ChartHistory.panned(now, threeHours, Float.NaN, now))
+    }
+
+    @Test
+    fun `the arrows step whole days`() {
+        assertEquals(now - day, ChartHistory.steppedDays(now, -1, now))
+        assertEquals(now - day, ChartHistory.steppedDays(now - 2 * day, 1, now))
+    }
+
+    @Test
+    fun `stepping forward past now stops at now`() {
+        assertEquals(now, ChartHistory.steppedDays(now - 3_600_000, 1, now))
     }
 }

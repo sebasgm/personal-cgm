@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +24,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +43,10 @@ import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.SensorInfo
 import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 /**
@@ -52,6 +63,9 @@ fun HomeScreen(viewModel: CgmViewModel) {
     val stats by viewModel.statistics.collectAsState()
     val span by viewModel.spanMillis.collectAsState()
     val preset by viewModel.preset.collectAsState()
+    val isLive by viewModel.isLive.collectAsState()
+    val windowEnd by viewModel.endMillis.collectAsState()
+    var pickingDate by remember { mutableStateOf(false) }
 
     // Ticks regardless of whether data arrives. A frozen "2 min ago" over a dead
     // feed is the exact failure this screen exists to prevent.
@@ -80,6 +94,17 @@ fun HomeScreen(viewModel: CgmViewModel) {
             AttentionBanner(it.message, it.needsUser)
         }
 
+        // Only while browsing. On the live edge there is nothing to say, and a
+        // permanent "now" bar would spend height on a fact the whole screen implies.
+        if (!isLive) {
+            Spacer(Modifier.height(10.dp))
+            BrowseBar(
+                windowEnd = windowEnd,
+                onStepDays = viewModel::stepDays,
+                onGoLive = viewModel::goLive,
+            )
+        }
+
         // The chart takes whatever is left rather than a fixed 160dp inside a
         // scroller. It is the reason this screen exists, so it gets the space,
         // and nothing here scrolls out of reach on a glance.
@@ -87,19 +112,24 @@ fun HomeScreen(viewModel: CgmViewModel) {
             readings = history,
             thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
             unit = snapshot?.unit ?: GlucoseUnit.MGDL,
-            stale = freshness == Freshness.STALE,
+            // Staleness is a fact about the live feed, so it only colours the trace
+            // while the trace is the live feed. A window from yesterday is not stale;
+            // it is simply history, and history is not in doubt.
+            stale = isLive && freshness == Freshness.STALE,
+            isLive = isLive,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(vertical = 12.dp),
             onZoom = viewModel::zoomBy,
+            onPan = viewModel::panByFraction,
         )
 
         WindowChips(
             selected = preset,
             spanLabel = ChartZoom.label(span),
             onSelect = viewModel::selectWindow,
-            onRefresh = viewModel::refreshNow,
+            onPickDate = { pickingDate = true },
         )
 
         Spacer(Modifier.height(12.dp))
@@ -112,7 +142,89 @@ fun HomeScreen(viewModel: CgmViewModel) {
             now = now,
         )
     }
+
+    if (pickingDate) {
+        DayPicker(
+            initialMillis = windowEnd,
+            onPick = viewModel::showDayEnding,
+            onDismiss = { pickingDate = false },
+        )
+    }
 }
+
+/**
+ * Where the chart is, once it has left the live edge.
+ *
+ * Arrows step whole days, which is how someone thinks about "what happened
+ * yesterday"; the drag handles everything finer. "Now" exists because at a week's
+ * span dragging back to the present would take a while.
+ */
+@Composable
+private fun BrowseBar(windowEnd: Long, onStepDays: (Int) -> Unit, onGoLive: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = { onStepDays(-1) }) { Text("‹") }
+            Text(
+                windowEnd.asWindowEndLabel(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { onStepDays(1) }) { Text("›") }
+            TextButton(onClick = onGoLive) { Text("Now") }
+        }
+    }
+}
+
+/**
+ * The date picker, for jumping rather than stepping.
+ *
+ * The picker hands back UTC midnight of the chosen calendar date, so it is
+ * converted to the *end* of that day in the phone's own zone — asking for the 18th
+ * should show the 18th, not the small hours of it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayPicker(initialMillis: Long, onPick: (Long) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    state.selectedDateMillis?.let { picked ->
+                        val date = Instant.ofEpochMilli(picked).atZone(ZoneOffset.UTC).toLocalDate()
+                        onPick(
+                            date.plusDays(1)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant()
+                                .toEpochMilli()
+                        )
+                    }
+                    onDismiss()
+                }
+            ) { Text("Show") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    ) {
+        DatePicker(state = state)
+    }
+}
+
+private val windowEndFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
+
+private fun Long.asWindowEndLabel(): String =
+    Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).format(windowEndFormatter)
 
 /**
  * The red signal-loss state.
@@ -265,7 +377,7 @@ private fun WindowChips(
     selected: GraphWindow?,
     spanLabel: String,
     onSelect: (GraphWindow) -> Unit,
-    onRefresh: () -> Unit,
+    onPickDate: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -294,8 +406,8 @@ private fun WindowChips(
             Spacer(Modifier.width(4.dp))
         }
 
-        TextButton(onClick = onRefresh, contentPadding = PaddingValues(horizontal = 8.dp)) {
-            Text("Refresh")
+        TextButton(onClick = onPickDate, contentPadding = PaddingValues(horizontal = 8.dp)) {
+            Text("Date")
         }
     }
 }

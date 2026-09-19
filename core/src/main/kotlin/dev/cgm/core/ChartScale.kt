@@ -181,3 +181,62 @@ object ChartZoom {
         }
     }
 }
+
+/**
+ * Moving the chart back through history.
+ *
+ * The viewport is "a span ending at some instant", and normally that instant is
+ * now. Browsing is what happens when it is not: the end detaches from the clock
+ * and the chart shows a window that has already passed.
+ *
+ * Live is a *range* rather than an exact equality, because the end is compared
+ * against a clock that keeps moving. Requiring `end == now` would drop out of live
+ * mode a millisecond after entering it.
+ */
+object ChartHistory {
+
+    /**
+     * How far back browsing may go, matched to the database's retention. Beyond it
+     * there is nothing to find, and a chart that scrolls for ever into emptiness
+     * is a worse answer than one that stops where the data does.
+     */
+    val MAX_LOOKBACK_MILLIS = 730L * 24 * 60 * 60 * 1000
+
+    /** Within this of now, the chart is still following the clock. */
+    val LIVE_TOLERANCE_MILLIS = 60L * 1000
+
+    fun isLive(endMillis: Long, nowMillis: Long): Boolean =
+        nowMillis - endMillis <= LIVE_TOLERANCE_MILLIS
+
+    /**
+     * The future holds no readings, so the end never passes now — which is also
+     * what makes dragging forward settle back into live mode rather than into a
+     * blank window an hour ahead.
+     */
+    fun clampEnd(endMillis: Long, nowMillis: Long): Long =
+        endMillis.coerceIn(nowMillis - MAX_LOOKBACK_MILLIS, nowMillis)
+
+    /**
+     * A horizontal drag, as a new end.
+     *
+     * [fractionOfSpan] is how far the finger moved as a proportion of the chart's
+     * width. Dragging right pulls older data into view, so the end moves *back*:
+     * the content follows the finger, which is the only direction that feels like
+     * dragging a piece of paper rather than a scrollbar.
+     */
+    fun panned(
+        endMillis: Long,
+        spanMillis: Long,
+        fractionOfSpan: Float,
+        nowMillis: Long,
+    ): Long {
+        if (!fractionOfSpan.isFinite()) return clampEnd(endMillis, nowMillis)
+        return clampEnd(endMillis - (spanMillis * fractionOfSpan).toLong(), nowMillis)
+    }
+
+    /** One tap of the arrows. Negative goes back. */
+    fun steppedDays(endMillis: Long, days: Int, nowMillis: Long): Long =
+        clampEnd(endMillis + days * DAY_MILLIS, nowMillis)
+
+    private const val DAY_MILLIS = 24L * 60 * 60 * 1000
+}

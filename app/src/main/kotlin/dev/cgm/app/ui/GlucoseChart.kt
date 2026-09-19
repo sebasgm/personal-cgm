@@ -50,8 +50,16 @@ fun GlucoseChart(
     thresholds: GlucoseThresholds,
     unit: GlucoseUnit,
     stale: Boolean,
+    /**
+     * Whether the window ends at the live edge. While browsing history the newest
+     * reading on screen is simply the last one of a window that has passed, not the
+     * current value, so it gets no emphasis — marking it would claim a reading from
+     * last Tuesday is what your glucose is now.
+     */
+    isLive: Boolean = true,
     modifier: Modifier = Modifier,
     onZoom: (Float) -> Unit = {},
+    onPan: (Float) -> Unit = {},
 ) {
     val band = ChartColors.band
     val staleColor = ZoneColors.stale
@@ -65,8 +73,11 @@ fun GlucoseChart(
         modifier.pointerInput(Unit) {
             // Reported incrementally through the gesture, and 1f means the fingers
             // rotated or panned without scaling — nothing to do with zoom.
-            detectTransformGestures { _, _, zoom, _ ->
+            detectTransformGestures { _, pan, zoom, _ ->
                 if (zoom != 1f) onZoom(zoom)
+                // Reported as a fraction of the chart's width, so the caller can
+                // turn it into time without knowing anything about pixels.
+                if (pan.x != 0f && size.width > 0) onPan(pan.x / size.width)
             }
         }
     ) {
@@ -99,13 +110,15 @@ fun GlucoseChart(
             drawGrid(axis, grid, labelColor, gutter, plotWidth, ::y, measurer, labelStyle, unit)
             drawZoneEdges(thresholds, axis, grid, gutter, plotWidth, ::y)
             drawTrace(readings, trace, ::x, ::y, plotWidth)
-            drawCurrentPoint(
-                reading = readings.last(),
-                thresholds = thresholds,
-                staleColor = if (stale) staleColor else null,
-                x = ::x,
-                y = ::y,
-            )
+            if (isLive) {
+                drawCurrentPoint(
+                    reading = readings.last(),
+                    thresholds = thresholds,
+                    staleColor = if (stale) staleColor else null,
+                    x = ::x,
+                    y = ::y,
+                )
+            }
         }
     }
 }

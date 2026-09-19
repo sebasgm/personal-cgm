@@ -97,6 +97,10 @@ class GlucoseRepository(
     fun historySince(sinceMillis: Long): Flow<List<GlucoseReading>> =
         dao.observeSince(sinceMillis).asReadings()
 
+    /** A window that has already passed, for browsing back through history. */
+    fun historyBetween(startMillis: Long, endMillis: Long): Flow<List<GlucoseReading>> =
+        dao.observeBetween(startMillis, endMillis).asReadings()
+
     fun recentReadings(limit: Int): Flow<List<GlucoseReading>> =
         dao.observeRecent(limit).asReadings()
 

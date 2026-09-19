@@ -117,6 +117,18 @@ interface ReadingDao {
     @Query("SELECT * FROM readings WHERE timestampMillis >= :sinceMillis ORDER BY timestampMillis ASC")
     fun observeSince(sinceMillis: Long): Flow<List<ReadingEntity>>
 
+    /**
+     * A bounded window, for browsing history rather than watching the live edge.
+     *
+     * `timestampMillis` is the primary key, so this is a rowid range scan however
+     * far back the window sits.
+     */
+    @Query(
+        "SELECT * FROM readings WHERE timestampMillis >= :startMillis " +
+            "AND timestampMillis <= :endMillis ORDER BY timestampMillis ASC"
+    )
+    fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<ReadingEntity>>
+
     /** Newest first, for the logbook (#10). Paged by limit rather than loaded whole. */
     @Query("SELECT * FROM readings ORDER BY timestampMillis DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<ReadingEntity>>
