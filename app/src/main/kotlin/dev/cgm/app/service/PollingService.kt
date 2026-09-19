@@ -20,6 +20,7 @@ import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.Freshness
 import dev.cgm.core.PollOutcome
 import dev.cgm.core.PollScheduler
+import dev.cgm.core.StatusIconLabel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -52,7 +53,7 @@ class PollingService : LifecycleService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
-        startForegroundCompat(buildNotification("Starting…", null))
+        startForegroundCompat(buildNotification("Starting…", null, StatusIconLabel.NO_DATA))
         if (loop?.isActive != true) {
             loop = lifecycleScope.launch { pollLoop() }
         }
@@ -147,13 +148,22 @@ class PollingService : LifecycleService() {
             }
         }
 
-        notificationManager().notify(NOTIFICATION_ID, buildNotification(title, detail))
+        notificationManager().notify(
+            NOTIFICATION_ID,
+            buildNotification(
+                title = title,
+                detail = detail,
+                // The status bar gets the bare number; the title above keeps the
+                // unit, arrow and delta for anyone who opens the shade.
+                label = StatusIconLabel.of(snapshot, state.freshness(now)),
+            ),
+        )
     }
 
     private fun notificationManager() =
         getSystemService(android.app.NotificationManager::class.java)
 
-    private fun buildNotification(title: String, detail: String?): Notification {
+    private fun buildNotification(title: String, detail: String?, label: String): Notification {
         val open = PendingIntent.getActivity(
             this,
             0,
@@ -163,7 +173,7 @@ class PollingService : LifecycleService() {
         return NotificationCompat.Builder(this, CgmApplication.CHANNEL_STATUS)
             .setContentTitle(title)
             .setContentText(detail)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(StatusBarIcon.of(label))
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

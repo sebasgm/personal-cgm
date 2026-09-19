@@ -34,6 +34,12 @@ enum class Freshness {
  *   newest reading age, worst observed: 177s (2.9 min)
  *   gaps over 5 minutes: 0 of 55
  *
+ * Caveat on that sample: the recording ran for about one hour (103 readings,
+ * 0 errors), not the overnight stretch originally intended, so it says nothing
+ * about how this path behaves while the phone sleeps. Doze may well delay polls
+ * far beyond anything above; re-measure over a night before trusting these
+ * numbers for sleeping hours.
+ *
  * So anything past ~3 minutes is already abnormal on this path. [agingAfterMillis]
  * sits at 5 minutes — roughly two missed readings, far enough above the worst
  * observed case not to cry wolf — and [staleAfterMillis] at 10 minutes, by which

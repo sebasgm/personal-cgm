@@ -37,6 +37,10 @@ import androidx.compose.ui.unit.dp
 import dev.cgm.app.alarm.AlarmNotifier
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
+import dev.cgm.core.GlucoseThresholds
+import dev.cgm.core.GlucoseUnit
+import dev.cgm.core.ThresholdBoundary
+import dev.cgm.core.get
 import kotlin.math.roundToInt
 
 @Composable
@@ -248,38 +252,153 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
 @Composable
 fun RangesScreen(viewModel: CgmViewModel) {
     val state by viewModel.state.collectAsState()
-    val t = state.snapshot?.thresholds
+    val effective = state.snapshot?.thresholds
+    val account = state.accountThresholds
+    val overrides = state.overrides
+    val unit = state.snapshot?.unit ?: GlucoseUnit.MGDL
 
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         SectionHeader("Ranges")
-        if (t == null) {
+
+        if (effective == null) {
             Text("Waiting for the first reading.")
+            Text(
+                "Ranges start from your LibreLinkUp account, so they arrive with it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             return@Column
         }
-        listOf(
-            "Urgent low" to t.urgentLowMgdl,
-            "Low below" to t.lowMgdl,
-            "High above" to t.highMgdl,
-            "Very high above" to t.veryHighMgdl,
-        ).forEach { (label, value) ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(label)
-                Text("${value.roundToInt()} mg/dL", fontWeight = FontWeight.Medium)
+
+        ThresholdBoundary.entries.forEach { boundary ->
+            RangeRow(
+                boundary = boundary,
+                value = effective[boundary],
+                accountValue = account?.get(boundary),
+                isOverridden = overrides.overrides(boundary),
+                bounds = boundary.editableRange(effective),
+                unit = unit,
+                onChange = { viewModel.setThreshold(boundary, it) },
+                onUseAccount = { viewModel.setThreshold(boundary, null) },
+            )
+            HorizontalDivider()
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        if (!overrides.isEmpty) {
+            OutlinedButton(onClick = { viewModel.resetThresholds() }) {
+                Text("Follow my account again")
             }
         }
+
         Text(
-            "The in-range band comes from your LibreLinkUp account, so the app agrees " +
-                "with what LibreLink shows. Editing these here is not wired up yet.",
+            "Low and high start from your LibreLinkUp account, so the app agrees with " +
+                "what LibreLink shows. Change one here and it stops following the " +
+                "account until you hand it back. Urgent low and very high have no " +
+                "equivalent in the account and are always yours.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "These decide colour, zones and time-in-range \u2014 not when you get woken. " +
+                "Alarm levels are set per alarm under Alarms, deliberately separately: " +
+                "an alarm at the edge of your target band would fire all day.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/**
+ * How far a boundary may be dragged: up to its neighbours, never past them.
+ *
+ * Constraining the input is why [GlucoseThresholds.sanitised] never has to do
+ * anything here. Repairing afterwards would be worse than preventing: pushing the
+ * urgent low above the low would silently drag the low, high and very high up with
+ * it, and the user would watch three numbers they did not touch change themselves.
+ */
+private fun ThresholdBoundary.editableRange(
+    t: GlucoseThresholds,
+): ClosedFloatingPointRange<Float> {
+    val floor = GlucoseThresholds.MIN_PLAUSIBLE_MGDL.toFloat()
+    val ceiling = GlucoseThresholds.MAX_PLAUSIBLE_MGDL.toFloat()
+    return when (this) {
+        ThresholdBoundary.URGENT_LOW -> floor..(t.lowMgdl - 1).toFloat()
+        ThresholdBoundary.LOW -> (t.urgentLowMgdl + 1).toFloat()..(t.highMgdl - 1).toFloat()
+        ThresholdBoundary.HIGH -> (t.lowMgdl + 1).toFloat()..(t.veryHighMgdl - 1).toFloat()
+        ThresholdBoundary.VERY_HIGH -> (t.highMgdl + 1).toFloat()..ceiling
+    }
+}
+
+@Composable
+private fun RangeRow(
+    boundary: ThresholdBoundary,
+    value: Double,
+    accountValue: Double?,
+    isOverridden: Boolean,
+    bounds: ClosedFloatingPointRange<Float>,
+    unit: GlucoseUnit,
+    onChange: (Double) -> Unit,
+    onUseAccount: () -> Unit,
+) {
+    // Keyed on value so an edit from elsewhere (a poll changing the account band)
+    // moves the thumb, while a drag in progress is not fought over.
+    var live by remember(value) { mutableStateOf(value.toFloat()) }
+
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(boundary.label(), style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.weight(1f))
+            Text(
+                "${unit.format(live.toDouble())} ${unit.suffix}",
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Slider(
+            value = live.coerceIn(bounds.start, bounds.endInclusive),
+            onValueChange = { live = it },
+            onValueChangeFinished = { onChange(live.roundToInt().toDouble()) },
+            valueRange = bounds,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                boundary.provenance(isOverridden, accountValue, unit),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (isOverridden && boundary.comesFromAccount && accountValue != null) {
+                TextButton(onClick = onUseAccount) { Text("Use account") }
+            }
+        }
+    }
+}
+
+private fun ThresholdBoundary.label(): String = when (this) {
+    ThresholdBoundary.URGENT_LOW -> "Urgent low below"
+    ThresholdBoundary.LOW -> "Low below"
+    ThresholdBoundary.HIGH -> "High above"
+    ThresholdBoundary.VERY_HIGH -> "Very high above"
+}
+
+/** Says where this number came from, so an edited band is never mistaken for the account's. */
+private fun ThresholdBoundary.provenance(
+    isOverridden: Boolean,
+    accountValue: Double?,
+    unit: GlucoseUnit,
+): String = when {
+    !comesFromAccount -> "Yours \u2014 your account has no equivalent"
+    isOverridden && accountValue != null ->
+        "Yours \u2014 account says ${unit.format(accountValue)}"
+    isOverridden -> "Yours"
+    else -> "From your LibreLinkUp account"
 }
 
 // -- small shared pieces ---------------------------------------------------

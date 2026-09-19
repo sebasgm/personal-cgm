@@ -92,3 +92,90 @@ data class GlucoseThresholds(
         val Default = GlucoseThresholds()
     }
 }
+
+/** One of the four boundaries between the five zones, for addressing them generically. */
+enum class ThresholdBoundary {
+    URGENT_LOW,
+    LOW,
+    HIGH,
+    VERY_HIGH;
+
+    /** What the account can tell us. The other two have no LibreLinkUp equivalent. */
+    val comesFromAccount: Boolean get() = this == LOW || this == HIGH
+}
+
+/** Read one boundary by name, so UI can loop over all four. */
+operator fun GlucoseThresholds.get(boundary: ThresholdBoundary): Double = when (boundary) {
+    ThresholdBoundary.URGENT_LOW -> urgentLowMgdl
+    ThresholdBoundary.LOW -> lowMgdl
+    ThresholdBoundary.HIGH -> highMgdl
+    ThresholdBoundary.VERY_HIGH -> veryHighMgdl
+}
+
+/** Replace one boundary, leaving the rest alone. Not sanitised: the caller decides. */
+fun GlucoseThresholds.with(boundary: ThresholdBoundary, mgdl: Double): GlucoseThresholds =
+    when (boundary) {
+        ThresholdBoundary.URGENT_LOW -> copy(urgentLowMgdl = mgdl)
+        ThresholdBoundary.LOW -> copy(lowMgdl = mgdl)
+        ThresholdBoundary.HIGH -> copy(highMgdl = mgdl)
+        ThresholdBoundary.VERY_HIGH -> copy(veryHighMgdl = mgdl)
+    }
+
+/**
+ * The boundaries the user has taken over, if any.
+ *
+ * Stored as four nullable values rather than a whole [GlucoseThresholds] so that
+ * "I have opinions about my urgent low" does not silently freeze the in-range
+ * band too. An unset boundary keeps following the LibreLinkUp account, so when
+ * the account's target changes the app still agrees with LibreLink — which was
+ * the whole reason for reading targets from it in the first place.
+ */
+@Serializable
+data class ThresholdOverrides(
+    @SerialName("ul") val urgentLowMgdl: Double? = null,
+    @SerialName("lo") val lowMgdl: Double? = null,
+    @SerialName("hi") val highMgdl: Double? = null,
+    @SerialName("vh") val veryHighMgdl: Double? = null,
+) {
+
+    operator fun get(boundary: ThresholdBoundary): Double? = when (boundary) {
+        ThresholdBoundary.URGENT_LOW -> urgentLowMgdl
+        ThresholdBoundary.LOW -> lowMgdl
+        ThresholdBoundary.HIGH -> highMgdl
+        ThresholdBoundary.VERY_HIGH -> veryHighMgdl
+    }
+
+    /** A null [mgdl] hands the boundary back to the account. */
+    fun with(boundary: ThresholdBoundary, mgdl: Double?): ThresholdOverrides =
+        when (boundary) {
+            ThresholdBoundary.URGENT_LOW -> copy(urgentLowMgdl = mgdl)
+            ThresholdBoundary.LOW -> copy(lowMgdl = mgdl)
+            ThresholdBoundary.HIGH -> copy(highMgdl = mgdl)
+            ThresholdBoundary.VERY_HIGH -> copy(veryHighMgdl = mgdl)
+        }
+
+    fun overrides(boundary: ThresholdBoundary): Boolean = this[boundary] != null
+
+    val isEmpty: Boolean
+        get() = ThresholdBoundary.entries.none { overrides(it) }
+
+    /**
+     * Lay the overrides over [base] and repair the result.
+     *
+     * [GlucoseThresholds.sanitised] is the safety net, not the mechanism: the UI
+     * bounds each boundary by its neighbours so disorder cannot be entered. It
+     * still runs here, because settings persisted by an older build — or a hand-
+     * edited DataStore — must not be able to make `classify` nonsense.
+     */
+    fun applyTo(base: GlucoseThresholds): GlucoseThresholds =
+        base.copy(
+            urgentLowMgdl = urgentLowMgdl ?: base.urgentLowMgdl,
+            lowMgdl = lowMgdl ?: base.lowMgdl,
+            highMgdl = highMgdl ?: base.highMgdl,
+            veryHighMgdl = veryHighMgdl ?: base.veryHighMgdl,
+        ).sanitised()
+
+    companion object {
+        val None = ThresholdOverrides()
+    }
+}

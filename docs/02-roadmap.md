@@ -97,6 +97,26 @@ Settings; the account only supplies the defaults.
 This replaces `GlucoseRange`/`Zone` in `:core`. Doing it now is cheap; doing it after four
 charts are built is not.
 
+**Built.** Editing lives in Settings → Ranges, backed by `ThresholdOverrides` in `:core`.
+Two details worth knowing, because both were deliberate:
+
+*Overrides are per boundary, not a whole `GlucoseThresholds`.* Only the boundaries the user
+actually edited are stored; the rest keep following the account. Storing the whole object
+would mean editing the urgent low silently freezes the in-range band, and the app would
+stop agreeing with LibreLink the next time the account's target moved — which was the
+entire reason for reading targets from the account in the first place.
+
+*The account's values are kept alongside the effective ones.* `CgmState.accountThresholds`
+holds what the account said, so the screen can show "account says 70" beside a boundary the
+user has taken over and offer to hand it back. Without it, "follow the account again" would
+have nothing to restore.
+
+Each slider is bounded by its neighbours, so disorder cannot be entered.
+`GlucoseThresholds.sanitised()` still runs on load, as a net for settings written by an
+older build — but it is the net, not the mechanism. Repairing after the fact would be worse
+than preventing: raising the urgent low past the low would drag the low, high and very high
+up with it, and the user would watch three numbers they never touched change themselves.
+
 ### 2b. Statistics engine (blocks #7, #8, #9)
 
 A pure, testable module in `:core` over a list of readings:
@@ -128,9 +148,17 @@ Nothing here waits for accumulated data.
 
 1. **Thresholds model** (§2a) — foundation
 2. **Home screen** — see `docs/03-ui-design.md`
-3. **#11 status bar value** — render the number into the notification's small icon, as
-   xDrip does, so it sits in the status bar at a readable size. The ongoing notification
-   already exists; this is its icon and layout.
+3. **#11 status bar value** — **built.** The number is rendered into a bitmap and set as
+   the ongoing notification's small icon, as xDrip does, because Android gives a
+   notification one icon and no way to put text in the status bar. `StatusIconLabel` in
+   `:core` decides *what* it says and `StatusBarIcon` in `:app` draws it.
+
+   Three glyphs is the budget, which forces two decisions. Double-digit mmol/L drops its
+   decimal, since "10.0" does not fit — rounded, not truncated, so 9.99 reads as 10 rather
+   than 9. And a **stale** reading shows `?` instead of its last value: the status bar is
+   glanced at, not read, so there is no room beside it for "17 min ago" and a number there
+   would be taken as current. Aging readings still show their number; they are late, not
+   wrong, and the shade says so. Above the sensor's range it reads `HI`, below it `LO`.
 4. **#1 low alert** — configurable threshold, and the single-sound-on-rising behaviour.
    That behaviour needs alert *state*: alerted-at, last-trend, acknowledged. Re-alert when
    the trend stops rising or the value falls further. This is the subtlest logic in
@@ -185,5 +213,7 @@ absolute timestamps, `WatchPayload`) keep this unblocked.
 
 ### Still open
 
-- **#11 "tray bar"** — assumed to mean the Android **status bar** (the persistent number
-  beside the clock, as xDrip does), not a home-screen widget. Say if that is wrong.
+- **#11 "tray bar"** — read as the Android **status bar** (the persistent number beside the
+  clock, as xDrip does), not a home-screen widget, and **built on that reading**. If a
+  home-screen widget was meant instead, the label logic in `StatusIconLabel` carries over
+  unchanged; only the surface would be new work.

@@ -13,6 +13,8 @@ import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.StatisticsCalculator
+import dev.cgm.core.ThresholdBoundary
+import dev.cgm.core.ThresholdOverrides
 import dev.cgm.llu.LibreLinkUpCredentials
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -73,6 +75,25 @@ class CgmViewModel(
         viewModelScope.launch {
             settings.saveAlarmSettings(alarmSettings.value.with(kind, setting))
         }
+    }
+
+    // -- ranges -------------------------------------------------------------
+
+    /**
+     * Take one boundary over from the account, or hand it back with a null.
+     *
+     * Reads the overrides out of [state] rather than keeping a second copy, so
+     * there is exactly one answer to "which boundaries are mine" and a poll
+     * landing mid-edit cannot resurrect a stale set.
+     */
+    fun setThreshold(boundary: ThresholdBoundary, mgdl: Double?) {
+        viewModelScope.launch {
+            repository.setThresholdOverrides(state.value.overrides.with(boundary, mgdl))
+        }
+    }
+
+    fun resetThresholds() {
+        viewModelScope.launch { repository.setThresholdOverrides(ThresholdOverrides.None) }
     }
 
     // -- logbook (issue #10) -----------------------------------------------

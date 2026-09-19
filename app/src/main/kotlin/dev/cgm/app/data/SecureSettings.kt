@@ -9,6 +9,7 @@ import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmRuntimeState
 import dev.cgm.core.AlarmSettings
 import dev.cgm.core.FreshnessPolicy
+import dev.cgm.core.ThresholdOverrides
 import dev.cgm.llu.LibreLinkUpCredentials
 import dev.cgm.llu.LibreLinkUpSession
 import dev.cgm.llu.SessionStore
@@ -85,6 +86,24 @@ class SecureSettings(private val context: Context) : SessionStore {
         context.dataStore.edit { it[KEY_FRESHNESS] = json.encodeToString(policy) }
     }
 
+    // -- ranges -----------------------------------------------------------
+
+    /**
+     * Boundaries the user has taken over from the account. Only the ones they
+     * actually edited are stored, so the rest keep following LibreLinkUp.
+     */
+    val thresholdOverrides: Flow<ThresholdOverrides> = context.dataStore.data.map { prefs ->
+        prefs[KEY_RANGES]
+            ?.let { runCatching { json.decodeFromString<ThresholdOverrides>(it) }.getOrNull() }
+            ?: ThresholdOverrides.None
+    }
+
+    suspend fun thresholdOverridesOnce(): ThresholdOverrides = thresholdOverrides.first()
+
+    suspend fun saveThresholdOverrides(overrides: ThresholdOverrides) {
+        context.dataStore.edit { it[KEY_RANGES] = json.encodeToString(overrides) }
+    }
+
     // -- alarms -----------------------------------------------------------
 
     /**
@@ -129,5 +148,6 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_PASSWORD: Preferences.Key<String> = stringPreferencesKey("llu_password_enc")
         val KEY_SESSION: Preferences.Key<String> = stringPreferencesKey("llu_session_enc")
         val KEY_FRESHNESS: Preferences.Key<String> = stringPreferencesKey("freshness_policy")
+        val KEY_RANGES: Preferences.Key<String> = stringPreferencesKey("threshold_overrides")
     }
 }

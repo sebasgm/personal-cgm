@@ -26,6 +26,10 @@ different questions. The defaults reflect that: the display band is 70–180 (fr
 account), but the high alarm sits at 220. An alarm at the exact edge of target fires
 constantly, and an alarm that fires constantly gets ignored — which is the real failure.
 
+The two are edited in different places for the same reason: display bands under
+Settings → Ranges, alarm levels inside each alarm. Editing your ranges recolours the graph
+and moves time-in-range; it does not change when you get woken.
+
 ## 3. Silence while recovering (issue #1)
 
 A low that is already coming back up does not need announcing every fifteen minutes.

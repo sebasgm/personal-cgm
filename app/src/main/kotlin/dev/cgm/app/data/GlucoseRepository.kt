@@ -9,6 +9,7 @@ import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.StatisticsCalculator
+import dev.cgm.core.ThresholdOverrides
 import dev.cgm.core.Zone
 import dev.cgm.core.GlucoseSourceException
 import dev.cgm.core.PollOutcome
@@ -42,6 +43,16 @@ data class CgmState(
     val error: ErrorState? = null,
     val policy: FreshnessPolicy = FreshnessPolicy.Default,
     val sensor: SensorInfo? = null,
+    /**
+     * What the account said, before the user's overrides were laid on top.
+     *
+     * [snapshot]'s thresholds are the effective ones — everything colouring,
+     * classifying or alarming reads those. This is kept only so the Ranges screen
+     * can say "your account says 70" beside an overridden boundary, and offer to
+     * hand it back.
+     */
+    val accountThresholds: GlucoseThresholds? = null,
+    val overrides: ThresholdOverrides = ThresholdOverrides.None,
 ) {
     /**
      * Derived from the clock every time it is asked, never cached: a reading does
@@ -126,11 +137,33 @@ class GlucoseRepository(
 
     suspend fun refreshConfiguration() {
         val credentials = settings.credentials()
-        _state.update { it.copy(configured = credentials != null, policy = currentPolicy()) }
+        val overrides = currentOverrides()
+        _state.update {
+            it.copy(
+                configured = credentials != null,
+                policy = currentPolicy(),
+                overrides = overrides,
+            ).withOverridesApplied(overrides)
+        }
     }
 
     private suspend fun currentPolicy(): FreshnessPolicy =
         runCatching { settings.freshnessPolicy.first() }.getOrDefault(FreshnessPolicy.Default)
+
+    private suspend fun currentOverrides(): ThresholdOverrides =
+        runCatching { settings.thresholdOverridesOnce() }.getOrDefault(ThresholdOverrides.None)
+
+    /**
+     * Take over a boundary, or hand it back to the account with a null value.
+     *
+     * Applies to the *current* state as well as saving, so the graph recolours
+     * while the user's finger is still on the slider rather than at the next poll
+     * up to a minute later.
+     */
+    suspend fun setThresholdOverrides(overrides: ThresholdOverrides) {
+        settings.saveThresholdOverrides(overrides)
+        _state.update { it.copy(overrides = overrides).withOverridesApplied(overrides) }
+    }
 
     /** One fetch. Never throws; failures come back as [PollOutcome]. */
     suspend fun pollOnce(): PollOutcome {
@@ -150,7 +183,17 @@ class GlucoseRepository(
         return try {
             val fetched = client.fetch()
             persist(fetched)
-            val result = fetched.withRefinedDelta(refineDelta(fetched))
+            val refined = fetched.withRefinedDelta(refineDelta(fetched))
+
+            // The account's band arrives on every fetch, so the user's overrides
+            // have to be re-applied on every fetch or a poll would quietly undo
+            // them. Downstream sinks — including the watch bridge — get the
+            // effective thresholds, not the account's, so nothing colours a
+            // reading differently to the phone.
+            val account = refined.snapshot.thresholds
+            val overrides = currentOverrides()
+            val result = refined.withThresholds(overrides.applyTo(account))
+
             _state.update {
                 it.copy(
                     configured = true,
@@ -159,6 +202,8 @@ class GlucoseRepository(
                     error = null,
                     policy = currentPolicy(),
                     sensor = result.sensor ?: it.sensor,
+                    accountThresholds = account,
+                    overrides = overrides,
                 )
             }
             _results.emit(result)
@@ -235,6 +280,25 @@ class GlucoseRepository(
 private fun SourceResult.withRefinedDelta(refined: GlucoseDelta?): SourceResult =
     if (refined == null) this
     else copy(snapshot = snapshot.copy(delta = refined))
+
+private fun SourceResult.withThresholds(thresholds: GlucoseThresholds): SourceResult =
+    copy(snapshot = snapshot.copy(thresholds = thresholds))
+
+/**
+ * Re-derive the effective thresholds from the account's values and [overrides].
+ *
+ * Always rebuilds from [CgmState.accountThresholds] rather than from whatever the
+ * snapshot currently carries, because removing an override has to restore the
+ * account's number — and only the account copy still knows it.
+ */
+private fun CgmState.withOverridesApplied(overrides: ThresholdOverrides): CgmState {
+    val account = accountThresholds ?: snapshot?.thresholds ?: return this
+    val snapshot = snapshot ?: return copy(accountThresholds = account)
+    return copy(
+        accountThresholds = account,
+        snapshot = snapshot.copy(thresholds = overrides.applyTo(account)),
+    )
+}
 
 private fun GlucoseSourceException.toErrorState(): ErrorState = when (this) {
     is GlucoseSourceException.AuthFailed ->
