@@ -36,6 +36,20 @@ from llu import (
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 
 
+def mask(value: str | None, keep: int = 4) -> str:
+    """Hide most of an identifier.
+
+    The probe's output often gets pasted into issues, chat logs and AI sessions.
+    Patient ids and sensor serials identify a person's medical device, so they are
+    masked unless explicitly asked for with --show-ids.
+    """
+    if not value:
+        return "?"
+    if len(value) <= keep:
+        return "*" * len(value)
+    return value[:keep] + "\u2026" + "*" * 4
+
+
 def _pick_patient(client: LibreLinkUp, patient_id: str | None) -> dict:
     conns = client.connections()
     if not conns:
@@ -72,9 +86,13 @@ def cmd_login(args) -> int:
     print("Authenticated.\n")
     print(f"  region          {client.region}   (set LLU_REGION={client.region} to skip the redirect)")
     print(f"  token expires   {expiry}")
-    print(f"  patient id      {conn['patientId']}")
-    print(f"  patient         {conn.get('firstName','?')} {conn.get('lastName','')}".rstrip())
-    print(f"  sensor serial   {sensor.get('sn','?')}")
+    show = args.show_ids
+    patient_id = conn["patientId"]
+    serial = sensor.get("sn")
+    print(f"  patient id      {patient_id if show else mask(patient_id, 8)}")
+    if show:
+        print(f"  patient         {conn.get('firstName','?')} {conn.get('lastName','')}".rstrip())
+    print(f"  sensor serial   {serial if show else mask(serial)}")
     if sensor.get("a"):
         started = datetime.fromtimestamp(sensor["a"])
         age_days = (datetime.now() - started).total_seconds() / 86400
@@ -247,7 +265,12 @@ def main() -> int:
     parser.add_argument("--patient", help="patient id (default: first connection)")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("login", help="authenticate and describe the account")
+    login = sub.add_parser("login", help="authenticate and describe the account")
+    login.add_argument(
+        "--show-ids",
+        action="store_true",
+        help="print patient id, name and sensor serial in full (masked by default)",
+    )
     sub.add_parser("probe", help="one-shot current reading")
 
     rec = sub.add_parser("record", help="poll and record readings to a fixture")
@@ -259,6 +282,8 @@ def main() -> int:
     st.add_argument("file", nargs="?", help="fixture path (default: most recent)")
 
     args = parser.parse_args()
+    if not hasattr(args, "show_ids"):
+        args.show_ids = False
     handler = {"login": cmd_login, "probe": cmd_probe, "record": cmd_record, "stats": cmd_stats}[args.cmd]
     try:
         return handler(args)

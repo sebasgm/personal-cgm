@@ -224,18 +224,45 @@ class LibreLinkUp:
 # -- credential/token cache -----------------------------------------------
 
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".llu_cache.json")
+ENV_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"
+)
+
+
+def load_dotenv(path: str = ENV_PATH) -> None:
+    """Read KEY=value lines from .env into the environment.
+
+    Keeps the password off the command line and out of shell history. The file is
+    gitignored; anything already set in the real environment wins.
+    """
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
 
 
 def load_client() -> LibreLinkUp:
-    """Build a client from env vars, reusing a cached token when present."""
+    """Build a client from .env or env vars, reusing a cached token when present."""
+    load_dotenv()
     email = os.environ.get("LLU_EMAIL")
     password = os.environ.get("LLU_PASSWORD")
     if not email or not password:
         raise SystemExit(
-            "Set LLU_EMAIL and LLU_PASSWORD (the LibreLinkUp *follower* account,\n"
-            "not the LibreView account that wears the sensor).\n"
-            "  export LLU_EMAIL=you@example.com\n"
-            "  read -rs LLU_PASSWORD && export LLU_PASSWORD"
+            "No credentials found.\n\n"
+            f"Create {ENV_PATH} containing the LibreLinkUp *follower* account\n"
+            "(the one invited to follow the sensor, not the LibreView account\n"
+            "wearing it):\n\n"
+            "  LLU_EMAIL=you@example.com\n"
+            "  LLU_PASSWORD=your-password\n\n"
+            "Then: chmod 600 .env\n"
+            "The file is gitignored."
         )
 
     client = LibreLinkUp(email, password, os.environ.get("LLU_REGION", DEFAULT_REGION))
