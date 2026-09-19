@@ -430,17 +430,24 @@ private fun StatStrip(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
+        // Coverage is stated, not merely implied by muting. These figures are
+        // fractions of the readings we *have*, and this app can never backfill
+        // history — so with a few hours of data every window from 3h to 24h holds
+        // the same readings and reports the same percentage. Without the coverage
+        // beside it, that reads as a control that does not work.
+        val coverageNote = if (stats.isReliable) null else stats.coverageNote()
+
         StatCell(
             label = "In range $windowLabel",
             value = stats.timeInRange?.let { "${(it * 100).roundToInt()}%" } ?: "—",
-            // Coverage is the honest caveat: this app can never backfill history,
-            // so a window can be legitimately half empty.
             muted = !stats.isReliable,
+            note = coverageNote,
         )
         StatCell(
             label = "Average",
             value = stats.meanMgdl?.let { unit?.format(it) ?: it.roundToInt().toString() } ?: "—",
             muted = !stats.isReliable,
+            note = coverageNote,
         )
         StatCell(
             label = "Sensor",
@@ -451,7 +458,7 @@ private fun StatStrip(
 }
 
 @Composable
-private fun StatCell(label: String, value: String, muted: Boolean) {
+private fun StatCell(label: String, value: String, muted: Boolean, note: String? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             value,
@@ -467,5 +474,29 @@ private fun StatCell(label: String, value: String, muted: Boolean) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        note?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * How much of the window this figure actually rests on.
+ *
+ * Phrased as a fraction of the window rather than a reading count, because the
+ * question it answers is "does this describe the range I picked" — and below 1% it
+ * is rounded up to "<1%" rather than shown as 0%, which would read as no data at
+ * all when there is some.
+ */
+private fun GlucoseStatistics.coverageNote(): String {
+    val percent = coverage * 100
+    return when {
+        percent <= 0.0 -> "no data"
+        percent < 1.0 -> "<1% of window"
+        else -> "${percent.roundToInt()}% of window"
     }
 }

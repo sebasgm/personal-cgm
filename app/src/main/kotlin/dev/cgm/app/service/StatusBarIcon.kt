@@ -29,16 +29,46 @@ object StatusBarIcon {
      * Rendered well above the ~24dp the status bar will show, then downscaled by
      * the system. Cheaper than it looks — [of] caches — and the extra pixels are
      * what keep three digits from turning to mush on a high-density screen.
+     *
+     * Raising this does not make the number look bigger. The system scales whatever
+     * it is given into a fixed slot, so this controls sharpness, not size.
      */
     private const val SIZE_PX = 96
 
-    /** Leaves a hair of padding so glyphs are not clipped by the icon's edge. */
-    private const val USABLE = 0.92f
+    /**
+     * How much of the square the glyphs may use.
+     *
+     * **This is the whole ceiling on apparent size, and it is width, not font size.**
+     * Three digits laid across a ~24dp slot leaves each one about 7dp wide; the
+     * height then follows from the aspect ratio, because Android scales the bitmap
+     * into its slot without distorting it. "124" reaches this limit horizontally
+     * while using only about half the height — that empty space above and below is
+     * not wasted room for a bigger number, it is what a wide, short thing looks like
+     * inside a square.
+     *
+     * So the levers that actually work are the ones that make the glyphs *narrower*:
+     * a condensed face and tighter tracking, both below. Together they buy roughly a
+     * third. Anything beyond that needs a surface that is not a status bar icon —
+     * a home-screen widget has no such cap.
+     *
+     * Kept just under 1 so antialiasing at the edges is not clipped.
+     */
+    private const val USABLE = 0.97f
+
+    /**
+     * Tighter than the font intends, because horizontal space is the binding
+     * constraint: every fraction of an em saved between digits is spent on making
+     * all of them taller.
+     */
+    private const val TRACKING_EM = -0.03f
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        // Condensed, so three digits fit across the slot at a larger size than the
+        // default face allows. This is the single biggest win available here.
+        typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
         textAlign = Paint.Align.CENTER
+        letterSpacing = TRACKING_EM
     }
     private val bounds = Rect()
 
