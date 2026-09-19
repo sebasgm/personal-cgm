@@ -5,6 +5,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.cgm.core.AlarmKind
+import dev.cgm.core.AlarmRuntimeState
+import dev.cgm.core.AlarmSettings
 import dev.cgm.core.FreshnessPolicy
 import dev.cgm.llu.LibreLinkUpCredentials
 import dev.cgm.llu.LibreLinkUpSession
@@ -82,7 +85,46 @@ class SecureSettings(private val context: Context) : SessionStore {
         context.dataStore.edit { it[KEY_FRESHNESS] = json.encodeToString(policy) }
     }
 
+    // -- alarms -----------------------------------------------------------
+
+    /**
+     * Alarm configuration. Not secret, so stored as plain JSON — encrypting it
+     * would only make it harder to inspect when an alarm misbehaves.
+     */
+    val alarmSettings: Flow<AlarmSettings> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ALARMS]
+            ?.let { runCatching { json.decodeFromString<AlarmSettings>(it) }.getOrNull() }
+            ?: AlarmSettings.Default
+    }
+
+    suspend fun alarmSettingsOnce(): AlarmSettings = alarmSettings.first()
+
+    suspend fun saveAlarmSettings(settings: AlarmSettings) {
+        context.dataStore.edit { it[KEY_ALARMS] = json.encodeToString(settings) }
+    }
+
+    /**
+     * Alarm runtime state, persisted so that a restart does not re-announce an
+     * alarm the user already heard and dismissed.
+     */
+    suspend fun alarmState(): AlarmRuntimeState {
+        val raw = context.dataStore.data.first()[KEY_ALARM_STATE] ?: return AlarmRuntimeState.Empty
+        return runCatching { json.decodeFromString<AlarmRuntimeState>(raw) }
+            .getOrDefault(AlarmRuntimeState.Empty)
+    }
+
+    suspend fun saveAlarmState(state: AlarmRuntimeState) {
+        context.dataStore.edit { it[KEY_ALARM_STATE] = json.encodeToString(state) }
+    }
+
+    suspend fun snoozeAlarm(kind: AlarmKind, forMillis: Long) {
+        val snoozed = alarmState().snooze(kind, System.currentTimeMillis() + forMillis)
+        saveAlarmState(snoozed)
+    }
+
     private companion object {
+        val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")
+        val KEY_ALARM_STATE: Preferences.Key<String> = stringPreferencesKey("alarm_state")
         val KEY_EMAIL: Preferences.Key<String> = stringPreferencesKey("llu_email")
         val KEY_PASSWORD: Preferences.Key<String> = stringPreferencesKey("llu_password_enc")
         val KEY_SESSION: Preferences.Key<String> = stringPreferencesKey("llu_session_enc")

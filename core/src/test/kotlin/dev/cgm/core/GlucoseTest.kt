@@ -88,8 +88,9 @@ class FreshnessTest {
 
     @Test
     fun `freshness comes from the clock not from fetch success`() {
-        assertEquals(Freshness.FRESH, policy.evaluate(readingAgedMinutes(2), now))
-        assertEquals(Freshness.AGING, policy.evaluate(readingAgedMinutes(8), now))
+        // 2.9 min is the worst age observed on a healthy feed, so 3 must be FRESH.
+        assertEquals(Freshness.FRESH, policy.evaluate(readingAgedMinutes(3), now))
+        assertEquals(Freshness.AGING, policy.evaluate(readingAgedMinutes(7), now))
         assertEquals(Freshness.STALE, policy.evaluate(readingAgedMinutes(30), now))
     }
 
@@ -103,7 +104,7 @@ class FreshnessTest {
     @Test
     fun `next transition lets callers schedule instead of poll`() {
         val r = readingAgedMinutes(2)
-        assertEquals(4.minutes, policy.nextTransition(r, now))
+        assertEquals(3.minutes, policy.nextTransition(r, now))
         assertEquals(null, policy.nextTransition(readingAgedMinutes(60), now))
     }
 }
@@ -370,5 +371,38 @@ class SensorInfoTest {
     fun `unknown start is not an expired sensor`() {
         assertEquals(null, SensorInfo().dayOfSession(now))
         assertTrue(!SensorInfo().isExpired(now))
+    }
+}
+
+class EstimatedA1cTest {
+    private fun statsWithMean(mean: Double) = GlucoseStatistics(
+        readingCount = 100,
+        meanMgdl = mean,
+        zoneFractions = emptyMap(),
+        coverage = 1.0,
+    )
+
+    @Test
+    fun `GMI matches the published formula`() {
+        // 154 mg/dL is the canonical mean for an A1C of about 7%.
+        assertEquals(7.0, statsWithMean(154.0).gmiPercent!!, 0.02)
+    }
+
+    @Test
+    fun `estimated A1C matches the ADAG relationship`() {
+        assertEquals(7.0, statsWithMean(154.0).estimatedA1cPercent!!, 0.02)
+    }
+
+    @Test
+    fun `both are null without a mean`() {
+        assertEquals(null, GlucoseStatistics.Empty.gmiPercent)
+        assertEquals(null, GlucoseStatistics.Empty.estimatedA1cPercent)
+    }
+
+    @Test
+    fun `the two estimates diverge at high means, which is expected`() {
+        val s = statsWithMean(300.0)
+        assertTrue(s.gmiPercent!! != s.estimatedA1cPercent!!)
+        assertTrue(s.gmiPercent!! > 10.0 && s.estimatedA1cPercent!! > 11.0)
     }
 }

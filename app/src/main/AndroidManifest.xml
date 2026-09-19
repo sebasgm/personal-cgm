@@ -45,6 +45,10 @@
         </service>
 
         <receiver
+            android:name=".alarm.AlarmActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".service.BootReceiver"
             android:exported="true">
             <intent-filter>

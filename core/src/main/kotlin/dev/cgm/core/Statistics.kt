@@ -24,6 +24,24 @@ data class GlucoseStatistics(
     val timeInRange: Double? get() = zoneFractions[Zone.IN_RANGE]
 
     /**
+     * Glucose Management Indicator, the standardised CGM-derived estimate of
+     * A1C: `GMI(%) = 3.31 + 0.02392 x mean mg/dL`.
+     *
+     * An estimate from sensor data, not a laboratory value, and unreliable below
+     * [RELIABLE_COVERAGE] or over less than about 14 days. The UI says so.
+     */
+    val gmiPercent: Double? get() = meanMgdl?.let { 3.31 + 0.02392 * it }
+
+    /**
+     * Estimated A1C from mean glucose, inverting the ADAG eAG relationship:
+     * `A1C(%) = (mean mg/dL + 46.7) / 28.7`.
+     *
+     * Differs from [gmiPercent] by design — they are two different published
+     * estimates of the same thing, and issue #7 asks for both.
+     */
+    val estimatedA1cPercent: Double? get() = meanMgdl?.let { (it + 46.7) / 28.7 }
+
+    /**
      * Below this, clinical guidance treats CGM summary metrics as unreliable.
      * The UI still shows the number, but muted and labelled.
      */
@@ -33,6 +51,9 @@ data class GlucoseStatistics(
         const val RELIABLE_COVERAGE = 0.70
 
         val Empty = GlucoseStatistics(0, null, emptyMap(), 0.0)
+
+        /** Below roughly two weeks, GMI and A1C estimates are not meaningful. */
+        const val MIN_DAYS_FOR_A1C = 14
     }
 }
 

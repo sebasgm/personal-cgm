@@ -6,6 +6,10 @@ import dev.cgm.core.FreshnessPolicy
 import dev.cgm.core.GlucoseDelta
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseSnapshot
+import dev.cgm.core.GlucoseStatistics
+import dev.cgm.core.GlucoseThresholds
+import dev.cgm.core.StatisticsCalculator
+import dev.cgm.core.Zone
 import dev.cgm.core.GlucoseSourceException
 import dev.cgm.core.PollOutcome
 import dev.cgm.core.SensorInfo
@@ -81,6 +85,44 @@ class GlucoseRepository(
 
     fun historySince(sinceMillis: Long): Flow<List<GlucoseReading>> =
         dao.observeSince(sinceMillis).asReadings()
+
+    fun recentReadings(limit: Int): Flow<List<GlucoseReading>> =
+        dao.observeRecent(limit).asReadings()
+
+    /** Window statistics, aggregated in SQL so a year-long window stays cheap. */
+    suspend fun statistics(
+        startMillis: Long,
+        endMillis: Long,
+        thresholds: GlucoseThresholds,
+    ): GlucoseStatistics {
+        val row = dao.aggregate(
+            startMillis = startMillis,
+            endMillis = endMillis,
+            urgentLow = thresholds.urgentLowMgdl,
+            low = thresholds.lowMgdl,
+            high = thresholds.highMgdl,
+            veryHigh = thresholds.veryHighMgdl,
+        )
+        if (row.total == 0) return GlucoseStatistics.Empty
+
+        val total = row.total.toDouble()
+        val expectedBuckets =
+            ((endMillis - startMillis) / StatisticsCalculator.COVERAGE_BUCKET_MILLIS)
+                .coerceAtLeast(1)
+
+        return GlucoseStatistics(
+            readingCount = row.total,
+            meanMgdl = row.mean,
+            zoneFractions = mapOf(
+                Zone.URGENT_LOW to row.urgentLow / total,
+                Zone.LOW to row.low / total,
+                Zone.IN_RANGE to row.inRange / total,
+                Zone.HIGH to row.high / total,
+                Zone.VERY_HIGH to row.veryHigh / total,
+            ),
+            coverage = (row.buckets.toDouble() / expectedBuckets).coerceIn(0.0, 1.0),
+        )
+    }
 
     suspend fun refreshConfiguration() {
         val credentials = settings.credentials()
@@ -176,8 +218,13 @@ class GlucoseRepository(
     }
 
     private companion object {
-        /** Ninety days is plenty for the graph and keeps the table small. */
-        const val HISTORY_RETENTION_MILLIS = 90L * 24 * 60 * 60 * 1000
+        /**
+         * Two years. Issue #6 wants a one-year plot, and retention has to exceed
+         * the longest window or the chart silently truncates. At roughly one
+         * reading a minute that is ~1M rows, which SQLite handles fine because
+         * every window is aggregated in SQL rather than loaded.
+         */
+        const val HISTORY_RETENTION_MILLIS = 730L * 24 * 60 * 60 * 1000
 
         /** Only need enough context to find a reading ~5 minutes back. */
         const val DELTA_LOOKBACK_MILLIS = 30L * 60 * 1000

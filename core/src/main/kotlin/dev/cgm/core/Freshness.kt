@@ -27,15 +27,27 @@ enum class Freshness {
 }
 
 /**
- * Thresholds. A Libre sensor produces a value a minute, and the LibreLinkUp cloud
- * path adds 1-5 minutes on top (measure yours with `spike/llu_probe.py stats`).
- * [aging] therefore has to sit above the worst-case normal latency or the UI
- * cries wolf constantly.
+ * Thresholds, tuned against 56 live samples recorded 2026-09-19:
+ *
+ *   cloud latency   35-55s      (median 45s)
+ *   sensor cadence  60s         (max 122s, one dropped reading)
+ *   newest reading age, worst observed: 177s (2.9 min)
+ *   gaps over 5 minutes: 0 of 55
+ *
+ * So anything past ~3 minutes is already abnormal on this path. [agingAfterMillis]
+ * sits at 5 minutes — roughly two missed readings, far enough above the worst
+ * observed case not to cry wolf — and [staleAfterMillis] at 10 minutes, by which
+ * point eight readings are missing and the number on screen is not current.
+ *
+ * These are deliberately tighter than the alarm defaults: the display should stop
+ * claiming a value is current long before it is worth waking someone over.
+ *
+ * Re-measure with `spike/llu_probe.py stats` if the region or sensor changes.
  */
 @Serializable
 data class FreshnessPolicy(
-    val agingAfterMillis: Long = 6.minutes.inWholeMilliseconds,
-    val staleAfterMillis: Long = 12.minutes.inWholeMilliseconds,
+    val agingAfterMillis: Long = 5.minutes.inWholeMilliseconds,
+    val staleAfterMillis: Long = 10.minutes.inWholeMilliseconds,
 ) {
     fun evaluate(ageMillis: Long): Freshness = when {
         ageMillis >= staleAfterMillis -> Freshness.STALE

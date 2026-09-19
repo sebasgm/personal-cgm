@@ -5,15 +5,26 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.cgm.app.CgmApplication
@@ -33,21 +44,19 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(
                 colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
             ) {
-                Surface {
-                    val vm: CgmViewModel = viewModel(
-                        factory = CgmViewModel.factory(app.repository, app.settings)
-                    )
-                    val state by vm.state.collectAsState()
+                val vm: CgmViewModel = viewModel(
+                    factory = CgmViewModel.factory(app.repository, app.settings)
+                )
+                val state by vm.state.collectAsState()
 
-                    if (state.configured) {
-                        HomeScreen(
-                            viewModel = vm,
-                            onStartService = { PollingService.start(this) },
-                            onStopService = { PollingService.stop(this) },
-                        )
-                    } else {
-                        SetupScreen(viewModel = vm, onSignedIn = { PollingService.start(this) })
-                    }
+                if (state.configured) {
+                    MainScaffold(
+                        viewModel = vm,
+                        onStartService = { PollingService.start(this) },
+                        onStopService = { PollingService.stop(this) },
+                    )
+                } else {
+                    SetupScreen(viewModel = vm, onSignedIn = { PollingService.start(this) })
                 }
             }
         }
@@ -55,13 +64,55 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Android 13+ hides the foreground-service notification without this, and
-     * that notification is the app's primary display when it is not open.
+     * that notification is both the app's primary display when closed and the
+     * carrier for every alarm.
      */
     private fun ensureNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
         if (granted != PackageManager.PERMISSION_GRANTED) {
             requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+}
+
+@Composable
+private fun MainScaffold(
+    viewModel: CgmViewModel,
+    onStartService: () -> Unit,
+    onStopService: () -> Unit,
+) {
+    // A plain stack. Switching tabs resets to that tab's root; back pops.
+    var stack by remember { mutableStateOf(listOf<Destination>(Destination.Home)) }
+    val current = stack.last()
+    val tab = Tab.of(current)
+
+    BackHandler(enabled = stack.size > 1) { stack = stack.dropLast(1) }
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                Tab.entries.forEach { t ->
+                    NavigationBarItem(
+                        selected = t == tab,
+                        onClick = { stack = listOf(t.root) },
+                        icon = {},
+                        label = { Text(t.label) },
+                    )
+                }
+            }
+        }
+    ) { padding ->
+        Box(Modifier.padding(padding)) {
+            when (current) {
+                Destination.Home -> HomeScreen(viewModel, onStartService, onStopService)
+                Destination.Trends -> TrendsScreen(viewModel)
+                Destination.Logbook -> LogbookScreen(viewModel)
+                Destination.Settings -> SettingsScreen(viewModel) { stack = stack + it }
+                Destination.Alarms -> AlarmsScreen(viewModel) { stack = stack + it }
+                Destination.Ranges -> RangesScreen(viewModel)
+                is Destination.AlarmDetail -> AlarmDetailScreen(viewModel, current.kind)
+            }
         }
     }
 }

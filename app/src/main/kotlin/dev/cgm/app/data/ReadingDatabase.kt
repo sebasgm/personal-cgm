@@ -52,14 +52,74 @@ data class ReadingEntity(
     }
 }
 
+/**
+ * One row of aggregates over a window.
+ *
+ * Computed in SQLite rather than by loading readings into memory: a year at one
+ * reading a minute is over half a million rows, and #6 asks for exactly that
+ * window.
+ */
+data class ReadingAggregate(
+    val total: Int,
+    val mean: Double?,
+    val urgentLow: Int,
+    val low: Int,
+    val inRange: Int,
+    val high: Int,
+    val veryHigh: Int,
+    /** Distinct 5-minute buckets containing data, for coverage. */
+    val buckets: Int,
+)
+
 @Dao
 interface ReadingDao {
+
+    @Query(
+        """
+        SELECT COUNT(*) AS total,
+               AVG(valueMgdl) AS mean,
+               SUM(CASE WHEN valueMgdl < :urgentLow THEN 1 ELSE 0 END) AS urgentLow,
+               SUM(CASE WHEN valueMgdl >= :urgentLow AND valueMgdl < :low THEN 1 ELSE 0 END) AS low,
+               SUM(CASE WHEN valueMgdl >= :low AND valueMgdl <= :high THEN 1 ELSE 0 END) AS inRange,
+               SUM(CASE WHEN valueMgdl > :high AND valueMgdl <= :veryHigh THEN 1 ELSE 0 END) AS high,
+               SUM(CASE WHEN valueMgdl > :veryHigh THEN 1 ELSE 0 END) AS veryHigh,
+               COUNT(DISTINCT timestampMillis / 300000) AS buckets
+        FROM readings
+        WHERE timestampMillis BETWEEN :startMillis AND :endMillis
+        """
+    )
+    suspend fun aggregate(
+        startMillis: Long,
+        endMillis: Long,
+        urgentLow: Double,
+        low: Double,
+        high: Double,
+        veryHigh: Double,
+    ): ReadingAggregate
+
+    @Query(
+        """
+        SELECT AVG(valueMgdl) FROM readings
+        WHERE timestampMillis BETWEEN :startMillis AND :endMillis
+          AND ((timestampMillis / 3600000) % 24) BETWEEN :fromHour AND :toHour
+        """
+    )
+    suspend fun averageForHourRange(
+        startMillis: Long,
+        endMillis: Long,
+        fromHour: Int,
+        toHour: Int,
+    ): Double?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(readings: List<ReadingEntity>)
 
     @Query("SELECT * FROM readings WHERE timestampMillis >= :sinceMillis ORDER BY timestampMillis ASC")
     fun observeSince(sinceMillis: Long): Flow<List<ReadingEntity>>
+
+    /** Newest first, for the logbook (#10). Paged by limit rather than loaded whole. */
+    @Query("SELECT * FROM readings ORDER BY timestampMillis DESC LIMIT :limit")
+    fun observeRecent(limit: Int): Flow<List<ReadingEntity>>
 
     @Query("SELECT * FROM readings ORDER BY timestampMillis DESC LIMIT 1")
     suspend fun latest(): ReadingEntity?

@@ -12,7 +12,10 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import dev.cgm.app.CgmApplication
 import dev.cgm.app.R
+import dev.cgm.app.alarm.AlarmNotifier
 import dev.cgm.app.data.GlucoseRepository
+import dev.cgm.app.data.SecureSettings
+import dev.cgm.core.AlarmEngine
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.Freshness
 import dev.cgm.core.PollOutcome
@@ -32,12 +35,18 @@ import kotlinx.coroutines.launch
 class PollingService : LifecycleService() {
 
     private lateinit var repository: GlucoseRepository
+    private lateinit var settings: SecureSettings
+    private lateinit var notifier: AlarmNotifier
     private val scheduler = PollScheduler()
+    private val alarms = AlarmEngine()
     private var loop: Job? = null
 
     override fun onCreate() {
         super.onCreate()
-        repository = (application as CgmApplication).repository
+        val app = application as CgmApplication
+        repository = app.repository
+        settings = app.settings
+        notifier = AlarmNotifier(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -62,6 +71,7 @@ class PollingService : LifecycleService() {
                 if (outcome is PollOutcome.Success) 0 else consecutiveFailures + 1
 
             updateNotification()
+            evaluateAlarms()
 
             val delayMillis = scheduler.nextDelayMillis(outcome, consecutiveFailures)
             if (delayMillis == null) {
@@ -72,6 +82,38 @@ class PollingService : LifecycleService() {
             }
             delay(delayMillis)
         }
+    }
+
+    /**
+     * Runs after every poll, including failed ones — signal loss is precisely the
+     * case where polling is not succeeding, so skipping this on failure would
+     * disable the one alarm that matters most then.
+     */
+    private suspend fun evaluateAlarms() {
+        val configured = settings.alarmSettingsOnce()
+        notifier.ensureChannels(configured)
+
+        val state = repository.state.value
+        val now = System.currentTimeMillis()
+
+        val decision = alarms.evaluate(
+            snapshot = state.snapshot,
+            freshness = state.freshness(now),
+            settings = configured,
+            previous = settings.alarmState(),
+            nowMillis = now,
+        )
+
+        decision.cleared.forEach(notifier::clear)
+        decision.firing.forEach { kind ->
+            notifier.notify(
+                kind = kind,
+                setting = configured[kind],
+                snapshot = state.snapshot,
+                makeSound = kind in decision.sound,
+            )
+        }
+        settings.saveAlarmState(decision.state)
     }
 
     private fun updateNotification() {

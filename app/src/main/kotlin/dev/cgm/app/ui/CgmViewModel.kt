@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import dev.cgm.app.data.CgmState
 import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.data.SecureSettings
+import dev.cgm.core.AlarmKind
+import dev.cgm.core.AlarmSetting
+import dev.cgm.core.AlarmSettings
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
@@ -61,8 +64,51 @@ class CgmViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GlucoseStatistics.Empty)
 
+    // -- alarms (issue #1) -------------------------------------------------
+
+    val alarmSettings: StateFlow<AlarmSettings> = settings.alarmSettings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AlarmSettings.Default)
+
+    fun updateAlarm(kind: AlarmKind, setting: AlarmSetting) {
+        viewModelScope.launch {
+            settings.saveAlarmSettings(alarmSettings.value.with(kind, setting))
+        }
+    }
+
+    // -- logbook (issue #10) -----------------------------------------------
+
+    val logbook: StateFlow<List<GlucoseReading>> = repository.recentReadings(LOGBOOK_LIMIT)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // -- trends -------------------------------------------------------------
+
+    private val _period = MutableStateFlow(TrendPeriod.Default)
+    val period: StateFlow<TrendPeriod> = _period.asStateFlow()
+
+    private val _periodStats = MutableStateFlow(GlucoseStatistics.Empty)
+    val periodStats: StateFlow<GlucoseStatistics> = _periodStats.asStateFlow()
+
+    fun selectPeriod(period: TrendPeriod) {
+        _period.value = period
+        refreshPeriodStats()
+    }
+
+    fun refreshPeriodStats() {
+        viewModelScope.launch {
+            val now = clock()
+            _periodStats.value = withContext(Dispatchers.IO) {
+                repository.statistics(
+                    startMillis = now - _period.value.millis,
+                    endMillis = now,
+                    thresholds = state.value.snapshot?.thresholds ?: GlucoseThresholds.Default,
+                )
+            }
+        }
+    }
+
     init {
         viewModelScope.launch { repository.refreshConfiguration() }
+        refreshPeriodStats()
     }
 
     fun selectWindow(window: GraphWindow) {
@@ -98,6 +144,8 @@ class CgmViewModel(
     }
 
     companion object {
+        const val LOGBOOK_LIMIT = 500
+
         fun factory(repository: GlucoseRepository, settings: SecureSettings) =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
