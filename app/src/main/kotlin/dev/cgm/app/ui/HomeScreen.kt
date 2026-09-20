@@ -47,6 +47,7 @@ import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.SensorInfo
+import dev.cgm.core.TimeInRangeTarget
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
@@ -461,6 +462,12 @@ private fun StatStrip(
             value = stats.timeInRange?.let { "${(it * 100).roundToInt()}%" } ?: "—",
             muted = !stats.isReliable,
             note = coverageNote,
+            // Coloured against the clinical target rather than decoratively, and
+            // only while the figure is reliable: colour reads as confidence, and
+            // there is none to claim from 11% coverage.
+            valueColor = stats.timeInRange
+                ?.takeIf { stats.isReliable }
+                ?.let { ZoneColors.ofTarget(TimeInRangeTarget.of(it)) },
         )
         StatCell(
             label = stringResource(R.string.home_stat_average),
@@ -479,12 +486,18 @@ private fun StatStrip(
 }
 
 @Composable
-private fun StatCell(label: String, value: String, muted: Boolean, note: String? = null) {
+private fun StatCell(
+    label: String,
+    value: String,
+    muted: Boolean,
+    note: String? = null,
+    valueColor: Color? = null,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             value,
             style = MaterialTheme.typography.titleLarge,
-            color = if (muted) {
+            color = valueColor ?: if (muted) {
                 MaterialTheme.colorScheme.onSurfaceVariant
             } else {
                 MaterialTheme.colorScheme.onSurface

@@ -207,6 +207,42 @@ class GlucoseRepository(
         }
     }
 
+    /**
+     * Put the newest stored reading on screen before any fetch has happened.
+     *
+     * Without this, a restart shows "--" in the status bar and "——" on Home until a
+     * poll succeeds — which on a bad connection can be a long time, while a perfectly
+     * good reading from two minutes ago sits in the database. Freshness is still
+     * derived from the reading's own age, so a genuinely old one is reported as stale
+     * rather than passed off as current.
+     *
+     * Deliberately does not set [CgmState.lastSuccessMillis]: nothing was fetched.
+     * Thresholds come from the defaults plus the user's overrides, because the
+     * account's own band is only known after a fetch; the first poll corrects it a
+     * moment later.
+     */
+    suspend fun primeFromStorage() {
+        if (_state.value.snapshot != null) return
+        val latest = dao.latest()?.toReading() ?: return
+        val overrides = currentOverrides()
+        val unitOverride = currentUnitOverride()
+        val unit = unitOverride ?: GlucoseUnit.MGDL
+
+        _state.update {
+            it.copy(
+                snapshot = GlucoseSnapshot(
+                    reading = latest,
+                    thresholds = overrides.applyTo(GlucoseThresholds.Default),
+                    unit = unit,
+                ),
+                overrides = overrides,
+                unitOverride = unitOverride,
+                unit = unit,
+                policy = currentPolicy(),
+            )
+        }
+    }
+
     /** One fetch. Never throws; failures come back as [PollOutcome]. */
     suspend fun pollOnce(): PollOutcome {
         val credentials = settings.credentials()

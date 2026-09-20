@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import dev.cgm.core.TimeInRangeTarget
 import dev.cgm.core.Zone
 
 /**
@@ -27,6 +28,18 @@ object ZoneColors {
         Zone.IN_RANGE -> inRange
         Zone.HIGH -> high
         Zone.VERY_HIGH -> veryHigh
+    }
+
+    /**
+     * A time-in-range figure, coloured by how it compares with the clinical target.
+     *
+     * Reuses the zone colours rather than inventing a second scale, so green always
+     * means "in range" whether it is describing one reading or a week of them.
+     */
+    fun ofTarget(target: TimeInRangeTarget): Color = when (target) {
+        TimeInRangeTarget.AT_TARGET -> inRange
+        TimeInRangeTarget.BELOW_TARGET -> high
+        TimeInRangeTarget.WELL_BELOW_TARGET -> low
     }
 
     /** The colour a stale reading gets: none. */

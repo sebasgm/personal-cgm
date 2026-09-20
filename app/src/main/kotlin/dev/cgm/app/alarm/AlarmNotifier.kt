@@ -12,11 +12,13 @@ import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import dev.cgm.app.Locales
 import dev.cgm.app.R
+import dev.cgm.app.service.StatusBarIcon
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
 import dev.cgm.core.GlucoseSnapshot
+import dev.cgm.core.StatusIconLabel
 
 /**
  * Turns alarm decisions into Android notifications.
@@ -123,7 +125,7 @@ class AlarmNotifier(private val context: Context) {
         val builder = NotificationCompat.Builder(context, channel)
             .setContentTitle(title(kind, snapshot))
             .setContentText(body(kind, setting, snapshot))
-            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setSmallIcon(StatusBarIcon.of(iconLabel(kind, snapshot)))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentIntent(open)
@@ -148,6 +150,24 @@ class AlarmNotifier(private val context: Context) {
         if (!makeSound) builder.setSilent(true)
 
         manager.notify(notificationId(kind), builder.build())
+    }
+
+    /**
+     * What an alarm's status bar icon reads.
+     *
+     * The same number the ongoing notification shows, on purpose. Android gives the
+     * status bar one icon per notification and a high-importance alarm wins the
+     * space, so an alarm with its own icon *replaced* the glucose value with a
+     * generic warning triangle — at exactly the moment the number matters most.
+     * Now whichever notification the status bar picks, it shows the value.
+     *
+     * Signal loss is the exception, and honestly so: it fires precisely because
+     * there is no current value, so it shows the unknown marker rather than the last
+     * one we happened to have.
+     */
+    private fun iconLabel(kind: AlarmKind, snapshot: GlucoseSnapshot?): String = when {
+        kind == AlarmKind.SIGNAL_LOSS || snapshot == null -> StatusIconLabel.UNKNOWN
+        else -> StatusIconLabel.format(snapshot.reading.valueMgdl, snapshot.unit)
     }
 
     fun clear(kind: AlarmKind) = manager.cancel(notificationId(kind))

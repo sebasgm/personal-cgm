@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -127,6 +128,8 @@ private fun TimeInRangeCard(stats: GlucoseStatistics) {
                 style = MaterialTheme.typography.titleSmall,
             )
             Spacer(Modifier.height(12.dp))
+            StackedZoneBar(stats, muted = !stats.isReliable)
+            Spacer(Modifier.height(14.dp))
             listOf(
                 Zone.VERY_HIGH to R.string.zone_very_high,
                 Zone.HIGH to R.string.zone_high,
@@ -136,6 +139,53 @@ private fun TimeInRangeCard(stats: GlucoseStatistics) {
             ).forEach { (zone, labelRes) ->
                 val fraction = stats.zoneFractions[zone] ?: 0.0
                 ZoneBar(stringResource(labelRes), fraction, zone, muted = !stats.isReliable)
+            }
+        }
+    }
+}
+
+/**
+ * The whole day as one bar, in zone colours.
+ *
+ * The rows below give exact figures; this gives the shape at a glance, which is the
+ * question "how was this week" actually asks. Ordered low to high left to right, so
+ * the in-range block sits in the middle and a bar that is mostly middle is mostly
+ * good — the reading is positional, not just chromatic.
+ *
+ * Zero-width zones are dropped rather than given a hairline. A zone you never
+ * entered should be absent, not a sliver that invites squinting at it.
+ */
+@Composable
+private fun StackedZoneBar(stats: GlucoseStatistics, muted: Boolean) {
+    val order = listOf(
+        Zone.URGENT_LOW,
+        Zone.LOW,
+        Zone.IN_RANGE,
+        Zone.HIGH,
+        Zone.VERY_HIGH,
+    )
+    val present = order.mapNotNull { zone ->
+        val fraction = stats.zoneFractions[zone] ?: 0.0
+        if (fraction > 0) zone to fraction.toFloat() else null
+    }
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(22.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(5.dp))
+    ) {
+        if (present.isEmpty()) return@Box
+        Row(Modifier.fillMaxWidth().height(22.dp)) {
+            present.forEach { (zone, fraction) ->
+                Box(
+                    Modifier
+                        .weight(fraction)
+                        .fillMaxHeight()
+                        .background(
+                            if (muted) MaterialTheme.colorScheme.outline else ZoneColors.of(zone)
+                        )
+                )
             }
         }
     }

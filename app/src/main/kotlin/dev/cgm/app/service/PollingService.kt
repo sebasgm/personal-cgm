@@ -73,6 +73,12 @@ class PollingService : LifecycleService() {
     private suspend fun pollLoop() {
         var consecutiveFailures = 0
 
+        // Before the first fetch: the status bar shows the last known value rather
+        // than "--", which after a restart could otherwise persist for as long as
+        // polling keeps failing.
+        repository.primeFromStorage()
+        updateNotification()
+
         while (lifecycleScope.isActive) {
             val outcome = repository.pollOnce()
 

@@ -46,10 +46,11 @@ object StatusBarIcon {
      * not wasted room for a bigger number, it is what a wide, short thing looks like
      * inside a square.
      *
-     * So the levers that actually work are the ones that make the glyphs *narrower*:
-     * a condensed face and tighter tracking, both below. Together they buy roughly a
-     * third. Anything beyond that needs a surface that is not a status bar icon —
-     * a home-screen widget has no such cap.
+     * So the levers that actually work are the ones that make the glyphs *narrower*.
+     * A condensed face and tighter tracking bought about a third; drawing the digits
+     * by hand in [SevenSegment] buys the rest, because its digits are 0.46 of their
+     * height wide where a condensed font is nearer 0.48 and a regular one 0.55.
+     * Beyond that the only way is a surface without the cap — a home-screen widget.
      *
      * Kept just under 1 so antialiasing at the edges is not clipped.
      */
@@ -94,23 +95,47 @@ object StatusBarIcon {
     private fun render(label: String): IconCompat {
         val bitmap = createBitmap(SIZE_PX, SIZE_PX, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
+        val limit = SIZE_PX * USABLE
 
-        // Measure at a nominal size, then scale once to fit both axes. Measuring
-        // rather than guessing is what makes "7.2" and "124" the same height as
-        // each other instead of one of them quietly shrinking.
+        if (SevenSegment.canRender(label)) {
+            drawSegments(canvas, label, limit)
+        } else {
+            drawText(canvas, label, limit)
+        }
+        return IconCompat.createWithBitmap(bitmap)
+    }
+
+    /**
+     * Digits, sized by solving for the height that makes the label exactly fill the
+     * width. Width is always the binding constraint for two or more digits, so this
+     * is the tallest the glyphs can be — and then capped at the height, for the
+     * single-digit case where it is not.
+     */
+    private fun drawSegments(canvas: Canvas, label: String, limit: Float) {
+        val widthAtUnitHeight = SevenSegment.widthFor(label, 1f)
+        val height = minOf(limit / widthAtUnitHeight, limit)
+        val width = SevenSegment.widthFor(label, height)
+
+        SevenSegment.draw(
+            canvas = canvas,
+            label = label,
+            left = (SIZE_PX - width) / 2f,
+            top = (SIZE_PX - height) / 2f,
+            height = height,
+            paint = paint,
+        )
+    }
+
+    /** Anything not made of digits — "HI", "LO", "?", "--" — still comes from the font. */
+    private fun drawText(canvas: Canvas, label: String, limit: Float) {
         paint.textSize = SIZE_PX.toFloat()
         paint.getTextBounds(label, 0, label.length, bounds)
-        val limit = SIZE_PX * USABLE
         val scale = min(limit / bounds.width(), limit / bounds.height())
         paint.textSize = SIZE_PX * scale
 
         paint.getTextBounds(label, 0, label.length, bounds)
         val centre = SIZE_PX / 2f
-        // Baseline from the glyphs' own extents, not the font's: digits have no
-        // descenders, so font metrics would sit them visibly high in the square.
         val baseline = centre - (bounds.top + bounds.bottom) / 2f
         canvas.drawText(label, centre, baseline, paint)
-
-        return IconCompat.createWithBitmap(bitmap)
     }
 }

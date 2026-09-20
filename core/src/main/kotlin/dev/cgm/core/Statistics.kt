@@ -106,3 +106,34 @@ object StatisticsCalculator {
         return (filled.toDouble() / totalBuckets).coerceIn(0.0, 1.0)
     }
 }
+
+/**
+ * How a time-in-range figure compares with the clinical target.
+ *
+ * Exists so the number can be coloured, and coloured by something real. Consensus
+ * guidance puts the target at 70% of time between the low and high bounds, and
+ * treats sustained time below half as the point where the picture is poor rather
+ * than merely imperfect. Those two numbers are the whole scale.
+ *
+ * Deliberately not a judgement on the person — it is a reading of a statistic, and
+ * a statistic computed from partial coverage is muted elsewhere for that reason.
+ */
+enum class TimeInRangeTarget {
+    AT_TARGET,
+    BELOW_TARGET,
+    WELL_BELOW_TARGET;
+
+    companion object {
+        /** Consensus target: 70% of time in range. */
+        const val TARGET_FRACTION = 0.70
+
+        /** Below this, guidance stops calling it a near miss. */
+        const val POOR_FRACTION = 0.50
+
+        fun of(fraction: Double): TimeInRangeTarget = when {
+            fraction >= TARGET_FRACTION -> AT_TARGET
+            fraction >= POOR_FRACTION -> BELOW_TARGET
+            else -> WELL_BELOW_TARGET
+        }
+    }
+}

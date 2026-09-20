@@ -225,7 +225,11 @@ class CgmViewModel(
     }
 
     init {
-        viewModelScope.launch { repository.refreshConfiguration() }
+        viewModelScope.launch {
+            repository.refreshConfiguration()
+            // So Home opens on the last known reading instead of an em-dash.
+            repository.primeFromStorage()
+        }
         refreshPeriodStats()
     }
 
