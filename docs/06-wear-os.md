@@ -132,16 +132,68 @@ phone's feed.** If the phone missed the reading, the wrist cannot invent it.
 
 ### W0 — Validate the device first (no code)
 
-Install **GlucoDataHandler** (MIT, and it already does LibreLinkUp → Wear complications) and
-add its complication to a OnePlus stock face. Leave it a day.
+**Status: in progress.**
 
-This answers three questions cheaply, and one of them is a real risk: **Gluroo's release notes
-mention compatibility problems with OnePlus watches without saying what they are.** Finding out
-that complications misbehave on this specific watch is much better discovered now than after
-building a module against them.
+The point is not to try an app. It is to find out whether this watch can do the thing the
+next five stages assume, before any of them is built. **Gluroo's release notes mention
+compatibility problems with OnePlus watches without saying what they are**, and if
+complications misbehave here, W1 through W4 are built on sand.
 
-Also measure the battery cost of a third-party complication on a stock face. That is the
-baseline every later decision is judged against.
+#### Set up wireless debugging first
+
+Needed for W1 regardless, and it is the fiddly part, so do it while nothing depends on it.
+
+On the watch: *Settings → System → Developer options* (tap the build number seven times in
+*About* if it is not there) → **Wireless debugging** → *Pair new device*.
+
+```bash
+export PATH="$HOME/Android/Sdk/platform-tools:$PATH"
+adb pair <watch-ip>:<pair-port>     # the six-digit code is on the watch
+adb connect <watch-ip>:<debug-port> # different port from the pairing one
+adb devices                         # should list the watch
+```
+
+#### Install the reference app
+
+**GlucoDataHandler** (`github.com/pachi81/GlucoDataHandler`, MIT) already does
+LibreLinkUp → Wear complications, which is exactly the W1 path. Phone APK and Wear APK come
+from its releases page.
+
+```bash
+adb -s <phone>  install -r GlucoDataHandler-<ver>.apk
+adb -s <watch>  install -r GlucoDataHandler-wear-<ver>.apk
+```
+
+Configure it on the phone with the same LibreLinkUp follower account, then add its glucose
+complication to a **OnePlus stock watch face** — stock specifically, so the RTOS question in
+§1 stays out of the measurement.
+
+#### Record the baseline before starting
+
+Twenty-four hours on your normal face with no third-party complication, so the battery figure
+below has something to be compared against. Without this the battery number means nothing.
+
+#### What to record
+
+| # | Question | Why it matters | Result |
+|---|---|---|---|
+| 1 | Do third-party complications appear in the stock face's picker at all? | If not, W1–W4 are dead on this watch and the answer is a Tile-only design | |
+| 2 | Does a value actually appear, and how far behind the phone is it? | Baseline for the §3 freshness problem | |
+| 3 | Over 24h, how often does the displayed value actually change? | Decides whether W3 needs a Tile first. Under ~12 refreshes a day means the platform is throttling hard | |
+| 4 | Watch battery over 24h, with vs without the complication | The baseline every later decision is judged against | |
+| 5 | Does it survive a watch reboot, and Bluetooth dropping out and returning? | Data Layer buffering is supposed to handle this; confirm it does here | |
+| 6 | Anything OnePlus-specific: blanking, vanishing after AOD, refusing to re-add | This is the Gluroo risk, stated concretely | |
+
+#### What each outcome means
+
+- **Complications work and refresh reasonably** → W1 as written.
+- **Complications work but refresh badly** → W2 (Tile) moves ahead of W3, and the age counter
+  from §3 becomes load-bearing rather than a nicety.
+- **Complications are broken on this watch** → the plan changes shape entirely: Tile plus
+  notifications, no watch face, and #4 (non-Wear watches) gets more interesting.
+
+Record the answers here in the table rather than in a chat log, since they justify the
+decisions the rest of this document makes.
 
 ### W1 — Data Layer + first complication
 
