@@ -36,7 +36,11 @@ decision and a pass over the security plan.
   measurement, breaks across gaps where the sensor stopped reporting, labelled axis, pinch
   zoom, and day-by-day history browsing with a date picker.
 - An explicit red NO SIGNAL state after five minutes without data.
+- Time in range coloured against the 70% clinical target, and a stacked all-zone bar in
+  Trends.
 - Logbook of raw readings grouped by day.
+- Insulin logging for basal and bolus doses, with half-unit steps, a back-dating shortcut for
+  a forgotten injection, an optional note, today's running totals and deletion.
 - Trends: time in range, GMI and estimated A1C, each gated behind a coverage threshold and
   labelled with the coverage it was computed from.
 - A medical disclaimer, shown before first use and reachable from Settings thereafter.
@@ -61,6 +65,12 @@ decision and a pass over the security plan.
 - A stale reading no longer keeps its zone colour anywhere — not in the big value, not in the
   status bar icon, not on the chart. An old green number reads as "fine", which is the one
   thing it must not do.
+- Alarm notifications no longer replace the glucose number in the status bar with a generic
+  warning icon. Android gives the status bar one icon per notification and a high-importance
+  alarm wins the space, so the value disappeared exactly when it mattered most; every
+  notification now carries the value as its icon.
+- A restart no longer shows "--" in the status bar while polling is still failing. The newest
+  stored reading goes on screen before the first fetch, still aged honestly.
 - The delta now carries the interval it spans, so a fifteen-minute change cannot be read as a
   five-minute one.
 - The poller no longer stays dead after the app is reinstalled. It previously started only on

@@ -11,6 +11,7 @@ import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
+import dev.cgm.core.InsulinDose
 import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.StatisticsCalculator
 import dev.cgm.core.ThresholdOverrides
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -91,6 +93,7 @@ data class CgmState(
 class GlucoseRepository(
     private val settings: SecureSettings,
     private val dao: ReadingDao,
+    private val doseDao: DoseDao,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
 
@@ -121,6 +124,30 @@ class GlucoseRepository(
 
     fun recentReadings(limit: Int): Flow<List<GlucoseReading>> =
         dao.observeRecent(limit).asReadings()
+
+    // -- insulin doses ------------------------------------------------------
+
+    fun recentDoses(limit: Int): Flow<List<InsulinDose>> =
+        doseDao.observeRecent(limit).map { rows -> rows.map(DoseEntity::toDose) }
+
+    /** Doses in a window, for the chart's dose markers later. */
+    fun dosesBetween(startMillis: Long, endMillis: Long): Flow<List<InsulinDose>> =
+        doseDao.observeBetween(startMillis, endMillis).map { rows -> rows.map(DoseEntity::toDose) }
+
+    /**
+     * Stores a dose, or refuses it.
+     *
+     * Returns false rather than throwing on an implausible dose: this is called from a
+     * form, and a form wants to keep what the user typed and say why, not lose it to
+     * an exception.
+     */
+    suspend fun saveDose(dose: InsulinDose): Boolean {
+        if (!dose.isPlausible) return false
+        doseDao.upsert(DoseEntity.from(dose))
+        return true
+    }
+
+    suspend fun deleteDose(dose: InsulinDose) = doseDao.delete(DoseEntity.from(dose))
 
     /** Window statistics, aggregated in SQL so a year-long window stays cheap. */
     suspend fun statistics(

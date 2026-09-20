@@ -167,7 +167,13 @@ Nothing here waits for accumulated data.
 
 ### Phase 2 — log what you do
 
-6. **#5 insulin logging** — entry sheet, preset doses, daily reminders.
+6. **#5 insulin logging** — **built**, as the Doses tab: basal/bolus, half-unit steps, a
+   back-dating shortcut, an optional note, today's totals and deletion. The units control is a
+   stepper rather than a text field on purpose — pens deliver half units, so a free-text field
+   offers precision that does not exist, and a decimal typed on a Spanish keyboard arrives as a
+   comma that a naive parse reads as nothing. Doses live in their own Room table behind a real
+   migration, never a destructive one: the readings beside them cannot be re-fetched. Preset
+   doses and daily reminders are still open.
 7. **#6 historical plot** — zoom, period presets, threshold lines, dose markers.
    Periods beyond ~12h show only what we have accumulated; the plot must show where our
    data begins rather than implying a flat line.

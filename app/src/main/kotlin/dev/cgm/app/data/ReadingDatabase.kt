@@ -7,10 +7,17 @@ import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
+import androidx.room.Delete
+import androidx.room.Index
 import androidx.room.Query
+import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import dev.cgm.core.GlucoseReading
+import dev.cgm.core.InsulinDose
+import dev.cgm.core.InsulinKind
 import dev.cgm.core.TrendArrow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -147,13 +154,102 @@ interface ReadingDao {
     suspend fun deleteBefore(beforeMillis: Long)
 }
 
-@Database(entities = [ReadingEntity::class], version = 1, exportSchema = false)
-abstract class ReadingDatabase : RoomDatabase() {
-    abstract fun readings(): ReadingDao
+/**
+ * A dose the user recorded.
+ *
+ * Separate table from readings because it is a separate kind of fact: a reading is
+ * observed and immutable, a dose is entered by a person and has to be correctable.
+ * Hence a generated id rather than the timestamp as the key — two doses can share a
+ * minute, and an edit must not depend on when it happened.
+ */
+@Entity(
+    tableName = "doses",
+    indices = [Index("givenAtMillis")],
+)
+data class DoseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: String,
+    val units: Double,
+    val givenAtMillis: Long,
+    val note: String?,
+) {
+    fun toDose() = InsulinDose(
+        id = id,
+        kind = runCatching { InsulinKind.valueOf(kind) }.getOrDefault(InsulinKind.BOLUS),
+        units = units,
+        givenAtMillis = givenAtMillis,
+        note = note,
+    )
 
     companion object {
+        fun from(dose: InsulinDose) = DoseEntity(
+            id = dose.id,
+            kind = dose.kind.name,
+            units = dose.units,
+            givenAtMillis = dose.givenAtMillis,
+            note = dose.note,
+        )
+    }
+}
+
+@Dao
+interface DoseDao {
+
+    @Upsert
+    suspend fun upsert(dose: DoseEntity)
+
+    @Delete
+    suspend fun delete(dose: DoseEntity)
+
+    @Query("SELECT * FROM doses ORDER BY givenAtMillis DESC LIMIT :limit")
+    fun observeRecent(limit: Int): Flow<List<DoseEntity>>
+
+    @Query(
+        "SELECT * FROM doses WHERE givenAtMillis >= :startMillis " +
+            "AND givenAtMillis <= :endMillis ORDER BY givenAtMillis ASC"
+    )
+    fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<DoseEntity>>
+}
+
+@Database(
+    entities = [ReadingEntity::class, DoseEntity::class],
+    version = 2,
+    exportSchema = false,
+)
+abstract class ReadingDatabase : RoomDatabase() {
+    abstract fun readings(): ReadingDao
+    abstract fun doses(): DoseDao
+
+    companion object {
+        /**
+         * Adds the doses table.
+         *
+         * A real migration rather than destructive fallback, because the readings in
+         * this database cannot be re-fetched — LibreLinkUp serves about twelve hours
+         * of history and nothing older, so dropping the table would permanently lose
+         * everything accumulated since install.
+         */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `doses` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`kind` TEXT NOT NULL, " +
+                        "`units` REAL NOT NULL, " +
+                        "`givenAtMillis` INTEGER NOT NULL, " +
+                        "`note` TEXT)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_doses_givenAtMillis` " +
+                        "ON `doses` (`givenAtMillis`)"
+                )
+            }
+        }
+
         fun create(context: Context): ReadingDatabase =
-            Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db").build()
+            Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db")
+                .addMigrations(MIGRATION_1_2)
+                .build()
     }
 }
 

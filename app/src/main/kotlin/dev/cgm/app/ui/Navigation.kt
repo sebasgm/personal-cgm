@@ -33,6 +33,7 @@ sealed interface Destination {
     data object Home : Destination
     data object Trends : Destination
     data object Logbook : Destination
+    data object Doses : Destination
     data object Settings : Destination
     data object Alarms : Destination
     data class AlarmDetail(val kind: AlarmKind) : Destination
@@ -49,6 +50,7 @@ enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
     HOME(R.string.nav_now, Destination.Home),
     TRENDS(R.string.nav_trends, Destination.Trends),
     LOGBOOK(R.string.nav_logbook, Destination.Logbook),
+    DOSES(R.string.nav_doses, Destination.Doses),
     SETTINGS(R.string.nav_settings, Destination.Settings);
 
     companion object {
@@ -56,6 +58,7 @@ enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
             Destination.Home -> HOME
             Destination.Trends -> TRENDS
             Destination.Logbook -> LOGBOOK
+            Destination.Doses -> DOSES
             Destination.Settings,
             Destination.Alarms,
             Destination.Ranges,

@@ -19,7 +19,7 @@ class CgmApplication : Application() {
     val settings: SecureSettings by lazy { SecureSettings(this) }
     private val database: ReadingDatabase by lazy { ReadingDatabase.create(this) }
     val repository: GlucoseRepository by lazy {
-        GlucoseRepository(settings, database.readings())
+        GlucoseRepository(settings, database.readings(), database.doses())
     }
 
     override fun onCreate() {

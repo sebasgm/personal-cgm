@@ -163,4 +163,24 @@
     <string name="disc_p3">Values can be wrong, late, or missing. They pass through Abbott\'s servers, your network and Android\'s background limits before reaching this screen, and any of those can delay or drop them. A number on screen with no warning beside it still only means "this is the most recent value we managed to fetch".</string>
     <string name="disc_p4">Alarms can fail to arrive. Android may delay or suppress notifications while the phone is asleep, in Do Not Disturb, or saving battery, and this app cannot override all of that. Never rely on it to wake you. Treat a silent night as no evidence that nothing happened.</string>
     <string name="disc_p5">If you feel unwell, believe what your body is telling you over what this app shows, and seek medical advice. Nothing here replaces your clinician.</string>
+    <string name="nav_doses">Doses</string>
+    <string name="dose_log_title">Log a dose</string>
+    <string name="dose_bolus">Bolus</string>
+    <string name="dose_basal">Basal</string>
+    <string name="dose_units">Units</string>
+    <string name="dose_units_suffix">U</string>
+    <string name="dose_when">When</string>
+    <string name="dose_now">Now</string>
+    <string name="dose_minus_15">−15 min</string>
+    <string name="dose_minus_30">−30 min</string>
+    <string name="dose_minus_60">−1 h</string>
+    <string name="dose_note">Note (optional)</string>
+    <string name="dose_save">Save</string>
+    <string name="dose_today">Today: %1$s U basal · %2$s U bolus</string>
+    <string name="dose_recent">Recent doses</string>
+    <string name="dose_empty">No doses logged yet.</string>
+    <string name="dose_delete">Delete</string>
+    <string name="dose_decrease">Less</string>
+    <string name="dose_increase">More</string>
+    <string name="dose_given_at">%1$s · %2$s</string>
 </resources>

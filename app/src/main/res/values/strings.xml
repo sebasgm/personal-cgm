@@ -163,4 +163,24 @@
     <string name="disc_p3">Los valores pueden estar equivocados, llegar tarde o faltar. Pasan por los servidores de Abbott, tu red y los límites de segundo plano de Android antes de llegar a esta pantalla, y cualquiera de esos puede retrasarlos o perderlos. Un número en pantalla sin ninguna advertencia al lado sigue significando sólo «este es el valor más reciente que pudimos obtener».</string>
     <string name="disc_p4">Las alarmas pueden no llegar. Android puede retrasar o suprimir notificaciones mientras el teléfono duerme, con No molestar activado o ahorrando batería, y esta app no puede anular todo eso. Nunca confíes en ella para que te despierte. Una noche en silencio no es prueba de que no haya pasado nada.</string>
     <string name="disc_p5">Si te sentís mal, creé lo que te dice tu cuerpo antes que lo que muestra esta app, y buscá atención médica. Nada de esto reemplaza a tu médico.</string>
+    <string name="nav_doses">Dosis</string>
+    <string name="dose_log_title">Registrar dosis</string>
+    <string name="dose_bolus">Bolo</string>
+    <string name="dose_basal">Basal</string>
+    <string name="dose_units">Unidades</string>
+    <string name="dose_units_suffix">U</string>
+    <string name="dose_when">Cuándo</string>
+    <string name="dose_now">Ahora</string>
+    <string name="dose_minus_15">−15 min</string>
+    <string name="dose_minus_30">−30 min</string>
+    <string name="dose_minus_60">−1 h</string>
+    <string name="dose_note">Nota (opcional)</string>
+    <string name="dose_save">Guardar</string>
+    <string name="dose_today">Hoy: %1$s U basal · %2$s U bolo</string>
+    <string name="dose_recent">Últimas dosis</string>
+    <string name="dose_empty">Todavía no registraste ninguna dosis.</string>
+    <string name="dose_delete">Eliminar</string>
+    <string name="dose_decrease">Menos</string>
+    <string name="dose_increase">Más</string>
+    <string name="dose_given_at">%1$s · %2$s</string>
 </resources>

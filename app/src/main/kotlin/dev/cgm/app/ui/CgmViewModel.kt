@@ -16,6 +16,8 @@ import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
+import dev.cgm.core.InsulinDose
+import dev.cgm.core.InsulinKind
 import dev.cgm.core.StatisticsCalculator
 import dev.cgm.core.ThresholdBoundary
 import dev.cgm.core.ThresholdOverrides
@@ -154,6 +156,40 @@ class CgmViewModel(
 
     fun resetThresholds() {
         viewModelScope.launch { repository.setThresholdOverrides(ThresholdOverrides.None) }
+    }
+
+    // -- insulin doses (issue #5) -------------------------------------------
+
+    val doses: StateFlow<List<InsulinDose>> = repository.recentDoses(DOSE_LIMIT)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Records a dose. [onResult] reports whether it was accepted, so the form can
+     * keep what was typed if it was not.
+     */
+    fun logDose(
+        kind: InsulinKind,
+        units: Double,
+        givenAtMillis: Long,
+        note: String?,
+        onResult: (Boolean) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            onResult(
+                repository.saveDose(
+                    InsulinDose(
+                        kind = kind,
+                        units = InsulinDose.roundUnits(units),
+                        givenAtMillis = givenAtMillis,
+                        note = InsulinDose.cleanNote(note),
+                    )
+                )
+            )
+        }
+    }
+
+    fun deleteDose(dose: InsulinDose) {
+        viewModelScope.launch { repository.deleteDose(dose) }
     }
 
     // -- language -----------------------------------------------------------
@@ -316,6 +352,9 @@ class CgmViewModel(
 
     companion object {
         const val LOGBOOK_LIMIT = 500
+
+        /** Enough to cover several weeks of dosing without paging. */
+        const val DOSE_LIMIT = 300
 
         fun factory(repository: GlucoseRepository, settings: SecureSettings) =
             object : ViewModelProvider.Factory {
