@@ -253,7 +253,7 @@ account can reach the LibreView web export.
 
 ## 8. Phases
 
-- **A — Rollup infrastructure.** Schema, incremental update, rebuild-from-raw, and fix the
+- **A — Rollup infrastructure. ✅ built.** Schema, incremental update, rebuild-from-raw, and fix the
   UTC-hour bug. No UI. Everything else depends on it, and it should land before more
   history accumulates under the wrong shape.
 - **B — AGP.** Percentile bands by time of day. Replaces #8's bar chart with the view that

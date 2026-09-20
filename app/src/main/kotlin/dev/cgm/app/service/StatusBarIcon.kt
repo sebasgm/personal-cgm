@@ -46,10 +46,12 @@ object StatusBarIcon {
      * not wasted room for a bigger number, it is what a wide, short thing looks like
      * inside a square.
      *
-     * So the levers that actually work are the ones that make the glyphs *narrower*.
-     * A condensed face and tighter tracking bought about a third; drawing the digits
-     * by hand in [SevenSegment] buys the rest, because its digits are 0.46 of their
-     * height wide where a condensed font is nearer 0.48 and a regular one 0.55.
+     * Which also means **a digit cannot be made absolutely wider**: three of them
+     * always fill the slot, so widening the proportion only makes them shorter.
+     * What that buys is legibility of shape rather than size — a squarer glyph
+     * reads better at arm's length than an elongated one of the same width — and
+     * [SevenSegment.DIGIT_ASPECT] is the dial. The one change that escapes the
+     * trade is narrowing the '1', which hands width back to its neighbours.
      * Beyond that the only way is a surface without the cap — a home-screen widget.
      *
      * Kept just under 1 so antialiasing at the edges is not clipped.

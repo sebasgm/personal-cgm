@@ -284,7 +284,7 @@ private val LABEL_GAP = 6.dp
  * Thin on purpose. The line is context; the dots are the measurements, and every
  * bit taken off the stroke makes them stand out more without growing them further.
  */
-private val TRACE_STROKE = 2.25.dp
+private val TRACE_STROKE = 1.9.dp
 private val GRID_STROKE = 1.dp
 /**
  * Measured points have to out-read the line joining them, so the dot is wider than

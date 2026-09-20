@@ -3,6 +3,8 @@ package dev.cgm.app.data
 import androidx.annotation.StringRes
 import dev.cgm.app.R
 
+import dev.cgm.core.ContinuityAnalyzer
+import dev.cgm.core.ContinuityReport
 import dev.cgm.core.DeltaCalculator
 import dev.cgm.core.Freshness
 import dev.cgm.core.FreshnessPolicy
@@ -93,6 +95,7 @@ data class CgmState(
 class GlucoseRepository(
     private val settings: SecureSettings,
     private val dao: ReadingDao,
+    private val rollups: RollupWriter? = null,
     private val doseDao: DoseDao,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -148,6 +151,19 @@ class GlucoseRepository(
     }
 
     suspend fun deleteDose(dose: InsulinDose) = doseDao.delete(DoseEntity.from(dose))
+
+    /**
+     * How complete the last [windowMillis] of history actually is.
+     *
+     * Diagnostic rather than decorative: a gap here is permanent, so being able
+     * to see one is the only way to tell whether the service is really keeping up
+     * overnight or merely appearing to.
+     */
+    suspend fun continuity(windowMillis: Long): ContinuityReport {
+        val now = clock()
+        val readings = dao.since(now - windowMillis).map { it.toReading() }
+        return ContinuityAnalyzer.analyse(readings, now - windowMillis, now)
+    }
 
     /** Window statistics, aggregated in SQL so a year-long window stays cheap. */
     suspend fun statistics(
@@ -348,9 +364,25 @@ class GlucoseRepository(
     private suspend fun persist(result: SourceResult) {
         // The current reading is not always present in graphData, so add it
         // explicitly. REPLACE on the timestamp key makes the overlap harmless.
-        val rows = (result.history + result.snapshot.reading).map(ReadingEntity::from)
-        dao.insertAll(rows)
+        val readings = result.history + result.snapshot.reading
+        dao.insertAll(readings.map(ReadingEntity::from))
         dao.deleteBefore(clock() - HISTORY_RETENTION_MILLIS)
+
+        // Refresh the summaries for the hours these readings touched. The writer
+        // recomputes whole hours from raw rather than adding deltas, so the
+        // repeated re-insertion of overlapping graph windows cannot double-count.
+        rollups?.refreshFor(readings, result.sensor)
+    }
+
+    /**
+     * Bring the rollup table in line with the readings table.
+     *
+     * Called once on startup. Cheap when they already agree, and the repair path
+     * after the migration that introduced rollups, since that one creates the
+     * table empty rather than trying to backfill inside a schema migration.
+     */
+    suspend fun ensureRollups() {
+        rollups?.rebuildIfEmpty(state.value.sensor)
     }
 
     private fun sourceFor(credentials: LibreLinkUpCredentials): LibreLinkUpSource {

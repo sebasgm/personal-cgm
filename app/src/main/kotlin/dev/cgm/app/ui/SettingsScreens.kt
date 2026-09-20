@@ -25,6 +25,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import dev.cgm.app.Locales
 import dev.cgm.app.R
 import dev.cgm.app.alarm.AlarmNotifier
+import dev.cgm.app.service.BatteryExemption
 import dev.cgm.app.service.PollingService
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
@@ -462,6 +464,71 @@ private fun ThresholdBoundary.provenance(
         stringResource(R.string.range_yours_account_says, unit.format(accountValue))
     isOverridden -> stringResource(R.string.range_yours)
     else -> stringResource(R.string.range_from_account)
+}
+
+/**
+ * Whether the app is actually keeping up, and the two system settings that decide
+ * whether it can.
+ *
+ * A missed reading cannot be recovered - LibreLinkUp serves about twelve hours of
+ * 15-minute history and nothing older - so this is the screen that says whether
+ * the record being built is worth anything.
+ */
+@Composable
+private fun ContinuityCard(viewModel: CgmViewModel) {
+    val context = LocalContext.current
+    val report by viewModel.continuity.collectAsState()
+    var exempt by remember { mutableStateOf(BatteryExemption.isExempt(context)) }
+
+    // Re-read on recomposition: the user may have just come back from granting it.
+    LaunchedEffect(Unit) {
+        exempt = BatteryExemption.isExempt(context)
+        viewModel.refreshContinuity()
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (report.isHealthy && exempt) {
+                MaterialTheme.colorScheme.surfaceVariant
+            } else {
+                MaterialTheme.colorScheme.errorContainer
+            }
+        ),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "${(report.completeness * 100).roundToInt()}% of the last 24 hours recorded",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                if (report.isHealthy) {
+                    "${report.readingCount} readings, no gaps."
+                } else {
+                    "${report.readingCount} readings, ${report.gapCount} gap(s), " +
+                        "longest ${report.largestGapMillis / 60_000} min."
+                },
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            if (!exempt) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Android is allowed to put this app to sleep. That is the usual " +
+                        "cause of readings missing overnight, and they cannot be " +
+                        "recovered afterwards.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TextButton(
+                    onClick = {
+                        context.safeStart(BatteryExemption.requestIntent(context))
+                    }
+                ) { Text("Allow it to keep running") }
+            }
+        }
+    }
 }
 
 // -- small shared pieces ---------------------------------------------------

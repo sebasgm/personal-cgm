@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.os.PowerManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -43,6 +44,22 @@ class PollingService : LifecycleService() {
     private lateinit var settings: SecureSettings
     private lateinit var notifier: AlarmNotifier
     private val scheduler = PollScheduler()
+
+    /**
+     * Keeps the CPU running between polls.
+     *
+     * A foreground service guarantees the process survives; it guarantees nothing
+     * about the CPU. `delay()` is backed by an ordinary timer, and when the device
+     * enters deep sleep - screen off, idle, which is most of a night - that timer
+     * does not fire until something else wakes the device. The loop then overshoots
+     * by minutes at a time and every minute missed is a reading lost for good: the
+     * graph endpoint only backfills at about fifteen-minute spacing, so a gap can
+     * never be refilled at the resolution we poll at.
+     *
+     * The cost is honest - this is why the app has to ask to be left out of battery
+     * optimisation, and why it uses more power than an app that may sleep.
+     */
+    private var wakeLock: PowerManager.WakeLock? = null
     private val alarms = AlarmEngine()
     private var loop: Job? = null
     private lateinit var strings: Context
@@ -73,6 +90,11 @@ class PollingService : LifecycleService() {
     private suspend fun pollLoop() {
         var consecutiveFailures = 0
 
+        // Bring the hourly summaries in line with the readings table before the
+        // first poll. A no-op once they agree; the backfill path after the
+        // migration that created the table empty.
+        runCatching { repository.ensureRollups() }
+
         // Before the first fetch: the status bar shows the last known value rather
         // than "--", which after a restart could otherwise persist for as long as
         // polling keeps failing.
@@ -80,6 +102,7 @@ class PollingService : LifecycleService() {
         updateNotification()
 
         while (lifecycleScope.isActive) {
+            val startedAt = System.currentTimeMillis()
             val outcome = repository.pollOnce()
 
             consecutiveFailures =
@@ -95,7 +118,12 @@ class PollingService : LifecycleService() {
                 updateNotification()
                 break
             }
-            delay(delayMillis)
+
+            // Measured from when this poll *started*, not from when it finished,
+            // so a slow request does not push every later poll further out. If a
+            // poll overran its own interval the next one runs immediately.
+            val elapsed = System.currentTimeMillis() - startedAt
+            delay((delayMillis - elapsed).coerceAtLeast(0))
         }
     }
 
@@ -215,12 +243,15 @@ class PollingService : LifecycleService() {
 
     override fun onDestroy() {
         loop?.cancel()
+        wakeLock?.takeIf { it.isHeld }?.release()
+        wakeLock = null
         _running.value = false
         super.onDestroy()
     }
 
     companion object {
         private const val NOTIFICATION_ID = 1
+        private const val WAKE_LOCK_TAG = "personal-cgm:polling"
 
         private val _running = MutableStateFlow(false)
 

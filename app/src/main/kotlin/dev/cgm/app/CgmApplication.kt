@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.data.ReadingDatabase
+import dev.cgm.app.data.RollupWriter
 import dev.cgm.app.data.SecureSettings
 import kotlinx.coroutines.runBlocking
 
@@ -19,7 +20,12 @@ class CgmApplication : Application() {
     val settings: SecureSettings by lazy { SecureSettings(this) }
     private val database: ReadingDatabase by lazy { ReadingDatabase.create(this) }
     val repository: GlucoseRepository by lazy {
-        GlucoseRepository(settings, database.readings(), database.doses())
+        GlucoseRepository(
+            settings,
+            database.readings(),
+            RollupWriter(database.readings(), database.rollups()),
+            database.doses(),
+        )
     }
 
     override fun onCreate() {

@@ -12,6 +12,7 @@ import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
 import dev.cgm.core.ChartHistory
 import dev.cgm.core.ChartZoom
+import dev.cgm.core.ContinuityReport
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
@@ -260,6 +261,26 @@ class CgmViewModel(
         }
     }
 
+    // -- diagnostics --------------------------------------------------------
+
+    private val _continuity = MutableStateFlow(ContinuityReport.Empty)
+    val continuity: StateFlow<ContinuityReport> = _continuity.asStateFlow()
+
+    /**
+     * How much of the last day actually got recorded.
+     *
+     * Worth surfacing because a gap is permanent: LibreLinkUp serves about twelve
+     * hours of 15-minute history and nothing older, so a minute we failed to poll
+     * is gone at the resolution we poll at.
+     */
+    fun refreshContinuity() {
+        viewModelScope.launch {
+            _continuity.value = withContext(Dispatchers.IO) {
+                repository.continuity(CONTINUITY_WINDOW_MILLIS)
+            }
+        }
+    }
+
     init {
         viewModelScope.launch {
             repository.refreshConfiguration()
@@ -267,6 +288,7 @@ class CgmViewModel(
             repository.primeFromStorage()
         }
         refreshPeriodStats()
+        refreshContinuity()
     }
 
     fun selectWindow(window: GraphWindow) {
@@ -352,6 +374,7 @@ class CgmViewModel(
 
     companion object {
         const val LOGBOOK_LIMIT = 500
+        const val CONTINUITY_WINDOW_MILLIS = 24L * 60 * 60 * 1000
 
         /** Enough to cover several weeks of dosing without paging. */
         const val DOSE_LIMIT = 300

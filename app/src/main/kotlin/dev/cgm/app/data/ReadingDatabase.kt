@@ -104,20 +104,6 @@ interface ReadingDao {
         veryHigh: Double,
     ): ReadingAggregate
 
-    @Query(
-        """
-        SELECT AVG(valueMgdl) FROM readings
-        WHERE timestampMillis BETWEEN :startMillis AND :endMillis
-          AND ((timestampMillis / 3600000) % 24) BETWEEN :fromHour AND :toHour
-        """
-    )
-    suspend fun averageForHourRange(
-        startMillis: Long,
-        endMillis: Long,
-        fromHour: Int,
-        toHour: Int,
-    ): Double?
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(readings: List<ReadingEntity>)
 
@@ -145,6 +131,12 @@ interface ReadingDao {
 
     @Query("SELECT * FROM readings WHERE timestampMillis >= :sinceMillis ORDER BY timestampMillis ASC")
     suspend fun since(sinceMillis: Long): List<ReadingEntity>
+
+    @Query(
+        "SELECT * FROM readings WHERE timestampMillis BETWEEN :startMillis AND :endMillis " +
+            "ORDER BY timestampMillis ASC"
+    )
+    suspend fun betweenInclusive(startMillis: Long, endMillis: Long): List<ReadingEntity>
 
     @Query("SELECT COUNT(*) FROM readings")
     suspend fun count(): Int
@@ -212,13 +204,14 @@ interface DoseDao {
 }
 
 @Database(
-    entities = [ReadingEntity::class, DoseEntity::class],
-    version = 2,
+    entities = [ReadingEntity::class, DoseEntity::class, HourlyRollupEntity::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class ReadingDatabase : RoomDatabase() {
     abstract fun readings(): ReadingDao
     abstract fun doses(): DoseDao
+    abstract fun rollups(): HourlyRollupDao
 
     companion object {
         /**
@@ -246,9 +239,48 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds the hourly rollup table (docs/05-trend-inference.md §3).
+         *
+         * Created empty. The rollups are derived data and are rebuilt from the
+         * readings table on first run after the upgrade, which is also the repair
+         * path if they ever drift.
+         */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `hourly_rollup` (" +
+                        "`hourStartMillis` INTEGER PRIMARY KEY NOT NULL, " +
+                        "`localDate` TEXT NOT NULL, " +
+                        "`localHour` INTEGER NOT NULL, " +
+                        "`count` INTEGER NOT NULL, " +
+                        "`sum` REAL NOT NULL, " +
+                        "`sumSq` REAL NOT NULL, " +
+                        "`minMgdl` REAL NOT NULL, " +
+                        "`maxMgdl` REAL NOT NULL, " +
+                        "`buckets` INTEGER NOT NULL, " +
+                        "`histogram` BLOB NOT NULL, " +
+                        "`sensorSerial` TEXT, " +
+                        "`sensorDay` INTEGER)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_hourly_rollup_localDate` " +
+                        "ON `hourly_rollup` (`localDate`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_hourly_rollup_localHour` " +
+                        "ON `hourly_rollup` (`localHour`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_hourly_rollup_sensorSerial_sensorDay` " +
+                        "ON `hourly_rollup` (`sensorSerial`, `sensorDay`)"
+                )
+            }
+        }
+
         fun create(context: Context): ReadingDatabase =
             Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }
