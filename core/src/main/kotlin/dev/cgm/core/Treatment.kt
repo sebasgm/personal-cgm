@@ -53,6 +53,24 @@ data class InsulinDose(
         fun roundUnits(units: Double): Double =
             (Math.round(units / STEP_UNITS) * STEP_UNITS).coerceAtLeast(0.0)
 
+        /**
+         * Parses a typed dose, accepting either decimal separator.
+         *
+         * A Spanish keyboard produces "6,5" and an English one "6.5", and both mean
+         * six and a half units. `toDoubleOrNull` accepts only the period, so without
+         * this a comma would parse as nothing and a real dose would be silently
+         * refused — or worse, read as 65.
+         *
+         * Returns null for anything that is not a single finite number, which the
+         * form reports rather than guessing at.
+         */
+        fun parseUnits(text: String): Double? {
+            val normalised = text.trim().replace(',', '.')
+            if (normalised.isEmpty()) return null
+            val value = normalised.toDoubleOrNull() ?: return null
+            return if (value.isFinite()) value else null
+        }
+
         /** Trims and drops an empty note, so blank and absent are the same thing. */
         fun cleanNote(note: String?): String? = note?.trim()?.takeIf { it.isNotEmpty() }
     }

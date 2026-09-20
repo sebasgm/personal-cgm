@@ -48,6 +48,30 @@ class InsulinDoseTest {
         assertEquals(0.0, InsulinDose.roundUnits(-1.0))
     }
 
+    /**
+     * The separator is the whole point: a Spanish keyboard types a comma, and
+     * `toDoubleOrNull` refuses it. Silently refusing a real dose — or reading "6,5"
+     * as 65 — is the failure this prevents.
+     */
+    @Test
+    fun `units parse with either decimal separator`() {
+        assertEquals(6.5, InsulinDose.parseUnits("6,5"))
+        assertEquals(6.5, InsulinDose.parseUnits("6.5"))
+        assertEquals(6.0, InsulinDose.parseUnits("6"))
+        assertEquals(6.0, InsulinDose.parseUnits("  6 "))
+        assertEquals(0.5, InsulinDose.parseUnits(",5"))
+    }
+
+    @Test
+    fun `anything that is not a single number parses to nothing`() {
+        assertNull(InsulinDose.parseUnits(""))
+        assertNull(InsulinDose.parseUnits("   "))
+        assertNull(InsulinDose.parseUnits("abc"))
+        assertNull(InsulinDose.parseUnits("6,5,5"))
+        assertNull(InsulinDose.parseUnits("6 5"))
+        assertNull(InsulinDose.parseUnits("-"))
+    }
+
     @Test
     fun `a blank note is the same as no note`() {
         assertNull(InsulinDose.cleanNote(null))

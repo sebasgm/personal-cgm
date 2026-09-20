@@ -328,7 +328,15 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(snapshot.unit.suffix, style = MaterialTheme.typography.bodyLarge)
-            Text(snapshot.reading.trend.glyph, fontSize = 22.sp, color = valueColor)
+            // Half the height of the value itself. The arrow answers "which way is
+            // this going", which is the second thing anyone looks for and was
+            // previously set at a quarter of the size of the first.
+            Text(
+                snapshot.reading.trend.glyph,
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Bold,
+                color = valueColor,
+            )
             snapshot.formattedDelta()?.let {
                 Text(it, style = MaterialTheme.typography.titleMedium)
             }
@@ -463,11 +471,11 @@ private fun StatStrip(
             muted = !stats.isReliable,
             note = coverageNote,
             // Coloured against the clinical target rather than decoratively, and
-            // only while the figure is reliable: colour reads as confidence, and
-            // there is none to claim from 11% coverage.
-            valueColor = stats.timeInRange
-                ?.takeIf { stats.isReliable }
-                ?.let { ZoneColors.ofTarget(TimeInRangeTarget.of(it)) },
+            // dimmed rather than greyed when coverage is thin — the same scale the
+            // zone bars use, so a colour means the same thing on both screens.
+            valueColor = stats.timeInRange?.let {
+                ZoneColors.ofTarget(TimeInRangeTarget.of(it), reliable = stats.isReliable)
+            },
         )
         StatCell(
             label = stringResource(R.string.home_stat_average),

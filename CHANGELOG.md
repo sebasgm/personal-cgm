@@ -37,10 +37,13 @@ decision and a pass over the security plan.
   zoom, and day-by-day history browsing with a date picker.
 - An explicit red NO SIGNAL state after five minutes without data.
 - Time in range coloured against the 70% clinical target, and a stacked all-zone bar in
-  Trends.
+  Trends. Low coverage dims the colours rather than replacing them with grey, so the zones
+  stay distinguishable.
 - Logbook of raw readings grouped by day.
-- Insulin logging for basal and bolus doses, with half-unit steps, a back-dating shortcut for
-  a forgotten injection, an optional note, today's running totals and deletion.
+- Insulin logging for basal and bolus doses: units typed on a numeric keypad, relative
+  shortcuts or an exact date and time, an optional note, today's running totals and deletion.
+  Either decimal separator is accepted, since which one the keyboard offers depends on the
+  language.
 - Trends: time in range, GMI and estimated A1C, each gated behind a coverage threshold and
   labelled with the coverage it was computed from.
 - A medical disclaimer, shown before first use and reachable from Settings thereafter.
@@ -71,6 +74,8 @@ decision and a pass over the security plan.
   notification now carries the value as its icon.
 - A restart no longer shows "--" in the status bar while polling is still failing. The newest
   stored reading goes on screen before the first fetch, still aged honestly.
+- The trend arrow on Home was a quarter the height of the value beside it, which made the
+  second thing anyone looks for the hardest thing to see. It is now half.
 - The delta now carries the interval it spans, so a fifteen-minute change cannot be read as a
   five-minute one.
 - The poller no longer stays dead after the app is reinstalled. It previously started only on

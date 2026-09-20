@@ -183,4 +183,8 @@
     <string name="dose_decrease">Menos</string>
     <string name="dose_increase">Más</string>
     <string name="dose_given_at">%1$s · %2$s</string>
+    <string name="dose_pick_datetime">Elegir fecha y hora</string>
+    <string name="dose_will_record_at">Se registrará el %1$s</string>
+    <string name="dose_invalid">Ingresá una dosis entre 0,5 y %1$s U</string>
+    <string name="dose_time_set">Aceptar</string>
 </resources>

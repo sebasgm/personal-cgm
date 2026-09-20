@@ -17,7 +17,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +32,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.ui.text.input.KeyboardType
+import java.time.ZoneOffset
 import dev.cgm.app.R
 import dev.cgm.core.InsulinDayTotals
 import dev.cgm.core.InsulinDose
@@ -45,11 +54,16 @@ import java.time.format.DateTimeFormatter
 /**
  * Logging insulin, and seeing what has been logged (issue #5).
  *
- * The units control is a stepper rather than a text field, for two reasons. Pens and
- * syringes deliver half units, so a free-text field offers a precision that does not
- * exist; and a decimal typed on a Spanish keyboard arrives with a comma, which a
- * naive parse reads as nothing at all. A stepper cannot be mistyped and needs no
- * parsing, which on a dose log is worth more than the flexibility it gives up.
+ * Units are typed on a numeric keypad. That puts the decimal separator back in play,
+ * which is the one real hazard here: a Spanish keyboard produces "6,5" where an
+ * English one produces "6.5", and `toDoubleOrNull` accepts only the period. So the
+ * field keeps both separators while filtering everything else, and
+ * [InsulinDose.parseUnits] normalises them — a comma must never be read as nothing,
+ * and must certainly never turn 6,5 into 65.
+ *
+ * The time can be nudged with the relative chips or set exactly with a date and then
+ * a time picker. Two dialogs rather than one because Material offers no combined
+ * control, and a dose filed against the wrong day is a worse error than an extra tap.
  */
 @Composable
 fun DosesScreen(viewModel: CgmViewModel) {
@@ -57,9 +71,21 @@ fun DosesScreen(viewModel: CgmViewModel) {
     val zone = remember { ZoneId.systemDefault() }
 
     var kind by remember { mutableStateOf(InsulinKind.BOLUS) }
-    var units by remember { mutableStateOf(DEFAULT_UNITS) }
+    var unitsText by remember { mutableStateOf("") }
     var minutesAgo by remember { mutableStateOf(0) }
+    /** Set only when a date and time were chosen explicitly; otherwise the chips rule. */
+    var pickedAtMillis by remember { mutableStateOf<Long?>(null) }
+    var pickingDate by remember { mutableStateOf(false) }
+    var pickingTime by remember { mutableStateOf<Long?>(null) }
     var note by remember { mutableStateOf("") }
+
+    val units = InsulinDose.parseUnits(unitsText)
+    val acceptable = units != null &&
+        InsulinDose(kind = kind, units = units, givenAtMillis = 1).isPlausible
+    // Resolved at save time when no explicit instant was picked, so a form left open
+    // for ten minutes still records "now" as now.
+    fun effectiveMillis(): Long =
+        pickedAtMillis ?: (System.currentTimeMillis() - minutesAgo * 60_000L)
 
     Column(
         Modifier
@@ -88,7 +114,32 @@ fun DosesScreen(viewModel: CgmViewModel) {
         }
 
         Spacer(Modifier.height(16.dp))
-        UnitStepper(units = units, onChange = { units = it })
+        OutlinedTextField(
+            value = unitsText,
+            // Filtered as it is typed rather than validated afterwards: a dose field
+            // has no use for letters, and both separators are kept because which one
+            // the keyboard offers depends on the language.
+            onValueChange = { typed ->
+                unitsText = typed.filter { it.isDigit() || it == '.' || it == ',' }.take(6)
+            },
+            label = { Text(stringResource(R.string.dose_units)) },
+            suffix = { Text(stringResource(R.string.dose_units_suffix)) },
+            singleLine = true,
+            isError = unitsText.isNotEmpty() && !acceptable,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            textStyle = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (unitsText.isNotEmpty() && !acceptable) {
+            Text(
+                stringResource(
+                    R.string.dose_invalid,
+                    formatUnits(InsulinDose.MAX_PLAUSIBLE_UNITS),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
         Text(stringResource(R.string.dose_when), style = MaterialTheme.typography.bodyLarge)
@@ -105,12 +156,27 @@ fun DosesScreen(viewModel: CgmViewModel) {
                 60 to R.string.dose_minus_60,
             ).forEach { (offset, labelRes) ->
                 FilterChip(
-                    selected = minutesAgo == offset,
-                    onClick = { minutesAgo = offset },
+                    selected = pickedAtMillis == null && minutesAgo == offset,
+                    onClick = {
+                        minutesAgo = offset
+                        pickedAtMillis = null
+                    },
                     label = { Text(stringResource(labelRes)) },
                 )
             }
         }
+
+        TextButton(onClick = { pickingDate = true }) {
+            Text(stringResource(R.string.dose_pick_datetime))
+        }
+        Text(
+            stringResource(
+                R.string.dose_will_record_at,
+                Instant.ofEpochMilli(effectiveMillis()).atZone(zone).format(DOSE_TIME_FORMAT),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
@@ -124,19 +190,21 @@ fun DosesScreen(viewModel: CgmViewModel) {
         Spacer(Modifier.height(16.dp))
         Button(
             onClick = {
+                val amount = units ?: return@Button
                 viewModel.logDose(
                     kind = kind,
-                    units = units,
-                    givenAtMillis = System.currentTimeMillis() - minutesAgo * 60_000L,
+                    units = amount,
+                    givenAtMillis = effectiveMillis(),
                     note = note,
                 )
                 // Reset only what should not carry over. The kind usually repeats —
                 // a bolus is followed by another bolus — so it stays.
-                units = DEFAULT_UNITS
+                unitsText = ""
                 minutesAgo = 0
+                pickedAtMillis = null
                 note = ""
             },
-            enabled = units > 0 && units <= InsulinDose.MAX_PLAUSIBLE_UNITS,
+            enabled = acceptable,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.dose_save))
@@ -167,46 +235,96 @@ fun DosesScreen(viewModel: CgmViewModel) {
             HorizontalDivider()
         }
     }
+
+    // Date first, then time. Two steps rather than one combined control because
+    // Material offers no combined picker, and a dose entered for the wrong day is a
+    // worse error than one extra tap.
+    if (pickingDate) {
+        DoseDatePicker(
+            initialMillis = effectiveMillis(),
+            zone = zone,
+            onPick = { dayStart ->
+                pickingDate = false
+                pickingTime = dayStart
+            },
+            onDismiss = { pickingDate = false },
+        )
+    }
+    pickingTime?.let { dayStart ->
+        DoseTimePicker(
+            initialMillis = effectiveMillis(),
+            zone = zone,
+            onPick = { hour, minute ->
+                pickedAtMillis = Instant.ofEpochMilli(dayStart)
+                    .atZone(zone)
+                    .withHour(hour)
+                    .withMinute(minute)
+                    .withSecond(0)
+                    .toInstant()
+                    .toEpochMilli()
+                pickingTime = null
+            },
+            onDismiss = { pickingTime = null },
+        )
+    }
 }
 
-/**
- * Half-unit steps, which is the finest a pen delivers.
- *
- * Long values are reached by holding neither button — there is no accelerator here,
- * because the realistic range is a handful of units and the guard against a runaway
- * repeat is not having one.
- */
+/** Picks the day. The picker speaks UTC midnight, so it is converted to local. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UnitStepper(units: Double, onChange: (Double) -> Unit) {
-    Column {
-        Text(stringResource(R.string.dose_units), style = MaterialTheme.typography.bodyLarge)
-        Row(
-            modifier = Modifier.padding(top = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            OutlinedButton(
-                onClick = { onChange((units - InsulinDose.STEP_UNITS).coerceAtLeast(0.0)) },
-                enabled = units > 0,
-            ) { Text("−", fontSize = 20.sp) }
-
-            Text(
-                "${formatUnits(units)} ${stringResource(R.string.dose_units_suffix)}",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-
-            OutlinedButton(
+private fun DoseDatePicker(
+    initialMillis: Long,
+    zone: ZoneId,
+    onPick: (Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
                 onClick = {
-                    onChange(
-                        (units + InsulinDose.STEP_UNITS)
-                            .coerceAtMost(InsulinDose.MAX_PLAUSIBLE_UNITS)
-                    )
-                },
-                enabled = units < InsulinDose.MAX_PLAUSIBLE_UNITS,
-            ) { Text("+", fontSize = 20.sp) }
-        }
+                    val picked = state.selectedDateMillis
+                    if (picked == null) {
+                        onDismiss()
+                    } else {
+                        val date = Instant.ofEpochMilli(picked).atZone(ZoneOffset.UTC).toLocalDate()
+                        onPick(date.atStartOfDay(zone).toInstant().toEpochMilli())
+                    }
+                }
+            ) { Text(stringResource(R.string.home_picker_show)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_picker_cancel)) } },
+    ) {
+        DatePicker(state = state)
     }
+}
+
+/** Picks the time of day, on the date already chosen. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DoseTimePicker(
+    initialMillis: Long,
+    zone: ZoneId,
+    onPick: (Int, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val start = remember(initialMillis) { Instant.ofEpochMilli(initialMillis).atZone(zone) }
+    val state = rememberTimePickerState(
+        initialHour = start.hour,
+        initialMinute = start.minute,
+        is24Hour = true,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onPick(state.hour, state.minute) }) {
+                Text(stringResource(R.string.dose_time_set))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_picker_cancel)) } },
+        text = { TimePicker(state = state) },
+    )
 }
 
 @Composable
@@ -276,5 +394,3 @@ private fun formatUnits(units: Double): String =
 
 private val DOSE_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM HH:mm")
 
-/** A common bolus, so the stepper starts somewhere useful rather than at zero. */
-private const val DEFAULT_UNITS = 4.0

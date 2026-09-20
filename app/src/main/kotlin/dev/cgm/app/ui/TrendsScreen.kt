@@ -182,9 +182,7 @@ private fun StackedZoneBar(stats: GlucoseStatistics, muted: Boolean) {
                     Modifier
                         .weight(fraction)
                         .fillMaxHeight()
-                        .background(
-                            if (muted) MaterialTheme.colorScheme.outline else ZoneColors.of(zone)
-                        )
+                        .background(ZoneColors.of(zone, reliable = !muted))
                 )
             }
         }
@@ -217,7 +215,7 @@ private fun ZoneBar(label: String, fraction: Double, zone: Zone, muted: Boolean)
                         .fillMaxWidth(fraction.toFloat())
                         .height(16.dp)
                         .background(
-                            if (muted) MaterialTheme.colorScheme.outline else ZoneColors.of(zone),
+                            ZoneColors.of(zone, reliable = !muted),
                             RoundedCornerShape(4.dp),
                         )
                 )

@@ -36,11 +36,29 @@ object ZoneColors {
      * Reuses the zone colours rather than inventing a second scale, so green always
      * means "in range" whether it is describing one reading or a week of them.
      */
-    fun ofTarget(target: TimeInRangeTarget): Color = when (target) {
-        TimeInRangeTarget.AT_TARGET -> inRange
-        TimeInRangeTarget.BELOW_TARGET -> high
-        TimeInRangeTarget.WELL_BELOW_TARGET -> low
+    fun ofTarget(target: TimeInRangeTarget, reliable: Boolean = true): Color {
+        val colour = when (target) {
+            TimeInRangeTarget.AT_TARGET -> inRange
+            TimeInRangeTarget.BELOW_TARGET -> high
+            TimeInRangeTarget.WELL_BELOW_TARGET -> low
+        }
+        return if (reliable) colour else colour.copy(alpha = UNRELIABLE_ALPHA)
     }
+
+    /**
+     * How strongly a zone colour is drawn when the figure behind it is thin.
+     *
+     * Low coverage used to replace the colour with grey, which flattened a five-zone
+     * chart into one indistinguishable block — it destroyed the very information the
+     * colours carry in order to say something the coverage label already says in
+     * words. Alpha is the right axis for "less certain": hue keeps identifying the
+     * zone, weight says how much to trust it.
+     */
+    const val UNRELIABLE_ALPHA = 0.45f
+
+    /** A zone colour, dimmed when the statistic behind it is thin. */
+    fun of(zone: Zone, reliable: Boolean): Color =
+        if (reliable) of(zone) else of(zone).copy(alpha = UNRELIABLE_ALPHA)
 
     /** The colour a stale reading gets: none. */
     val stale: Color
