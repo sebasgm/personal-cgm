@@ -362,3 +362,59 @@ accounts gates sharing, and sharing gates the sharing disclaimer.
 - **Android Auto**, **non-Wear watches** and **direct Wi-Fi/BLE** stay where the first
   roadmap put them: behind a working Wear OS path. Direct BLE in particular means giving up
   the official LibreLink app, since only one app can hold the sensor's connection.
+
+---
+
+## 6. Where the phone path goes next
+
+State as of 2026-09-20: Phases 1 and 2 are built, most of Phase 3 with them. Issues #7, #9,
+#10 and #11 are done; #1 and #5 are done; #6 is largely done via the chart rewrite. The
+rollup foundation from `docs/05-trend-inference.md` (Phase A) landed with the overnight
+polling fix.
+
+### Immediately
+
+1. **Verify the overnight fix.** The continuity card in Settings reports how much of the
+   last 24 hours was actually recorded. Until that reads near 100% across a night, every
+   analytic below is being built on a record with holes in it — and the holes are permanent,
+   because LibreLinkUp serves about twelve hours of 15-minute history and nothing older.
+   If it still shows multi-hour gaps, the wake lock was not enough and the next step is
+   AlarmManager-driven wakeups rather than a coroutine `delay`.
+
+2. **License.** AGPL-3.0 remains the recommendation. It gates whether contributions are
+   possible at all, so it is cheap now and awkward later.
+
+### Then, the trend work (docs/05-trend-inference.md phases B–F)
+
+3. **B — AGP.** Percentile bands by time of day, from the rollups' histograms.
+
+   **This supersedes issue #8.** Eight bars of 3-hour averages and an AGP answer the same
+   question, but a bucket averaging 140 with an IQR of 60–260 and one averaging 140 with an
+   IQR of 125–155 are completely different situations that the bar chart draws identically.
+   The spread is where the information is. Recommend closing #8 in favour of the AGP rather
+   than building both — worth your call, since #8 is your issue.
+
+4. **C — Level trends.** Rolling 14-day TIR and GMI across months, with a Theil–Sen line so
+   one bad week cannot rotate it.
+
+5. **D — Change detection.** The "what is different lately" cards. Earliest useful date is
+   around day 77 from first run, since it needs 14 days of recent against 7 weeks of
+   baseline. Gated on effect size as well as significance; silence is the default output.
+
+6. **E — Sensor-session effects.** Bias by day-of-session across sensors. `sensorSerial` and
+   `sensorDay` are already being written into every rollup row, so this needs no new
+   collection — only four or so sessions of elapsed time.
+
+7. **F — MODD and MAGE.** Variability beyond CV.
+
+### Remaining feature work
+
+8. **App lock.** Decided, unbuilt. The last outstanding feature request.
+9. **#6 leftovers.** Spans beyond 7 days, dose markers on the trace, and an explicit marker
+   for where our history begins — an empty year must not read as a flat line.
+
+### After that
+
+The watch. See **`docs/06-wear-os.md`**, which replaces stages 3–5 of `docs/01-plan.md` with
+a plan specific to the OnePlus Watch 3. Android Auto (#3), non-Wear watches (#4) and direct
+BLE (#2) stay behind it, as they have since the first roadmap.
