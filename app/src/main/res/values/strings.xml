@@ -187,4 +187,19 @@
     <string name="dose_will_record_at">Se registrará el %1$s</string>
     <string name="dose_invalid">Ingresá una dosis entre 0,5 y %1$s U</string>
     <string name="dose_time_set">Aceptar</string>
+    <string name="common_cancel">Cancelar</string>
+    <string name="confirm_stop_title">¿Detener el servicio?</string>
+    <string name="confirm_stop_body">Mientras esté detenido no se guardará ninguna lectura, y ese hueco no se puede recuperar después: LibreLinkUp solo entrega unas doce horas de historial con puntos cada quince minutos. Las alarmas tampoco sonarán.</string>
+    <string name="confirm_stop_action">Detener</string>
+    <string name="confirm_signout_title">¿Cerrar sesión?</string>
+    <string name="confirm_signout_body">Se borrarán tus credenciales de LibreLinkUp y se detendrá el seguimiento. El historial ya guardado se conserva.</string>
+    <string name="confirm_signout_action">Cerrar sesión</string>
+    <string name="trends_formula_title">Cómo se calculan</string>
+    <string name="trends_formula_close">Entendido</string>
+    <string name="set_forecast">Proyección en el gráfico</string>
+    <string name="set_forecast_desc">Dibuja hacia dónde podría ir la glucosa en las próximas dos horas, con una banda de confianza. Es una estimación, nunca una medición, y no dispara alarmas.</string>
+    <string name="forecast_uncalibrated">Banda provisional: aún no hay historial suficiente para medir el error real de este modelo.</string>
+    <string name="forecast_coverage">La banda del %1$d%% contuvo el valor real el %2$d%% de las veces (%3$d comprobaciones sobre datos que el modelo no vio).</string>
+    <string name="forecast_overconfident">La banda es más estrecha de lo que el error real justifica.</string>
+    <string name="trends_forecast_title">Fiabilidad de la proyección</string>
 </resources>

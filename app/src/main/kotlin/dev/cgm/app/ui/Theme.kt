@@ -88,70 +88,97 @@ object ChartColors {
         @Composable get() = if (isSystemInDarkTheme()) traceDark else traceLight
 
     /**
+     * The projection. Deliberately a different hue from the trace and from every
+     * zone colour, so it reads as "not a measurement" before it reads as anything
+     * else. Never red — red is reserved for "what you are looking at may not be
+     * true", and a forecast is not a warning.
+     */
+    private val forecastLight = Color(0xFF5B6BB5)
+    private val forecastDark = Color(0xFF9FAEE8)
+
+    val forecast: Color
+        @Composable get() = if (isSystemInDarkTheme()) forecastDark else forecastLight
+
+    /**
      * Signal loss, and the one colour here that does not mean a zone.
      *
      * Red is spent on exactly one thing: the claim that what is on screen may not
      * be true. Nothing else in the app may use it, or it stops meaning that.
      */
     val signalLoss = Color(0xFFD32F2F)
+
+    /**
+     * The levels you asked to be warned at, drawn dashed across the chart.
+     *
+     * Red, and softer than [signalLoss] so the two can share a screen without
+     * competing: a threshold line is a boundary, not an event. Red was previously
+     * reserved for "what you are looking at may not be true"; it now also marks
+     * "where you asked to be told", which is close enough in kind that the reader
+     * does not have to learn two rules.
+     */
+    val alarmLine = Color(0xFFE06C6C)
 }
 
 /**
- * The app's palette, seeded from #E1CA96.
+ * The app's palette, seeded from #42B28E.
  *
- * That seed is a light, desaturated sand, which decides how it can be used: as a
- * light scheme's `primary` it needs *dark* text on top, not white, so `onPrimary`
- * is a deep brown rather than the usual white. Getting that backwards is how a warm
- * theme ends up with unreadable buttons.
+ * A mid-tone teal-green, which decides how it can be used. It is light enough that
+ * white text on it is hard to read and dark enough that black is harsh, so
+ * `onPrimary` is a deep green rather than either — getting that wrong is how an
+ * accent colour ends up with illegible buttons.
  *
- * Surfaces are warmed to match rather than left neutral grey, because a warm accent
- * on cold grey reads as a mistake. The zone colours in [ZoneColors] and the signal
- * loss red in [ChartColors] are deliberately *not* derived from this: they carry
- * meaning, and meaning must not shift when someone changes the theme.
+ * Surfaces are cooled very slightly toward the accent rather than left neutral
+ * grey, because a green accent on cold grey reads as a mistake.
+ *
+ * The zone colours in [ZoneColors], the alarm red and the signal-loss red in
+ * [ChartColors] are deliberately *not* derived from this: they carry meaning, and
+ * meaning must not move when someone changes the theme. The in-range band stays
+ * the pale LibreLink green for the same reason, even though the theme is now green
+ * too — it is a convention borrowed from the official app, not decoration.
  */
 object CgmPalette {
 
-    val seed = Color(0xFFE1CA96)
+    val seed = Color(0xFF42B28E)
 
     val light = lightColorScheme(
         primary = seed,
-        onPrimary = Color(0xFF3A2E14),
-        primaryContainer = Color(0xFFF3E7C9),
-        onPrimaryContainer = Color(0xFF241B06),
-        secondary = Color(0xFF6D5D3F),
+        onPrimary = Color(0xFF06291F),
+        primaryContainer = Color(0xFFC5EBDC),
+        onPrimaryContainer = Color(0xFF032018),
+        secondary = Color(0xFF4A6358),
         onSecondary = Color(0xFFFFFFFF),
-        secondaryContainer = Color(0xFFF1E4C3),
-        onSecondaryContainer = Color(0xFF241A04),
-        tertiary = Color(0xFF52643F),
+        secondaryContainer = Color(0xFFCDE9DB),
+        onSecondaryContainer = Color(0xFF072019),
+        tertiary = Color(0xFF3F6374),
         onTertiary = Color(0xFFFFFFFF),
-        background = Color(0xFFFFFBF2),
-        onBackground = Color(0xFF1E1B13),
-        surface = Color(0xFFFFFBF2),
-        onSurface = Color(0xFF1E1B13),
-        surfaceVariant = Color(0xFFEAE1CC),
-        onSurfaceVariant = Color(0xFF4B4639),
-        outline = Color(0xFF7C7767),
-        outlineVariant = Color(0xFFCDC5B0),
+        background = Color(0xFFF6FBF8),
+        onBackground = Color(0xFF171D1A),
+        surface = Color(0xFFF6FBF8),
+        onSurface = Color(0xFF171D1A),
+        surfaceVariant = Color(0xFFDBE5DF),
+        onSurfaceVariant = Color(0xFF3F4945),
+        outline = Color(0xFF6F7975),
+        outlineVariant = Color(0xFFBFC9C4),
     )
 
     val dark = darkColorScheme(
         primary = seed,
-        onPrimary = Color(0xFF382E12),
-        primaryContainer = Color(0xFF534526),
-        onPrimaryContainer = Color(0xFFFEE6BC),
-        secondary = Color(0xFFD5C5A1),
-        onSecondary = Color(0xFF3A2F15),
-        secondaryContainer = Color(0xFF52452A),
-        onSecondaryContainer = Color(0xFFF1E4C3),
-        tertiary = Color(0xFFB9CBA0),
-        onTertiary = Color(0xFF253515),
-        background = Color(0xFF15130B),
-        onBackground = Color(0xFFE8E2D4),
-        surface = Color(0xFF15130B),
-        onSurface = Color(0xFFE8E2D4),
-        surfaceVariant = Color(0xFF4B4639),
-        onSurfaceVariant = Color(0xFFCEC6B4),
-        outline = Color(0xFF979080),
-        outlineVariant = Color(0xFF4B4639),
+        onPrimary = Color(0xFF00382A),
+        primaryContainer = Color(0xFF005140),
+        onPrimaryContainer = Color(0xFF5FCFA9),
+        secondary = Color(0xFFB1CCC0),
+        onSecondary = Color(0xFF1C352C),
+        secondaryContainer = Color(0xFF334B42),
+        onSecondaryContainer = Color(0xFFCDE9DB),
+        tertiary = Color(0xFFA7CBDD),
+        onTertiary = Color(0xFF0A3445),
+        background = Color(0xFF0F1512),
+        onBackground = Color(0xFFDEE4E0),
+        surface = Color(0xFF0F1512),
+        onSurface = Color(0xFFDEE4E0),
+        surfaceVariant = Color(0xFF3F4945),
+        onSurfaceVariant = Color(0xFFBFC9C4),
+        outline = Color(0xFF899390),
+        outlineVariant = Color(0xFF3F4945),
     )
 }

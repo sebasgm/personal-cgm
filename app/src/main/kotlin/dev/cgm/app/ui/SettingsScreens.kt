@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -132,11 +134,30 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        var confirmStop by remember { mutableStateOf(false) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onStartService) { Text(stringResource(R.string.set_start)) }
-            OutlinedButton(onClick = onStopService) { Text(stringResource(R.string.set_stop)) }
+            OutlinedButton(onClick = { confirmStop = true }) {
+                Text(stringResource(R.string.set_stop))
+            }
             OutlinedButton(onClick = viewModel::refreshNow) { Text(stringResource(R.string.set_refresh)) }
         }
+
+        // Stopping is confirmed because the cost is invisible and permanent: no
+        // readings are recorded while it is off, and that hole cannot be filled in
+        // afterwards from an API that only serves twelve hours of coarse history.
+        if (confirmStop) {
+            ConfirmDialog(
+                title = stringResource(R.string.confirm_stop_title),
+                body = stringResource(R.string.confirm_stop_body),
+                confirmLabel = stringResource(R.string.confirm_stop_action),
+                onConfirm = { confirmStop = false; onStopService() },
+                onDismiss = { confirmStop = false },
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        ForecastSetting(viewModel)
 
         Spacer(Modifier.height(12.dp))
         SectionHeader(stringResource(R.string.set_account))
@@ -144,7 +165,19 @@ fun SettingsScreen(
             title = stringResource(R.string.set_librelinkup),
             subtitle = if (state.configured) stringResource(R.string.set_signed_in) else stringResource(R.string.set_not_signed_in),
         ) {}
-        TextButton(onClick = viewModel::signOut) { Text(stringResource(R.string.set_sign_out)) }
+        var confirmSignOut by remember { mutableStateOf(false) }
+        TextButton(onClick = { confirmSignOut = true }) {
+            Text(stringResource(R.string.set_sign_out))
+        }
+        if (confirmSignOut) {
+            ConfirmDialog(
+                title = stringResource(R.string.confirm_signout_title),
+                body = stringResource(R.string.confirm_signout_body),
+                confirmLabel = stringResource(R.string.confirm_signout_action),
+                onConfirm = { confirmSignOut = false; viewModel.signOut() },
+                onDismiss = { confirmSignOut = false },
+            )
+        }
     }
 }
 
@@ -234,7 +267,10 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
             SliderRow(
                 label = stringResource(R.string.alarm_at),
                 value = setting.thresholdMgdl,
-                valueText = "${unit.format(setting.thresholdMgdl)} ${unit.suffix}",
+                // Formatted from the live position, and in the display unit, so a
+                // mmol/L reader picks a number they recognise while the stored
+                // threshold stays mg/dL.
+                format = { "${unit.format(it.toDouble())} ${unit.suffix}" },
                 range = if (kind.isLow) 40f..110f else 140f..350f,
                 helper = stringResource(R.string.alarm_at_helper),
             ) { update { s -> s.copy(thresholdMgdl = it.toDouble()) } }
@@ -242,10 +278,9 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
             SliderRow(
                 label = stringResource(R.string.alarm_warn_after),
                 value = (setting.afterMillis / 60_000).toDouble(),
-                valueText = stringResource(
-                    R.string.alarm_warn_after_value,
-                    setting.afterMillis / 60_000,
-                ),
+                format = { minutes ->
+                    context.getString(R.string.alarm_warn_after_value, minutes.toInt())
+                },
                 range = 5f..60f,
                 helper = stringResource(R.string.alarm_warn_after_helper),
             ) { update { s -> s.copy(afterMillis = (it.toLong() * 60_000)) } }
@@ -255,10 +290,7 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
         SliderRow(
             label = stringResource(R.string.alarm_repeat_every),
             value = (setting.repeatEveryMillis / 60_000).toDouble(),
-            valueText = stringResource(
-                R.string.alarm_minutes,
-                setting.repeatEveryMillis / 60_000,
-            ),
+            format = { minutes -> context.getString(R.string.alarm_minutes, minutes.toInt()) },
             range = 1f..60f,
         ) { update { s -> s.copy(repeatEveryMillis = it.toLong() * 60_000) } }
 
@@ -531,6 +563,72 @@ private fun ContinuityCard(viewModel: CgmViewModel) {
     }
 }
 
+/**
+ * The projection toggle, and the only number that says whether it works.
+ *
+ * A forecast that reports its own confidence without ever checking it is
+ * guessing twice. The coverage figure below is measured on history the model was
+ * not fitted to, so it can genuinely disagree with the band's nominal width - and
+ * when it does, that is the answer to "does this work".
+ */
+@Composable
+private fun ForecastSetting(viewModel: CgmViewModel) {
+    val enabled by viewModel.forecastEnabled.collectAsState()
+    val calibration by viewModel.calibration.collectAsState()
+
+    SectionHeader(stringResource(R.string.set_forecast))
+    SwitchRow(
+        title = stringResource(R.string.set_forecast),
+        subtitle = stringResource(R.string.set_forecast_desc),
+        checked = enabled,
+    ) { viewModel.setForecastEnabled(it) }
+
+    if (!enabled) return
+
+    val current = calibration
+    val coverage = current?.measuredCoverage
+    Text(
+        text = when {
+            current == null || !current.isUsable || coverage == null ->
+                stringResource(R.string.forecast_uncalibrated)
+            else -> stringResource(
+                R.string.forecast_coverage,
+                (current.bandFraction * 100).roundToInt(),
+                (coverage * 100).roundToInt(),
+                current.coverageSampleCount,
+            )
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (current?.isWellCalibrated == false) {
+        Text(
+            stringResource(R.string.forecast_overconfident),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+@Composable
+private fun ConfirmDialog(
+    title: String,
+    body: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(body) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        },
+    )
+}
+
 // -- small shared pieces ---------------------------------------------------
 
 @Composable
@@ -591,22 +689,42 @@ private fun SwitchRow(
 private fun SliderRow(
     label: String,
     value: Double,
-    valueText: String,
+    /**
+     * Formats whatever the slider is currently on, not what is saved.
+     *
+     * The number has to track the thumb. Showing the stored value while dragging
+     * means picking a threshold blind and only learning what was chosen after
+     * letting go, which on an alarm level is the one place that is not acceptable.
+     */
+    format: (Float) -> String,
     range: ClosedFloatingPointRange<Float>,
     helper: String? = null,
     onChange: (Float) -> Unit,
 ) {
     var live by remember(value) { mutableStateOf(value.toFloat()) }
+    val dragging = remember { mutableStateOf(false) }
     Column(Modifier.padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
-            Text(valueText, fontWeight = FontWeight.Medium)
+            Text(
+                format(live),
+                fontWeight = FontWeight.Medium,
+                // Emphasised while moving, so the number being chosen is obvious.
+                color = if (dragging.value) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
         }
         Slider(
             value = live,
-            onValueChange = { live = it },
-            onValueChangeFinished = { onChange(live) },
+            onValueChange = { dragging.value = true; live = it.roundToInt().toFloat() },
+            onValueChangeFinished = { dragging.value = false; onChange(live) },
             valueRange = range,
+            // Whole units only: nobody sets an alarm at 71.4 mg/dL, and snapping
+            // makes the displayed number reachable rather than approximate.
+            steps = (range.endInclusive - range.start).toInt() - 1,
         )
         helper?.let {
             Text(

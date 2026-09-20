@@ -164,10 +164,33 @@ collection at all.
 
 It also feeds back into Tier 3 as a confounder to exclude.
 
-### Not doing: short-horizon prediction
+### Short-horizon prediction — **built**, with conditions
 
-Projecting 30 minutes ahead is a different problem — different math, different failure
-mode, and it invites exactly the dosing use this app must not support. Out of scope here.
+Originally scoped out here. Asked for and now built, because the argument against it was
+about *how* a forecast is presented rather than whether one can exist, and the presentation
+is solvable.
+
+- **Model.** Theil–Sen slope over the last 20 minutes, projected with exponential damping
+  (`tau` = 45 min). Glucose mean-reverts, so an undamped line from a steep rise reaches
+  implausible numbers inside the hour: +2 mg/dL/min projects to about +90 over two hours
+  rather than +240. Robust slope, so one bad reading at the end of the window — the most
+  influential and least corroborated point — cannot swing it.
+- **The band is measured, not assumed.** `ForecastCalibrator` backtests the model over the
+  user's own history and takes residual quantiles per horizon. A model that states its own
+  confidence without ever checking is guessing twice.
+- **Coverage is measured on held-out history.** Bands are fitted on everything older than the
+  last week and scored on that week. Fitting and scoring on the same data always returns the
+  nominal figure and tells the user nothing. This is the number that answers "does it work",
+  and it is surfaced in Settings and Trends rather than buried.
+- **Never feeds an alarm**, never counts as a reading, never persists as data.
+- **Drawn in a language that cannot be mistaken for measurement**: dashed where the trace is
+  solid, translucent where the trace is opaque, no measurement dots, its own hue, and a
+  visible divider at the boundary between what was measured and what is guessed.
+- **Off by default.** A guess about the future has to be asked for.
+
+Two horizons are deliberately not built: a "you will go low in 30 minutes" alert, because
+that is an alarm and alarms fire on measurement here; and anything using the forecast to
+suggest an action.
 
 ### Not doing: machine learning
 

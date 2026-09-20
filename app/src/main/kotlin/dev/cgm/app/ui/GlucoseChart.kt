@@ -25,6 +25,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.cgm.core.ChartSeries
+import dev.cgm.core.Forecast
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
@@ -57,6 +58,21 @@ fun GlucoseChart(
      * last Tuesday is what your glucose is now.
      */
     isLive: Boolean = true,
+    /**
+     * Where the trace is projected to go next, or null when the projection is off.
+     *
+     * Drawn only while [isLive]: a forecast made from the end of last Tuesday is
+     * not a forecast, it is a hypothetical about a question already answered.
+     */
+    forecast: Forecast? = null,
+    /**
+     * Glucose levels with an alarm switched on, in mg/dL.
+     *
+     * The chart draws what you asked to be warned about rather than the zone
+     * boundaries it used to: the zone edges are a display convention, while these
+     * are the numbers that will actually wake you.
+     */
+    alarmLevels: List<Double> = emptyList(),
     modifier: Modifier = Modifier,
     onZoom: (Float) -> Unit = {},
     onPan: (Float) -> Unit = {},
@@ -67,6 +83,8 @@ fun GlucoseChart(
     val grid = MaterialTheme.colorScheme.outlineVariant
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val emptyColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val forecastColor = ChartColors.forecast
+    val alarmColor = ChartColors.alarmLine
     val measurer = rememberTextMeasurer()
 
     Box(
@@ -91,7 +109,15 @@ fun GlucoseChart(
             return@Box
         }
 
-        val axis = ValueAxis.of(readings.map { it.valueMgdl }, thresholds)
+        val shown = forecast?.takeIf { isLive }
+
+        // The axis has to contain the band, or the projection gets clipped by the
+        // top of the chart exactly when it is saying something worth seeing.
+        val axis = ValueAxis.of(
+            readings.map { it.valueMgdl } +
+                (shown?.points?.flatMap { listOf(it.lowMgdl, it.highMgdl) } ?: emptyList()),
+            thresholds,
+        )
         val labelStyle = TextStyle(fontSize = 11.sp, color = labelColor)
 
         Canvas(Modifier.fillMaxSize()) {
@@ -102,14 +128,18 @@ fun GlucoseChart(
             fun y(valueMgdl: Double) = (1f - axis.fraction(valueMgdl)) * size.height
 
             val firstTime = readings.first().timestampMillis
-            val lastTime = readings.last().timestampMillis
+            // Room on the right for the projection. The window still *ends* at the
+            // last reading; this only widens what the axis covers.
+            val lastTime = readings.last().timestampMillis +
+                (shown?.horizonMillis ?: 0L)
             val timeSpan = (lastTime - firstTime).coerceAtLeast(1L)
             fun x(t: Long) = gutter + ((t - firstTime).toFloat() / timeSpan) * plotWidth
 
             drawInRangeBand(band, gutter, plotWidth, ::y, thresholds)
             drawGrid(axis, grid, labelColor, gutter, plotWidth, ::y, measurer, labelStyle, unit)
-            drawZoneEdges(thresholds, axis, grid, gutter, plotWidth, ::y)
+            drawAlarmLevels(alarmLevels, axis, alarmColor, gutter, plotWidth, ::y)
             drawTrace(readings, trace, ::x, ::y, plotWidth)
+            shown?.let { drawForecast(it, forecastColor, ::x, ::y) }
             if (isLive) {
                 drawCurrentPoint(
                     reading = readings.last(),
@@ -121,6 +151,60 @@ fun GlucoseChart(
             }
         }
     }
+}
+
+/**
+ * The projection: a shaded band with a dashed centre, and a line marking now.
+ *
+ * Every choice here exists to stop it being mistaken for measurement. It is
+ * dashed where the trace is solid, translucent where the trace is opaque, carries
+ * no measurement dots, and is separated from the past by a visible boundary. A
+ * forecast drawn in the same language as data is a claim that it *is* data.
+ */
+private fun DrawScope.drawForecast(
+    forecast: Forecast,
+    color: Color,
+    x: (Long) -> Float,
+    y: (Double) -> Float,
+) {
+    if (forecast.points.isEmpty()) return
+    val origin = forecast.originMillis
+
+    // The band. Upper edge forward, lower edge back, closed into one shape.
+    val band = Path().apply {
+        moveTo(x(origin), y(forecast.originValueMgdl))
+        forecast.points.forEach { lineTo(x(it.timestampMillis(origin)), y(it.highMgdl)) }
+        forecast.points.reversed().forEach {
+            lineTo(x(it.timestampMillis(origin)), y(it.lowMgdl))
+        }
+        close()
+    }
+    drawPath(band, color = color.copy(alpha = FORECAST_BAND_ALPHA))
+
+    // The centre line, dashed so it cannot read as the trace.
+    val centre = Path().apply {
+        moveTo(x(origin), y(forecast.originValueMgdl))
+        forecast.points.forEach { lineTo(x(it.timestampMillis(origin)), y(it.valueMgdl)) }
+    }
+    drawPath(
+        path = centre,
+        color = color,
+        style = Stroke(
+            width = FORECAST_STROKE.toPx(),
+            cap = StrokeCap.Round,
+            pathEffect = PathEffect.dashPathEffect(
+                floatArrayOf(FORECAST_DASH.toPx(), FORECAST_DASH.toPx())
+            ),
+        ),
+    )
+
+    // Where measurement stops and guessing starts.
+    drawLine(
+        color = color.copy(alpha = FORECAST_DIVIDER_ALPHA),
+        start = Offset(x(origin), 0f),
+        end = Offset(x(origin), size.height),
+        strokeWidth = GRID_STROKE.toPx(),
+    )
 }
 
 /**
@@ -185,8 +269,8 @@ private fun DrawScope.drawGrid(
  * These are the boundaries worth seeing but not worth shading: solid bands for
  * all five zones would turn the chart into a flag.
  */
-private fun DrawScope.drawZoneEdges(
-    thresholds: GlucoseThresholds,
+private fun DrawScope.drawAlarmLevels(
+    levels: List<Double>,
     axis: ValueAxis,
     color: Color,
     gutter: Float,
@@ -194,7 +278,7 @@ private fun DrawScope.drawZoneEdges(
     y: (Double) -> Float,
 ) {
     val dash = PathEffect.dashPathEffect(floatArrayOf(DASH_ON.toPx(), DASH_OFF.toPx()))
-    listOf(thresholds.urgentLowMgdl, thresholds.veryHighMgdl)
+    levels
         .filter { it > axis.minMgdl && it < axis.maxMgdl }
         .forEach { level ->
             drawLine(
@@ -296,6 +380,10 @@ private val DOT_RADIUS = 3.5.dp
 
 /** The current reading stays unmistakably the largest thing on the trace. */
 private val CURRENT_RADIUS = 6.dp
+private val FORECAST_STROKE = 2.dp
+private val FORECAST_DASH = 5.dp
+private const val FORECAST_BAND_ALPHA = 0.16f
+private const val FORECAST_DIVIDER_ALPHA = 0.45f
 private val DASH_ON = 4.dp
 private val DASH_OFF = 4.dp
 

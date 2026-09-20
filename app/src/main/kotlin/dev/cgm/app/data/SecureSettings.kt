@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.cgm.core.AlarmKind
@@ -155,6 +156,19 @@ class SecureSettings(private val context: Context) : SessionStore {
         }
     }
 
+    // -- forecast -----------------------------------------------------------
+
+    /**
+     * Whether the chart draws a projection. Off by default: a guess about the
+     * future has to be asked for, not arrive unannounced on a medical display.
+     */
+    val forecastEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_FORECAST] ?: false }
+
+    suspend fun setForecastEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_FORECAST] = enabled }
+    }
+
     // -- alarms -----------------------------------------------------------
 
     /**
@@ -193,6 +207,7 @@ class SecureSettings(private val context: Context) : SessionStore {
     }
 
     private companion object {
+        val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
         val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")
         val KEY_ALARM_STATE: Preferences.Key<String> = stringPreferencesKey("alarm_state")
         val KEY_EMAIL: Preferences.Key<String> = stringPreferencesKey("llu_email")

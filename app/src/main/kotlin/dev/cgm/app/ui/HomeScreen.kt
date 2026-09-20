@@ -66,6 +66,8 @@ import kotlin.math.roundToInt
 fun HomeScreen(viewModel: CgmViewModel) {
     val state by viewModel.state.collectAsState()
     val history by viewModel.history.collectAsState()
+    val forecast by viewModel.forecast.collectAsState()
+    val alarmLevels by viewModel.alarmLevels.collectAsState()
     val stats by viewModel.statistics.collectAsState()
     val span by viewModel.spanMillis.collectAsState()
     val preset by viewModel.preset.collectAsState()
@@ -123,6 +125,8 @@ fun HomeScreen(viewModel: CgmViewModel) {
             // it is simply history, and history is not in doubt.
             stale = isLive && freshness == Freshness.STALE,
             isLive = isLive,
+            forecast = forecast,
+            alarmLevels = alarmLevels,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)

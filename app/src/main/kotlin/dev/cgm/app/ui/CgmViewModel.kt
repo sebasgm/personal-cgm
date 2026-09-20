@@ -13,6 +13,10 @@ import dev.cgm.core.AlarmSettings
 import dev.cgm.core.ChartHistory
 import dev.cgm.core.ChartZoom
 import dev.cgm.core.ContinuityReport
+import dev.cgm.core.Forecast
+import dev.cgm.core.ForecastCalibration
+import dev.cgm.core.ForecastCalibrator
+import dev.cgm.core.ForecastModel
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
@@ -30,6 +34,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -128,6 +133,21 @@ class CgmViewModel(
 
     val alarmSettings: StateFlow<AlarmSettings> = settings.alarmSettings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AlarmSettings.Default)
+
+    /**
+     * Thresholds of the glucose alarms that are switched on, for the chart.
+     *
+     * Only enabled ones: a line for an alarm that will not fire would be drawing a
+     * warning nobody is going to get.
+     */
+    val alarmLevels: StateFlow<List<Double>> = alarmSettings
+        .map { settings ->
+            AlarmKind.entries
+                .filter { it.isGlucose && settings[it].enabled }
+                .map { settings[it].thresholdMgdl }
+                .sorted()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun updateAlarm(kind: AlarmKind, setting: AlarmSetting) {
         viewModelScope.launch {
@@ -261,6 +281,52 @@ class CgmViewModel(
         }
     }
 
+    // -- forecast -----------------------------------------------------------
+
+    val forecastEnabled: StateFlow<Boolean> = settings.forecastEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setForecastEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settings.setForecastEnabled(enabled)
+            if (enabled) refreshCalibration()
+        }
+    }
+
+    private val _calibration = MutableStateFlow<ForecastCalibration?>(null)
+    val calibration: StateFlow<ForecastCalibration?> = _calibration.asStateFlow()
+
+    /**
+     * Refit the band against measured error.
+     *
+     * Backtesting weeks of readings is not cheap, and the answer moves slowly, so
+     * it runs once per session rather than per reading.
+     */
+    fun refreshCalibration() {
+        viewModelScope.launch {
+            _calibration.value = withContext(Dispatchers.Default) {
+                val history = repository.historySince(clock() - CALIBRATION_WINDOW_MILLIS).first()
+                ForecastCalibrator.calibrate(history)
+            }
+        }
+    }
+
+    /**
+     * The projection, recomputed as readings arrive.
+     *
+     * Only produced while the window is live and the toggle is on; a forecast from
+     * the end of a window the user has browsed back to is a hypothetical about a
+     * question already answered.
+     */
+    val forecast: StateFlow<Forecast?> = combine(
+        history,
+        forecastEnabled,
+        _calibration,
+    ) { readings, enabled, calibration ->
+        if (!enabled) null
+        else ForecastModel.forecast(readings, clock(), calibration)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     // -- diagnostics --------------------------------------------------------
 
     private val _continuity = MutableStateFlow(ContinuityReport.Empty)
@@ -289,6 +355,7 @@ class CgmViewModel(
         }
         refreshPeriodStats()
         refreshContinuity()
+        refreshCalibration()
     }
 
     fun selectWindow(window: GraphWindow) {
@@ -375,6 +442,9 @@ class CgmViewModel(
     companion object {
         const val LOGBOOK_LIMIT = 500
         const val CONTINUITY_WINDOW_MILLIS = 24L * 60 * 60 * 1000
+
+        /** Enough history to fit a band and still hold a week back to check it. */
+        const val CALIBRATION_WINDOW_MILLIS = 30L * 24 * 60 * 60 * 1000
 
         /** Enough to cover several weeks of dosing without paging. */
         const val DOSE_LIMIT = 300

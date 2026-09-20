@@ -15,6 +15,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.RichTooltip
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -77,6 +85,7 @@ fun TrendsScreen(viewModel: CgmViewModel) {
         }
 
         TimeInRangeCard(stats)
+        ForecastReliabilityCard(viewModel)
         A1cCard(stats, period)
         SummaryCard(stats)
     }
@@ -230,9 +239,9 @@ private fun ZoneBar(label: String, fraction: Double, zone: Zone, muted: Boolean)
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
-    var showExplanation by remember { mutableStateOf(false) }
     val enoughDays = period.days >= GlucoseStatistics.MIN_DAYS_FOR_A1C
 
     Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -240,6 +249,7 @@ private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Metric(
                     stringResource(R.string.trends_gmi),
@@ -249,19 +259,10 @@ private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
                     stringResource(R.string.trends_a1c),
                     stats.estimatedA1cPercent?.let { "%.1f%%".format(it) } ?: "—",
                 )
+                FormulaTooltip()
             }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                if (showExplanation) {
-                    stringResource(R.string.trends_formula_explanation)
-                } else {
-                    stringResource(R.string.trends_what_are_these)
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.clickable { showExplanation = !showExplanation },
-            )
             if (!enoughDays) {
+                Spacer(Modifier.height(8.dp))
                 Text(
                     stringResource(
                         R.string.trends_a1c_needs_days,
@@ -276,6 +277,97 @@ private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
     }
 }
 
+/**
+ * How GMI and estimated A1C are calculated, on an ⓘ.
+ *
+ * A tooltip rather than inline text: the formulas matter to anyone who wants to
+ * check the numbers and are clutter to everyone else, and a card that shows two
+ * figures should read as two figures.
+ *
+ * Persistent, because it is several sentences of arithmetic — a tooltip that
+ * vanishes on the next touch cannot be read.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FormulaTooltip() {
+    val state = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
+
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberRichTooltipPositionProvider(),
+        state = state,
+        tooltip = {
+            RichTooltip(
+                title = { Text(stringResource(R.string.trends_formula_title)) },
+                action = {
+                    TextButton(onClick = { scope.launch { state.dismiss() } }) {
+                        Text(stringResource(R.string.trends_formula_close))
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.trends_formula_explanation))
+            }
+        },
+    ) {
+        Text(
+            "\u24D8",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clickable { scope.launch { state.show() } }
+                .padding(8.dp),
+        )
+    }
+}
+
+/**
+ * Whether the chart's projection is worth believing.
+ *
+ * Shown here rather than on the chart because it is a claim about the model over
+ * weeks, not about the line currently on screen. The coverage figure is measured
+ * against history the band was not fitted to, so it can disagree with the band's
+ * nominal width — and when it does, that disagreement is the whole answer.
+ */
+@Composable
+private fun ForecastReliabilityCard(viewModel: CgmViewModel) {
+    val enabled by viewModel.forecastEnabled.collectAsState()
+    if (!enabled) return
+    val calibration by viewModel.calibration.collectAsState()
+
+    Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.trends_forecast_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Spacer(Modifier.height(8.dp))
+
+            val current = calibration
+            val coverage = current?.measuredCoverage
+            Text(
+                text = if (current == null || !current.isUsable || coverage == null) {
+                    stringResource(R.string.forecast_uncalibrated)
+                } else {
+                    stringResource(
+                        R.string.forecast_coverage,
+                        (current.bandFraction * 100).roundToInt(),
+                        (coverage * 100).roundToInt(),
+                        current.coverageSampleCount,
+                    )
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (current?.isWellCalibrated == false) {
+                Text(
+                    stringResource(R.string.forecast_overconfident),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun SummaryCard(stats: GlucoseStatistics) {

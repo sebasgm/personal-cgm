@@ -187,4 +187,19 @@
     <string name="dose_will_record_at">Will be recorded at %1$s</string>
     <string name="dose_invalid">Enter a dose between 0.5 and %1$s U</string>
     <string name="dose_time_set">Set</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="confirm_stop_title">Stop the service?</string>
+    <string name="confirm_stop_body">While it is stopped no readings are recorded, and that gap cannot be recovered afterwards: LibreLinkUp only serves about twelve hours of history at fifteen-minute spacing. Alarms will not sound either.</string>
+    <string name="confirm_stop_action">Stop</string>
+    <string name="confirm_signout_title">Sign out?</string>
+    <string name="confirm_signout_body">This clears your LibreLinkUp credentials and stops tracking. History already recorded is kept.</string>
+    <string name="confirm_signout_action">Sign out</string>
+    <string name="trends_formula_title">How these are calculated</string>
+    <string name="trends_formula_close">Got it</string>
+    <string name="set_forecast">Projection on the chart</string>
+    <string name="set_forecast_desc">Draws where glucose might go over the next two hours, with a confidence band. It is an estimate, never a measurement, and it never triggers alarms.</string>
+    <string name="forecast_uncalibrated">Provisional band: there is not yet enough history to measure this model\'s real error.</string>
+    <string name="forecast_coverage">The %1$d%% band contained the real value %2$d%% of the time (%3$d checks against data the model had not seen).</string>
+    <string name="forecast_overconfident">The band is narrower than the measured error justifies.</string>
+    <string name="trends_forecast_title">Projection reliability</string>
 </resources>
