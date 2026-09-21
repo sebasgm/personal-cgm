@@ -21,14 +21,17 @@ object SevenSegment {
     /**
      * Digit width as a fraction of digit height.
      *
-     * Widened from the 0.46 that chased maximum height. Three digits always fill
-     * the slot's width whatever this is set to, so the *absolute* width of a digit
-     * barely moves — what changes is the proportion, and an elongated glyph reads
-     * worse at arm's length than a squarer one of the same width. The cost is
-     * height: at 0.55 a three-wide-digit label is about a sixth shorter than it
-     * was. Raise this for chunkier and shorter, lower it for taller and thinner.
+     * **Lower is bigger.** The status bar scales the icon to fit a fixed square,
+     * and for three digits it is the *width* that hits the limit first — so the
+     * narrower each digit is, the larger the whole label is drawn. Going from 0.55
+     * to 0.42 makes the glyphs about a third taller on screen.
+     *
+     * The trade is shape: an elongated digit reads slightly worse than a square
+     * one at the same size. That loses to being a third bigger, which is why this
+     * came back down after being widened. Raise it for squarer and smaller, lower
+     * it for taller and larger.
      */
-    const val DIGIT_ASPECT = 0.55f
+    const val DIGIT_ASPECT = 0.42f
 
     /**
      * Width of a '1', as a fraction of a normal digit's width.
@@ -43,7 +46,7 @@ object SevenSegment {
     private const val ONE_SCALE = 0.45f
 
     /** Gap between digits, as a fraction of digit width. */
-    private const val GAP = 0.12f
+    private const val GAP = 0.09f
 
     /** A decimal point's width, as a fraction of digit width. */
     private const val DOT_ASPECT = 0.30f
@@ -51,11 +54,12 @@ object SevenSegment {
     /**
      * Stroke thickness as a fraction of digit height.
      *
-     * Raised with the aspect: a shorter glyph needs a proportionally heavier
-     * stroke to carry the same weight at a distance. Much past this the segments
-     * start closing up the counters of '0', '6' and '8'.
+     * Lowered alongside the aspect. Stroke is a fraction of *height*, so a
+     * narrower digit at the same fraction gets proportionally fatter — at 0.20 a
+     * 0.42-wide digit would have its counters closing up. This keeps the
+     * stroke-to-width ratio near where it was when the shapes read cleanly.
      */
-    private const val STROKE = 0.20f
+    private const val STROKE = 0.16f
 
     /** True when every character can be drawn here. */
     fun canRender(label: String): Boolean = label.all { it.isDigit() || it == '.' }

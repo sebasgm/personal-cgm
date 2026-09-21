@@ -307,6 +307,21 @@ class CgmViewModel(
         }
     }
 
+    /**
+     * Whether the projection warning has been acknowledged **this run**.
+     *
+     * Deliberately not persisted. The disclaimer is a one-time agreement about
+     * what the app is; this is a reminder about a specific line on a specific
+     * chart, and it reappears every time the app opens with the projection on.
+     * A guess about the future should not become wallpaper.
+     */
+    private val _forecastWarningAccepted = MutableStateFlow(false)
+    val forecastWarningAccepted: StateFlow<Boolean> = _forecastWarningAccepted.asStateFlow()
+
+    fun acceptForecastWarning() {
+        _forecastWarningAccepted.value = true
+    }
+
     private val _calibration = MutableStateFlow<ForecastCalibration?>(null)
     val calibration: StateFlow<ForecastCalibration?> = _calibration.asStateFlow()
 
@@ -336,10 +351,51 @@ class CgmViewModel(
         history,
         forecastEnabled,
         _calibration,
-    ) { readings, enabled, calibration ->
-        if (!enabled) null
+        _forecastWarningAccepted,
+    ) { readings, enabled, calibration, accepted ->
+        // Gated on the acknowledgement, not merely accompanied by it: until the
+        // warning is accepted there is no projection on the chart at all.
+        if (!enabled || !accepted) null
         else ForecastModel.forecast(readings, clock(), calibration)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** True when the projection is on but its warning has not been acknowledged yet. */
+    val forecastWarningDue: StateFlow<Boolean> =
+        combine(forecastEnabled, _forecastWarningAccepted) { enabled, accepted ->
+            enabled && !accepted
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    // -- periodic reminder ---------------------------------------------------
+
+    private val _reminderDue = MutableStateFlow(false)
+    val reminderDue: StateFlow<Boolean> = _reminderDue.asStateFlow()
+
+    /**
+     * Show the short reminder about once a month.
+     *
+     * On a fresh install the timer starts rather than firing: someone who has
+     * just read the full disclaimer does not need the short one a minute later.
+     */
+    private fun evaluateReminder() {
+        viewModelScope.launch {
+            if (settings.reminderSuppressed.first()) return@launch
+            val lastShown = settings.reminderLastShownMillis.first()
+            val now = clock()
+            if (lastShown == 0L) {
+                settings.markReminderShown(now)
+                return@launch
+            }
+            _reminderDue.value = now - lastShown >= REMINDER_INTERVAL_MILLIS
+        }
+    }
+
+    fun dismissReminder(dontShowAgain: Boolean) {
+        _reminderDue.value = false
+        viewModelScope.launch {
+            settings.markReminderShown(clock())
+            if (dontShowAgain) settings.setReminderSuppressed(true)
+        }
+    }
 
     // -- diagnostics --------------------------------------------------------
 
@@ -370,6 +426,7 @@ class CgmViewModel(
         refreshPeriodStats()
         refreshContinuity()
         refreshCalibration()
+        evaluateReminder()
     }
 
     fun selectWindow(window: GraphWindow) {
@@ -456,6 +513,7 @@ class CgmViewModel(
     companion object {
         const val LOGBOOK_LIMIT = 500
         const val CONTINUITY_WINDOW_MILLIS = 24L * 60 * 60 * 1000
+        const val REMINDER_INTERVAL_MILLIS = 30L * 24 * 60 * 60 * 1000
 
         /** Enough history to fit a band and still hold a week back to check it. */
         const val CALIBRATION_WINDOW_MILLIS = 30L * 24 * 60 * 60 * 1000

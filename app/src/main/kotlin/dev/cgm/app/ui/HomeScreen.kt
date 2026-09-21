@@ -20,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -68,6 +69,7 @@ fun HomeScreen(viewModel: CgmViewModel) {
     val history by viewModel.history.collectAsState()
     val forecast by viewModel.forecast.collectAsState()
     val alarmLevels by viewModel.alarmLevels.collectAsState()
+    val forecastWarningDue by viewModel.forecastWarningDue.collectAsState()
     val stats by viewModel.statistics.collectAsState()
     val span by viewModel.spanMillis.collectAsState()
     val preset by viewModel.preset.collectAsState()
@@ -116,6 +118,10 @@ fun HomeScreen(viewModel: CgmViewModel) {
         // The chart takes whatever is left rather than a fixed 160dp inside a
         // scroller. It is the reason this screen exists, so it gets the space,
         // and nothing here scrolls out of reach on a glance.
+        if (forecastWarningDue) {
+            ForecastWarning(onAccept = viewModel::acceptForecastWarning)
+        }
+
         GlucoseChart(
             readings = history,
             thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
@@ -544,5 +550,50 @@ private fun GlucoseStatistics.coverageNote(context: Context): String {
         percent <= 0.0 -> context.getString(R.string.home_coverage_none)
         percent < 1.0 -> context.getString(R.string.home_coverage_under_one)
         else -> context.getString(R.string.home_coverage_percent, percent.roundToInt())
+    }
+}
+
+/**
+ * Shown every time the app opens with the projection switched on.
+ *
+ * It gates the line rather than sitting beside it: until this is accepted the
+ * chart draws no projection at all. A warning that can be scrolled past is
+ * decoration, and the thing being warned about here is a guess drawn in the same
+ * space as measurements.
+ *
+ * Not persisted on purpose. The disclaimer is agreed once because it describes
+ * what the app is; this describes what one line on one chart means, and it should
+ * not become wallpaper.
+ */
+@Composable
+private fun ForecastWarning(onAccept: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.forecast_warn_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.forecast_warn_body),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.forecast_warn_why),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = onAccept,
+                modifier = Modifier.padding(top = 10.dp),
+            ) { Text(stringResource(R.string.forecast_warn_accept)) }
+        }
     }
 }

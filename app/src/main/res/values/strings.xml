@@ -226,4 +226,13 @@
     <string name="set_release_notes">Novedades</string>
     <string name="set_release_notes_desc">Qué ha cambiado en cada versión.</string>
     <string name="release_notes_unavailable">No se pudieron cargar las notas de la versión.</string>
+    <string name="forecast_warn_title">La proyección no es una medición</string>
+    <string name="forecast_warn_body">La línea punteada es una estimación de hacia dónde podría ir la glucosa, calculada a partir de las últimas lecturas. Puede equivocarse, y se equivoca más cuanto más lejos mira. No la uses para decidir una dosis ni para tratar una hipoglucemia: para eso, la app oficial y una medición capilar.</string>
+    <string name="forecast_warn_accept">Entendido, mostrar la proyección</string>
+    <string name="forecast_warn_why">Este aviso aparece cada vez que abres la app con la proyección activada, a propósito.</string>
+    <string name="reminder_title">Recordatorio</string>
+    <string name="reminder_body">Esta app lee tus datos de LibreLinkUp con una API no oficial y puede fallar o llegar tarde sin avisar. Las alarmas pueden no sonar si el teléfono está dormido, en No molestar o ahorrando batería. Para cualquier decisión médica, la app oficial de Abbott es la fuente válida.</string>
+    <string name="reminder_dont_show">No volver a mostrar</string>
+    <string name="reminder_ok">Entendido</string>
+    <string name="reminder_read_full">Ver el aviso completo en Ajustes.</string>
 </resources>

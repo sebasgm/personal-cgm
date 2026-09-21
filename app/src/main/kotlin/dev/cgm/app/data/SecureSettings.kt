@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.cgm.core.AccessibilityPreferences
@@ -147,6 +148,27 @@ class SecureSettings(private val context: Context) : SessionStore {
         }
     }
 
+    /**
+     * When the periodic reminder was last shown, and whether it is switched off.
+     *
+     * Separate from the disclaimer's accepted version: that records a one-time
+     * agreement, this is a recurring nudge. Turning the nudge off does not
+     * withdraw the agreement, and the full notice stays in Settings either way.
+     */
+    val reminderLastShownMillis: Flow<Long> =
+        context.dataStore.data.map { it[KEY_REMINDER_SHOWN] ?: 0L }
+
+    val reminderSuppressed: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_REMINDER_OFF] ?: false }
+
+    suspend fun markReminderShown(atMillis: Long) {
+        context.dataStore.edit { it[KEY_REMINDER_SHOWN] = atMillis }
+    }
+
+    suspend fun setReminderSuppressed(suppressed: Boolean) {
+        context.dataStore.edit { it[KEY_REMINDER_OFF] = suppressed }
+    }
+
     suspend fun acceptDisclaimer(version: Int) {
         context.dataStore.edit { it[KEY_DISCLAIMER] = version }
     }
@@ -241,6 +263,8 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_RANGES: Preferences.Key<String> = stringPreferencesKey("threshold_overrides")
         val KEY_UNIT: Preferences.Key<String> = stringPreferencesKey("display_unit")
         val KEY_DISCLAIMER: Preferences.Key<Int> = intPreferencesKey("disclaimer_version")
+        val KEY_REMINDER_SHOWN: Preferences.Key<Long> = longPreferencesKey("reminder_last_shown")
+        val KEY_REMINDER_OFF: Preferences.Key<Boolean> = booleanPreferencesKey("reminder_off")
         val KEY_LANGUAGE: Preferences.Key<String> = stringPreferencesKey("language_tag")
     }
 }

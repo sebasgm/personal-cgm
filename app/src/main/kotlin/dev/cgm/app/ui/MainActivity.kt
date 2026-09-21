@@ -11,6 +11,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import dev.cgm.app.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -130,6 +142,11 @@ private fun MainScaffold(
 
     BackHandler(enabled = stack.size > 1) { stack = stack.dropLast(1) }
 
+    val reminderDue by viewModel.reminderDue.collectAsState()
+    if (reminderDue) {
+        PeriodicReminder(onDismiss = viewModel::dismissReminder)
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -164,4 +181,57 @@ private fun MainScaffold(
             }
         }
     }
+}
+
+/**
+ * The short reminder, about once a month.
+ *
+ * A condensed version of what the full disclaimer says, on the two points that
+ * actually bite in daily use: the data can be late or wrong, and the alarms can
+ * fail to arrive. Both are properties of this app that no amount of care here
+ * removes, so they are worth re-reading occasionally rather than once at install.
+ *
+ * It can be turned off, and the full notice stays in Settings either way —
+ * dismissing a reminder is not withdrawing the agreement it reminds you of.
+ */
+@Composable
+private fun PeriodicReminder(onDismiss: (Boolean) -> Unit) {
+    var dontShowAgain by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { onDismiss(dontShowAgain) },
+        title = { Text(stringResource(R.string.reminder_title)) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.reminder_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.reminder_read_full),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { dontShowAgain = !dontShowAgain }
+                        .padding(top = 12.dp),
+                ) {
+                    Checkbox(checked = dontShowAgain, onCheckedChange = { dontShowAgain = it })
+                    Text(
+                        stringResource(R.string.reminder_dont_show),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDismiss(dontShowAgain) }) {
+                Text(stringResource(R.string.reminder_ok))
+            }
+        },
+    )
 }

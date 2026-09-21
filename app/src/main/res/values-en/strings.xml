@@ -226,4 +226,13 @@
     <string name="set_release_notes">What\'s new</string>
     <string name="set_release_notes_desc">What changed in each version.</string>
     <string name="release_notes_unavailable">Could not load the release notes.</string>
+    <string name="forecast_warn_title">The projection is not a measurement</string>
+    <string name="forecast_warn_body">The dashed line is an estimate of where glucose might go, worked out from recent readings. It can be wrong, and it is wrong more often the further ahead it looks. Do not use it to decide a dose or to treat a low \u2014 for that, the official app and a fingerstick.</string>
+    <string name="forecast_warn_accept">Understood, show the projection</string>
+    <string name="forecast_warn_why">This appears every time you open the app with the projection on, deliberately.</string>
+    <string name="reminder_title">Reminder</string>
+    <string name="reminder_body">This app reads your LibreLinkUp data through an unofficial API and can fail or lag without warning. Alarms may not sound if the phone is asleep, in Do Not Disturb or saving battery. For any medical decision, Abbott\'s official app is the one that counts.</string>
+    <string name="reminder_dont_show">Don\'t show again</string>
+    <string name="reminder_ok">Understood</string>
+    <string name="reminder_read_full">The full notice is in Settings.</string>
 </resources>

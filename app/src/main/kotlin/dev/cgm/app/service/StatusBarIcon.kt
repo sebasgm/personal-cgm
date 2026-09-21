@@ -8,7 +8,7 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.IconCompat
-import kotlin.math.min
+import kotlin.math.ceil
 
 /**
  * The glucose value, drawn as the notification's small icon (issue #11).
@@ -22,56 +22,42 @@ import kotlin.math.min
  * to contrast with the status bar it is drawing them on; supplying our own colour
  * would either be overridden or, worse, survive onto a background it cannot be
  * read against. Alpha is what carries the shape.
+ *
+ * ## What actually controls the size
+ *
+ * The system scales the icon to fit a fixed square, preserving aspect. So the
+ * height it ends up drawn at is
+ *
+ *     slot size × (glyph height / the larger of the bitmap's two dimensions)
+ *
+ * which gives exactly two levers, and the first one was being thrown away:
+ *
+ *  1. **Do not pad the bitmap.** It used to be a 96×96 square holding glyphs that
+ *     were only about 52 rows tall, which asked the system to draw them at 52/96
+ *     of the slot. Sizing the bitmap to the label recovers all of that.
+ *  2. **Make the glyphs narrower.** For three digits it is width that hits the
+ *     limit, so a narrower digit is a *larger* one — see [SevenSegment.DIGIT_ASPECT].
+ *
+ * Together those are worth roughly a third more height than the previous square,
+ * squarer-digit version, and a narrow label like "111" now comes out taller than
+ * it is wide, so it is drawn at the slot's full size.
  */
 object StatusBarIcon {
 
     /**
-     * Rendered well above the ~24dp the status bar will show, then downscaled by
-     * the system. Cheaper than it looks — [of] caches — and the extra pixels are
-     * what keep three digits from turning to mush on a high-density screen.
-     *
-     * Raising this does not make the number look bigger. The system scales whatever
-     * it is given into a fixed slot, so this controls sharpness, not size.
+     * Render height. Well above what the status bar shows, then downscaled by the
+     * system — the extra pixels are what keep three digits from turning to mush on
+     * a high-density screen. This controls sharpness, not size.
      */
-    private const val SIZE_PX = 96
+    private const val HEIGHT_PX = 96
 
-    /**
-     * How much of the square the glyphs may use.
-     *
-     * **This is the whole ceiling on apparent size, and it is width, not font size.**
-     * Three digits laid across a ~24dp slot leaves each one about 7dp wide; the
-     * height then follows from the aspect ratio, because Android scales the bitmap
-     * into its slot without distorting it. "124" reaches this limit horizontally
-     * while using only about half the height — that empty space above and below is
-     * not wasted room for a bigger number, it is what a wide, short thing looks like
-     * inside a square.
-     *
-     * Which also means **a digit cannot be made absolutely wider**: three of them
-     * always fill the slot, so widening the proportion only makes them shorter.
-     * What that buys is legibility of shape rather than size — a squarer glyph
-     * reads better at arm's length than an elongated one of the same width — and
-     * [SevenSegment.DIGIT_ASPECT] is the dial. The one change that escapes the
-     * trade is narrowing the '1', which hands width back to its neighbours.
-     * Beyond that the only way is a surface without the cap — a home-screen widget.
-     *
-     * Kept just under 1 so antialiasing at the edges is not clipped.
-     */
-    private const val USABLE = 0.97f
-
-    /**
-     * Tighter than the font intends, because horizontal space is the binding
-     * constraint: every fraction of an em saved between digits is spent on making
-     * all of them taller.
-     */
-    private const val TRACKING_EM = -0.03f
+    /** A pixel each side, so antialiasing at the outer edge is not clipped. */
+    private const val PAD_PX = 1
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        // Condensed, so three digits fit across the slot at a larger size than the
-        // default face allows. This is the single biggest win available here.
         typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
         textAlign = Paint.Align.CENTER
-        letterSpacing = TRACKING_EM
     }
     private val bounds = Rect()
 
@@ -95,49 +81,53 @@ object StatusBarIcon {
     }
 
     private fun render(label: String): IconCompat {
-        val bitmap = createBitmap(SIZE_PX, SIZE_PX, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val limit = SIZE_PX * USABLE
-
-        if (SevenSegment.canRender(label)) {
-            drawSegments(canvas, label, limit)
-        } else {
-            drawText(canvas, label, limit)
-        }
+        val bitmap =
+            if (SevenSegment.canRender(label)) renderDigits(label) else renderText(label)
         return IconCompat.createWithBitmap(bitmap)
     }
 
-    /**
-     * Digits, sized by solving for the height that makes the label exactly fill the
-     * width. Width is always the binding constraint for two or more digits, so this
-     * is the tallest the glyphs can be — and then capped at the height, for the
-     * single-digit case where it is not.
-     */
-    private fun drawSegments(canvas: Canvas, label: String, limit: Float) {
-        val widthAtUnitHeight = SevenSegment.widthFor(label, 1f)
-        val height = minOf(limit / widthAtUnitHeight, limit)
+    /** Digits drawn at full render height, in a bitmap only as wide as they need. */
+    private fun renderDigits(label: String): Bitmap {
+        val height = HEIGHT_PX.toFloat()
         val width = SevenSegment.widthFor(label, height)
-
+        val bitmap = createBitmap(
+            ceil(width).toInt() + PAD_PX * 2,
+            HEIGHT_PX + PAD_PX * 2,
+            Bitmap.Config.ARGB_8888,
+        )
         SevenSegment.draw(
-            canvas = canvas,
+            canvas = Canvas(bitmap),
             label = label,
-            left = (SIZE_PX - width) / 2f,
-            top = (SIZE_PX - height) / 2f,
+            left = PAD_PX.toFloat(),
+            top = PAD_PX.toFloat(),
             height = height,
             paint = paint,
         )
+        return bitmap
     }
 
-    /** Anything not made of digits — "HI", "LO", "?", "--" — still comes from the font. */
-    private fun drawText(canvas: Canvas, label: String, limit: Float) {
-        paint.textSize = SIZE_PX.toFloat()
+    /** Anything not made of digits — "HI", "LO", "?", "--" — comes from the font. */
+    private fun renderText(label: String): Bitmap {
+        // Measure once at an arbitrary size, then scale so the glyphs are exactly
+        // HEIGHT_PX tall, and size the bitmap to whatever width that needs.
+        paint.textSize = HEIGHT_PX.toFloat()
         paint.getTextBounds(label, 0, label.length, bounds)
-        val scale = min(limit / bounds.width(), limit / bounds.height())
-        paint.textSize = SIZE_PX * scale
+        if (bounds.height() > 0) {
+            paint.textSize = HEIGHT_PX * (HEIGHT_PX.toFloat() / bounds.height())
+            paint.getTextBounds(label, 0, label.length, bounds)
+        }
 
-        paint.getTextBounds(label, 0, label.length, bounds)
-        val centre = SIZE_PX / 2f
-        val baseline = centre - (bounds.top + bounds.bottom) / 2f
-        canvas.drawText(label, centre, baseline, paint)
+        val bitmap = createBitmap(
+            (bounds.width() + PAD_PX * 2).coerceAtLeast(1),
+            (bounds.height() + PAD_PX * 2).coerceAtLeast(1),
+            Bitmap.Config.ARGB_8888,
+        )
+        Canvas(bitmap).drawText(
+            label,
+            bitmap.width / 2f,
+            PAD_PX - bounds.top.toFloat(),
+            paint,
+        )
+        return bitmap
     }
 }
