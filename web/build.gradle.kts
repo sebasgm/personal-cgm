@@ -36,3 +36,11 @@ application {
 tasks.test {
     useJUnitPlatform()
 }
+
+/** Scores forecast models against a recorded fixture. See BenchmarkMain. */
+tasks.register<JavaExec>("benchmark") {
+    group = "verification"
+    description = "Run the forecast benchmark over a recorded readings file"
+    mainClass.set("dev.cgm.web.BenchmarkMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
