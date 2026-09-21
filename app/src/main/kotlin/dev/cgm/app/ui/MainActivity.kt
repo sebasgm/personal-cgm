@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,12 +57,19 @@ class MainActivity : ComponentActivity() {
         val stopService = { PollingService.stop(this) }
 
         setContent {
+            // Hoisted above the theme: the typeface and the zone palette are
+            // preferences, so they have to be known before the first frame is
+            // composed rather than applied to one already on screen.
+            val vm: CgmViewModel = viewModel(
+                factory = CgmViewModel.factory(app.repository, app.settings)
+            )
+            val accessibility by vm.accessibility.collectAsState()
+
             MaterialTheme(
-                colorScheme = if (isSystemInDarkTheme()) CgmPalette.dark else CgmPalette.light
+                colorScheme = if (isSystemInDarkTheme()) CgmPalette.dark else CgmPalette.light,
+                typography = cgmTypography(accessibility),
             ) {
-                val vm: CgmViewModel = viewModel(
-                    factory = CgmViewModel.factory(app.repository, app.settings)
-                )
+              CompositionLocalProvider(LocalColorVision provides accessibility.colorVision) {
                 val state by vm.state.collectAsState()
                 val accepted by vm.disclaimerAccepted.collectAsState()
 
@@ -90,6 +98,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     SetupScreen(viewModel = vm, onSignedIn = startService)
                 }
+              }
             }
         }
     }
@@ -148,6 +157,8 @@ private fun MainScaffold(
                 ) { stack = stack + it }
                 Destination.Alarms -> AlarmsScreen(viewModel) { stack = stack + it }
                 Destination.Ranges -> RangesScreen(viewModel)
+                Destination.Accessibility -> AccessibilityScreen(viewModel)
+                Destination.ReleaseNotes -> ReleaseNotesScreen()
                 Destination.Disclaimer -> DisclaimerReadOnlyScreen()
                 is Destination.AlarmDetail -> AlarmDetailScreen(viewModel, current.kind)
             }

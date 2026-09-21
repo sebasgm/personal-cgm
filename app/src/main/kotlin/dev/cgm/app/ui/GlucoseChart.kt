@@ -25,6 +25,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.cgm.core.ChartSeries
+import dev.cgm.core.ColorVision
 import dev.cgm.core.Forecast
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseThresholds
@@ -85,6 +86,7 @@ fun GlucoseChart(
     val emptyColor = MaterialTheme.colorScheme.onSurfaceVariant
     val forecastColor = ChartColors.forecast
     val alarmColor = ChartColors.alarmLine
+    val vision = LocalColorVision.current
     val measurer = rememberTextMeasurer()
 
     Box(
@@ -142,6 +144,7 @@ fun GlucoseChart(
             shown?.let { drawForecast(it, forecastColor, ::x, ::y) }
             if (isLive) {
                 drawCurrentPoint(
+                    vision = vision,
                     reading = readings.last(),
                     thresholds = thresholds,
                     staleColor = if (stale) staleColor else null,
@@ -349,6 +352,7 @@ private fun DrawScope.drawTrace(
  * "fine", which is the dangerous lie this screen exists to avoid.
  */
 private fun DrawScope.drawCurrentPoint(
+    vision: ColorVision,
     reading: GlucoseReading,
     thresholds: GlucoseThresholds,
     staleColor: Color?,
@@ -356,7 +360,7 @@ private fun DrawScope.drawCurrentPoint(
     y: (Double) -> Float,
 ) {
     drawCircle(
-        color = staleColor ?: ZoneColors.of(thresholds.classify(reading.valueMgdl)),
+        color = staleColor ?: ZoneColors.of(thresholds.classify(reading.valueMgdl), vision),
         radius = CURRENT_RADIUS.toPx(),
         center = Offset(x(reading.timestampMillis), y(reading.valueMgdl)),
     )

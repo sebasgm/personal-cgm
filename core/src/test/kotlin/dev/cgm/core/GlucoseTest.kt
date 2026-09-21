@@ -406,3 +406,32 @@ class EstimatedA1cTest {
         assertTrue(s.gmiPercent!! > 10.0 && s.estimatedA1cPercent!! > 11.0)
     }
 }
+
+class AccessibilityPreferencesTest {
+
+    @Test
+    fun `defaults to the legibility font rather than the dyslexia one`() {
+        // Deliberate: the evidence favours unambiguous glyphs over weighted
+        // bottoms, and this app is mostly digits read at a glance.
+        assertEquals(ReadingFont.HYPERLEGIBLE, AccessibilityPreferences.Default.font)
+    }
+
+    @Test
+    fun `clamps every adjustment into a readable range`() {
+        val wild = AccessibilityPreferences(
+            textScale = 9f,
+            letterSpacingEm = 5f,
+            lineSpacing = 0.1f,
+        ).sanitised()
+
+        assertEquals(AccessibilityPreferences.MAX_TEXT_SCALE, wild.textScale)
+        assertEquals(AccessibilityPreferences.MAX_LETTER_SPACING_EM, wild.letterSpacingEm)
+        assertEquals(1f, wild.lineSpacing)
+    }
+
+    @Test
+    fun `leaves sensible values alone`() {
+        val fine = AccessibilityPreferences(textScale = 1.2f, letterSpacingEm = 0.05f)
+        assertEquals(fine, fine.sanitised())
+    }
+}

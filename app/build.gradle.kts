@@ -7,6 +7,43 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+/**
+ * The release notes shown in Settings are CHANGELOG.md itself.
+ *
+ * Copied into assets at build time rather than duplicated into a string
+ * resource, so there is one place to write them and no way for the two to drift.
+ *
+ * A typed task rather than a `Copy`, because AGP 9 wires generated sources
+ * through the Variant API and that needs a `DirectoryProperty` to point at.
+ */
+abstract class CopyChangelog : DefaultTask() {
+    @get:org.gradle.api.tasks.InputFile
+    abstract val source: RegularFileProperty
+
+    @get:org.gradle.api.tasks.OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @org.gradle.api.tasks.TaskAction
+    fun copy() {
+        val target = outputDirectory.get().asFile
+        target.mkdirs()
+        source.get().asFile.copyTo(target.resolve("CHANGELOG.md"), overwrite = true)
+    }
+}
+
+val copyChangelog = tasks.register<CopyChangelog>("copyChangelog") {
+    source.set(rootProject.layout.projectDirectory.file("CHANGELOG.md"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            copyChangelog,
+            CopyChangelog::outputDirectory,
+        )
+    }
+}
+
 android {
     namespace = "dev.cgm.app"
     // Compose BOM 2026.09 requires 37; Android 16+ platforms carry a minor version.

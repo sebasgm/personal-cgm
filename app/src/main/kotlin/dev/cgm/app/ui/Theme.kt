@@ -6,6 +6,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.staticCompositionLocalOf
+import dev.cgm.core.ColorVision
 import dev.cgm.core.TimeInRangeTarget
 import dev.cgm.core.Zone
 
@@ -15,20 +17,59 @@ import dev.cgm.core.Zone
  * Nothing in this app is coloured decoratively: if something has colour, the
  * colour is information. That is what lets the stale state simply remove it.
  */
-object ZoneColors {
-    val urgentLow = Color(0xFFC62828)
-    val low = Color(0xFFE53935)
-    val inRange = Color(0xFF2E7D32)
-    val high = Color(0xFFF9A825)
-    val veryHigh = Color(0xFFEF6C00)
+/** The palette in force, so zone colours do not have to be threaded through every call. */
+val LocalColorVision = staticCompositionLocalOf { ColorVision.DEFAULT }
 
-    fun of(zone: Zone): Color = when (zone) {
-        Zone.URGENT_LOW -> urgentLow
-        Zone.LOW -> low
-        Zone.IN_RANGE -> inRange
-        Zone.HIGH -> high
-        Zone.VERY_HIGH -> veryHigh
+object ZoneColors {
+
+    /** LibreLink's convention: red low, green in range, amber high. */
+    private val default = mapOf(
+        Zone.URGENT_LOW to Color(0xFFC62828),
+        Zone.LOW to Color(0xFFE53935),
+        Zone.IN_RANGE to Color(0xFF2E7D32),
+        Zone.HIGH to Color(0xFFF9A825),
+        Zone.VERY_HIGH to Color(0xFFEF6C00),
+    )
+
+    /**
+     * Okabe–Ito, mapped warm-low to cool-high.
+     *
+     * The default palette's problem is that its two most important states — a low
+     * and an in-range — are red and green, which is precisely the pair that red-green
+     * deficiency collapses. This separates the zones along blue–yellow instead, and
+     * orders them by luminance so the chart still reads in greyscale.
+     */
+    private val colorBlindSafe = mapOf(
+        Zone.URGENT_LOW to Color(0xFFD55E00),
+        Zone.LOW to Color(0xFFE69F00),
+        Zone.IN_RANGE to Color(0xFF009E73),
+        Zone.HIGH to Color(0xFF56B4E9),
+        Zone.VERY_HIGH to Color(0xFF0072B2),
+    )
+
+    /** The same hue logic in deeper tones, for low vision and for sunlight. */
+    private val highContrast = mapOf(
+        Zone.URGENT_LOW to Color(0xFF9A3412),
+        Zone.LOW to Color(0xFFB45309),
+        Zone.IN_RANGE to Color(0xFF00674E),
+        Zone.HIGH to Color(0xFF1D6FA3),
+        Zone.VERY_HIGH to Color(0xFF00335C),
+    )
+
+    fun palette(vision: ColorVision): Map<Zone, Color> = when (vision) {
+        ColorVision.DEFAULT -> default
+        ColorVision.COLOR_BLIND_SAFE -> colorBlindSafe
+        ColorVision.HIGH_CONTRAST -> highContrast
     }
+
+    /** Pure lookup, for draw code that has no composition to read from. */
+    fun of(zone: Zone, vision: ColorVision): Color = palette(vision).getValue(zone)
+
+    val inRange: Color
+        @Composable get() = of(Zone.IN_RANGE, LocalColorVision.current)
+
+    @Composable
+    fun of(zone: Zone): Color = of(zone, LocalColorVision.current)
 
     /**
      * A time-in-range figure, coloured by how it compares with the clinical target.
@@ -36,11 +77,13 @@ object ZoneColors {
      * Reuses the zone colours rather than inventing a second scale, so green always
      * means "in range" whether it is describing one reading or a week of them.
      */
+    @Composable
     fun ofTarget(target: TimeInRangeTarget, reliable: Boolean = true): Color {
+        val vision = LocalColorVision.current
         val colour = when (target) {
-            TimeInRangeTarget.AT_TARGET -> inRange
-            TimeInRangeTarget.BELOW_TARGET -> high
-            TimeInRangeTarget.WELL_BELOW_TARGET -> low
+            TimeInRangeTarget.AT_TARGET -> of(Zone.IN_RANGE, vision)
+            TimeInRangeTarget.BELOW_TARGET -> of(Zone.HIGH, vision)
+            TimeInRangeTarget.WELL_BELOW_TARGET -> of(Zone.LOW, vision)
         }
         return if (reliable) colour else colour.copy(alpha = UNRELIABLE_ALPHA)
     }
@@ -57,6 +100,7 @@ object ZoneColors {
     const val UNRELIABLE_ALPHA = 0.45f
 
     /** A zone colour, dimmed when the statistic behind it is thin. */
+    @Composable
     fun of(zone: Zone, reliable: Boolean): Color =
         if (reliable) of(zone) else of(zone).copy(alpha = UNRELIABLE_ALPHA)
 

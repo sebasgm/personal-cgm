@@ -156,6 +156,11 @@ fun SettingsScreen(
             )
         }
 
+        SettingsRow(
+            title = stringResource(R.string.set_accessibility),
+            subtitle = stringResource(R.string.set_accessibility_desc),
+        ) { onOpen(Destination.Accessibility) }
+
         Spacer(Modifier.height(12.dp))
         ForecastSetting(viewModel)
 
@@ -165,6 +170,13 @@ fun SettingsScreen(
             title = stringResource(R.string.set_librelinkup),
             subtitle = if (state.configured) stringResource(R.string.set_signed_in) else stringResource(R.string.set_not_signed_in),
         ) {}
+        Spacer(Modifier.height(12.dp))
+        SettingsRow(
+            title = stringResource(R.string.set_release_notes),
+            subtitle = stringResource(R.string.set_release_notes_desc),
+        ) { onOpen(Destination.ReleaseNotes) }
+
+        Spacer(Modifier.height(12.dp))
         var confirmSignOut by remember { mutableStateOf(false) }
         TextButton(onClick = { confirmSignOut = true }) {
             Text(stringResource(R.string.set_sign_out))

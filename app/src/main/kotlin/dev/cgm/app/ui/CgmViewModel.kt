@@ -7,6 +7,7 @@ import dev.cgm.app.data.CgmState
 import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.Locales
 import dev.cgm.app.data.SecureSettings
+import dev.cgm.core.AccessibilityPreferences
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
@@ -279,6 +280,19 @@ class CgmViewModel(
                 )
             }
         }
+    }
+
+    // -- accessibility --------------------------------------------------------
+
+    val accessibility: StateFlow<AccessibilityPreferences> = settings.accessibility
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            AccessibilityPreferences.Default,
+        )
+
+    fun updateAccessibility(preferences: AccessibilityPreferences) {
+        viewModelScope.launch { settings.saveAccessibility(preferences) }
     }
 
     // -- forecast -----------------------------------------------------------

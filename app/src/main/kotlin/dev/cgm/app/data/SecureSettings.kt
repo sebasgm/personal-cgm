@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.cgm.core.AccessibilityPreferences
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmRuntimeState
 import dev.cgm.core.AlarmSettings
@@ -156,6 +157,28 @@ class SecureSettings(private val context: Context) : SessionStore {
         }
     }
 
+    // -- accessibility --------------------------------------------------------
+
+    /**
+     * Font, text size, spacing and zone palette.
+     *
+     * Read before the first frame, because changing the typeface after the UI is
+     * already drawn reflows everything — and someone who needs a larger face
+     * should not have to watch the small one first.
+     */
+    val accessibility: Flow<AccessibilityPreferences> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ACCESSIBILITY]
+            ?.let { runCatching { json.decodeFromString<AccessibilityPreferences>(it) }.getOrNull() }
+            ?.sanitised()
+            ?: AccessibilityPreferences.Default
+    }
+
+    suspend fun saveAccessibility(preferences: AccessibilityPreferences) {
+        context.dataStore.edit {
+            it[KEY_ACCESSIBILITY] = json.encodeToString(preferences.sanitised())
+        }
+    }
+
     // -- forecast -----------------------------------------------------------
 
     /**
@@ -207,6 +230,7 @@ class SecureSettings(private val context: Context) : SessionStore {
     }
 
     private companion object {
+        val KEY_ACCESSIBILITY: Preferences.Key<String> = stringPreferencesKey("accessibility")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
         val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")
         val KEY_ALARM_STATE: Preferences.Key<String> = stringPreferencesKey("alarm_state")
