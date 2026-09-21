@@ -41,6 +41,7 @@ import dev.cgm.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.cgm.core.GlucoseStatistics
+import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.Zone
 import kotlin.math.roundToInt
 
@@ -56,6 +57,8 @@ import kotlin.math.roundToInt
 fun TrendsScreen(viewModel: CgmViewModel) {
     val stats by viewModel.periodStats.collectAsState()
     val period by viewModel.period.collectAsState()
+    val timeOfDay by viewModel.timeOfDay.collectAsState()
+    val state by viewModel.state.collectAsState()
 
     Column(
         Modifier
@@ -85,6 +88,11 @@ fun TrendsScreen(viewModel: CgmViewModel) {
         }
 
         TimeInRangeCard(stats)
+        DailyPatternCard(
+            profile = timeOfDay,
+            thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
+            unit = state.unit,
+        )
         ForecastReliabilityCard(viewModel)
         A1cCard(stats, period)
         SummaryCard(stats)

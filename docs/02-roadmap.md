@@ -386,9 +386,12 @@ polling fix.
 
 ### Then, the trend work (docs/05-trend-inference.md phases B–F)
 
-3. **B — AGP.** Percentile bands by time of day, from the rollups' histograms.
+3. **B — AGP. ✅ built** as the *Daily pattern* card on Trends: eight three-hour
+   slices, each a 25–75 box with the median inside and 10–90 whiskers, straight out
+   of the rollups' histograms.
 
-   **This supersedes issue #8.** Eight bars of 3-hour averages and an AGP answer the same
+   **This closes issue #8**, in the form the issue asked for — the Libre app's
+   three-hour bundles — but as bands rather than bars. Eight bars of 3-hour averages and an AGP answer the same
    question, but a bucket averaging 140 with an IQR of 60–260 and one averaging 140 with an
    IQR of 125–155 are completely different situations that the bar chart draws identically.
    The spread is where the information is. Recommend closing #8 in favour of the AGP rather

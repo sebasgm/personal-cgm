@@ -25,6 +25,7 @@ import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.InsulinDose
 import dev.cgm.core.InsulinKind
 import dev.cgm.core.StatisticsCalculator
+import dev.cgm.core.TimeOfDayProfile
 import dev.cgm.core.ThresholdBoundary
 import dev.cgm.core.ThresholdOverrides
 import dev.cgm.llu.LibreLinkUpCredentials
@@ -269,6 +270,9 @@ class CgmViewModel(
         refreshPeriodStats()
     }
 
+    private val _timeOfDay = MutableStateFlow(TimeOfDayProfile.Empty)
+    val timeOfDay: StateFlow<TimeOfDayProfile> = _timeOfDay.asStateFlow()
+
     fun refreshPeriodStats() {
         viewModelScope.launch {
             val now = clock()
@@ -278,6 +282,9 @@ class CgmViewModel(
                     endMillis = now,
                     thresholds = state.value.snapshot?.thresholds ?: GlucoseThresholds.Default,
                 )
+            }
+            _timeOfDay.value = withContext(Dispatchers.IO) {
+                repository.timeOfDayProfile(now - _period.value.millis, now)
             }
         }
     }

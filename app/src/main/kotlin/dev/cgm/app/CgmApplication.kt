@@ -24,6 +24,7 @@ class CgmApplication : Application() {
             settings,
             database.readings(),
             RollupWriter(database.readings(), database.rollups()),
+            database.rollups(),
             database.doses(),
         )
     }

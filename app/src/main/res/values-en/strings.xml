@@ -235,4 +235,10 @@
     <string name="reminder_dont_show">Don\'t show again</string>
     <string name="reminder_ok">Understood</string>
     <string name="reminder_read_full">The full notice is in Settings.</string>
+    <string name="trends_daily_pattern">Daily pattern</string>
+    <string name="trends_daily_pattern_note">Each 3-hour slice, gathered across the period. The box is the middle 50% of readings with the median inside it; the whiskers reach from the 10th to the 90th percentile. What this shows is not only where that part of the day sits, but how much it varies.</string>
+    <string name="trends_daily_pattern_days">%1$d days with data</string>
+    <string name="trends_daily_pattern_thin">Under %1$d days this describes a few days rather than a pattern: one unusual night dominates a whole slice.</string>
+    <string name="trends_daily_pattern_empty">Not enough hours recorded yet to draw the daily pattern.</string>
+    <string name="trends_most_variable">The least predictable slice is %1$s.</string>
 </resources>

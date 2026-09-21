@@ -15,7 +15,10 @@ import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.InsulinDose
 import dev.cgm.core.GlucoseUnit
+import dev.cgm.core.HourlyBin
 import dev.cgm.core.StatisticsCalculator
+import dev.cgm.core.TimeOfDayProfile
+import dev.cgm.core.TimeOfDayProfiler
 import dev.cgm.core.ThresholdOverrides
 import dev.cgm.core.Zone
 import dev.cgm.core.GlucoseSourceException
@@ -96,6 +99,8 @@ class GlucoseRepository(
     private val settings: SecureSettings,
     private val dao: ReadingDao,
     private val rollups: RollupWriter? = null,
+    /** Read side of the rollups, for the time-of-day profile. */
+    private val rollupDao: HourlyRollupDao? = null,
     private val doseDao: DoseDao,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -163,6 +168,31 @@ class GlucoseRepository(
         val now = clock()
         val readings = dao.since(now - windowMillis).map { it.toReading() }
         return ContinuityAnalyzer.analyse(readings, now - windowMillis, now)
+    }
+
+    /**
+     * The shape of a typical day over a window: eight three-hour slices, each with
+     * its own spread.
+     *
+     * Reads the hourly rollups rather than the readings table. That is what the
+     * histograms were stored for — percentiles cannot be recovered from a mean and
+     * an SD, and a ninety-day window is thousands of rollup rows against hundreds
+     * of thousands of readings.
+     */
+    suspend fun timeOfDayProfile(startMillis: Long, endMillis: Long): TimeOfDayProfile {
+        val dao = rollupDao ?: return TimeOfDayProfile.Empty
+        val rows = dao.between(startMillis, endMillis)
+        return TimeOfDayProfiler.of(
+            rows.map {
+                HourlyBin(
+                    localDate = it.localDate,
+                    localHour = it.localHour,
+                    bins = it.bins(),
+                    readingCount = it.count,
+                    coverageBuckets = it.buckets,
+                )
+            }
+        )
     }
 
     /** Window statistics, aggregated in SQL so a year-long window stays cheap. */

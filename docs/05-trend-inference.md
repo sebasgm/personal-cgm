@@ -279,7 +279,7 @@ account can reach the LibreView web export.
 - **A — Rollup infrastructure. ✅ built.** Schema, incremental update, rebuild-from-raw, and fix the
   UTC-hour bug. No UI. Everything else depends on it, and it should land before more
   history accumulates under the wrong shape.
-- **B — AGP.** Percentile bands by time of day. Replaces #8's bar chart with the view that
+- **B — AGP. ✅ built.** Percentile bands by time of day. Replaces #8's bar chart with the view that
   carries the information, over the same rollups.
 - **C — Level trends.** Rolling TIR/GMI over months with a Theil–Sen line.
 - **D — Change detection.** Tier 3 in full, with gates.

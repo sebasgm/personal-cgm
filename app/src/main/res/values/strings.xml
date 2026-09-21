@@ -235,4 +235,10 @@
     <string name="reminder_dont_show">No volver a mostrar</string>
     <string name="reminder_ok">Entendido</string>
     <string name="reminder_read_full">Ver el aviso completo en Ajustes.</string>
+    <string name="trends_daily_pattern">Patrón del día</string>
+    <string name="trends_daily_pattern_note">Cada franja de 3 horas, reunida a lo largo del periodo. La caja es el 50% central de las lecturas y la línea de dentro, la mediana; las guías llegan del percentil 10 al 90. Lo que se lee aquí no es solo dónde está esa parte del día, sino cuánto varía.</string>
+    <string name="trends_daily_pattern_days">%1$d días con datos</string>
+    <string name="trends_daily_pattern_thin">Con menos de %1$d días esto describe unos pocos días, no un patrón: una noche rara domina la franja entera.</string>
+    <string name="trends_daily_pattern_empty">Todavía no hay suficientes horas registradas para dibujar el patrón del día.</string>
+    <string name="trends_most_variable">La franja menos predecible es %1$s.</string>
 </resources>
