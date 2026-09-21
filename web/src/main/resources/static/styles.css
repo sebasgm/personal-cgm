@@ -1,0 +1,140 @@
+/*
+ * Same idea as the phone: calm surface, dense second layer. The current value
+ * owns the top of the screen and nothing competes with it; Trends carries the
+ * density one tab away.
+ */
+:root {
+  --bg: #f6fbf8;
+  --fg: #171d1a;
+  --muted: #5b6763;
+  --surface: #e7efeb;
+  --outline: #c3cfca;
+  --accent: #42b28e;
+  --band: #d7eed8;
+  --error: #b3261e;
+
+  /* Zone colours carry meaning, so they sit outside the theme. */
+  --urgent-low: #c62828;
+  --low: #e53935;
+  --in-range: #2e7d32;
+  --high: #f9a825;
+  --very-high: #ef6c00;
+}
+
+/* Okabe-Ito, warm low to cool high: separates zones on blue-yellow rather than
+   red-green, and keeps them apart in greyscale too. */
+body[data-palette="safe"] {
+  --urgent-low: #d55e00;
+  --low: #e69f00;
+  --in-range: #009e73;
+  --high: #56b4e9;
+  --very-high: #0072b2;
+  --band: #d4efe6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1512;
+    --fg: #dee4e0;
+    --muted: #9aa5a1;
+    --surface: #1d2622;
+    --outline: #3f4945;
+    --band: #16301c;
+  }
+  body[data-palette="safe"] { --band: #10312a; }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Tabular figures so the big number does not jitter as digits change. */
+  font-variant-numeric: tabular-nums;
+}
+
+.screen { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
+
+h1 { font-size: 1.5rem; margin: 0 0 8px; }
+h2 { font-size: 1rem; margin: 28px 0 10px; font-weight: 600; }
+
+.muted { color: var(--muted); }
+.fineprint { color: var(--muted); font-size: 0.8rem; line-height: 1.45; }
+.error { color: var(--error); font-weight: 500; }
+
+/* -- login -------------------------------------------------------------- */
+
+form { display: flex; flex-direction: column; gap: 14px; margin: 20px 0 12px; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+input, select {
+  font: inherit; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--outline); background: var(--bg); color: var(--fg);
+}
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+button {
+  font: inherit; font-weight: 600; padding: 11px 16px; border-radius: 10px;
+  border: 0; background: var(--accent); color: #06291f; cursor: pointer;
+}
+button:disabled { opacity: 0.55; cursor: default; }
+button.link { background: none; color: var(--muted); font-weight: 400; padding: 6px 8px; }
+
+/* -- tabs --------------------------------------------------------------- */
+
+.tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 20px; }
+.tabs button[data-view] {
+  background: none; color: var(--muted); border-radius: 999px; padding: 7px 14px;
+}
+.tabs button[data-view].active { background: var(--surface); color: var(--fg); }
+.tabs .spacer { flex: 1; }
+.tabs select { padding: 6px 8px; font-size: 0.8rem; }
+
+/* -- the reading -------------------------------------------------------- */
+
+.reading { text-align: center; padding: 8px 0 16px; }
+
+.value {
+  font-size: 5.5rem; font-weight: 700; line-height: 1; letter-spacing: -0.02em;
+  color: var(--zone, var(--fg));
+}
+/* Stale drops the zone colour entirely: a grey number reads as "unknown", which
+   is true, where a green one forty minutes old reads as "fine", which is not. */
+.reading[data-freshness="STALE"] .value,
+.reading[data-freshness="STALE"] .trend { color: var(--muted); }
+
+.meta { display: flex; justify-content: center; gap: 12px; margin-top: 10px; color: var(--muted); }
+.trend { color: var(--zone, var(--fg)); font-size: 1.2rem; }
+.age { margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
+.reading[data-freshness="AGING"] .age,
+.reading[data-freshness="STALE"] .age { color: var(--error); }
+.reading[data-freshness="STALE"] .age { font-weight: 700; }
+
+canvas { width: 100%; display: block; margin: 8px 0 4px; }
+
+/* -- stat strip --------------------------------------------------------- */
+
+.strip { display: flex; justify-content: space-around; gap: 8px; margin-top: 14px; }
+.strip div { text-align: center; }
+.strip span { display: block; font-size: 1.35rem; font-weight: 600; }
+.strip label { display: block; font-size: 0.72rem; color: var(--muted); text-transform: none; }
+.strip[data-reliable="false"] span { color: var(--muted); }
+
+/* -- trends ------------------------------------------------------------- */
+
+.notice {
+  background: var(--surface); border-radius: 12px; padding: 12px 14px;
+  font-size: 0.85rem; line-height: 1.45;
+}
+.notice[data-reliable="false"] { background: #f7dcd9; color: #5f1a15; }
+@media (prefers-color-scheme: dark) {
+  .notice[data-reliable="false"] { background: #3d1a17; color: #f2d0cc; }
+}
+
+.zones { display: flex; flex-direction: column; gap: 8px; }
+.zone-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+.zone-row .name { width: 96px; color: var(--muted); }
+.zone-row .bar { flex: 1; height: 16px; background: var(--surface); border-radius: 5px; overflow: hidden; }
+.zone-row .fill { height: 100%; border-radius: 5px; }
+.zone-row .pct { width: 48px; text-align: right; font-weight: 600; }

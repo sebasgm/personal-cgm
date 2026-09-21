@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Personal CGM</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+
+<main id="login" class="screen">
+  <h1>Personal CGM</h1>
+  <p class="muted">
+    Sign in with your <strong>LibreLinkUp follower</strong> account &mdash; the one
+    invited to follow the sensor, not the LibreView account wearing it.
+  </p>
+  <form id="login-form" autocomplete="on">
+    <label>Email<input type="email" id="email" required autocomplete="username"></label>
+    <label>Password<input type="password" id="password" required autocomplete="current-password"></label>
+    <button type="submit" id="login-button">Sign in</button>
+  </form>
+  <p id="login-error" class="error" hidden></p>
+  <p class="fineprint">
+    Credentials go to Abbott through this machine and are never written to disk here.
+    This server keeps your session in memory only and forgets it when it stops.
+  </p>
+</main>
+
+<main id="app" class="screen" hidden>
+  <nav class="tabs">
+    <button data-view="now" class="active">Now</button>
+    <button data-view="trends">Trends</button>
+    <div class="spacer"></div>
+    <select id="palette" title="Zone colours">
+      <option value="default">Default colours</option>
+      <option value="safe">Colour-blind safe</option>
+    </select>
+    <button id="logout" class="link">Sign out</button>
+  </nav>
+
+  <section id="view-now">
+    <div class="reading">
+      <div id="value" class="value">&mdash;&mdash;</div>
+      <div class="meta">
+        <span id="unit"></span>
+        <span id="trend" class="trend"></span>
+        <span id="delta"></span>
+      </div>
+      <div id="age" class="age"></div>
+    </div>
+    <canvas id="chart" height="280"></canvas>
+    <div class="strip">
+      <div><span id="tir">&mdash;</span><label>In range</label></div>
+      <div><span id="avg">&mdash;</span><label>Average</label></div>
+      <div><span id="sensor">&mdash;</span><label>Sensor</label></div>
+    </div>
+  </section>
+
+  <section id="view-trends" hidden>
+    <div id="coverage" class="notice"></div>
+    <h2>Time in range</h2>
+    <div id="zones" class="zones"></div>
+    <h2>Estimated A1C</h2>
+    <div class="strip">
+      <div><span id="gmi">&mdash;</span><label>GMI</label></div>
+      <div><span id="a1c">&mdash;</span><label>A1C est.</label></div>
+    </div>
+    <p class="fineprint">
+      GMI = 3.31 + 0.02392 &times; mean glucose (mg/dL).
+      Estimated A1C = (mean glucose + 46.7) / 28.7.
+      Both are estimates from sensor readings, not laboratory measurements, and they
+      legitimately disagree with each other and with a blood test.
+    </p>
+    <p class="fineprint" id="window-note"></p>
+  </section>
+
+  <p id="app-error" class="error" hidden></p>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

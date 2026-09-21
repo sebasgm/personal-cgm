@@ -34,3 +34,9 @@ rootProject.name = "personal-cgm"
 include(":core")
 include(":data-llu")
 include(":app")
+
+// A local server, because a browser cannot reach Abbott directly: the API answers
+// preflight requests without an Access-Control-Allow-Origin header, so any page
+// calling it is blocked. This reuses :core and :data-llu unchanged, which is the
+// reason they were kept free of Android in the first place.
+include(":web")

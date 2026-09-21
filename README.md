@@ -30,6 +30,7 @@ core/         Pure Kotlin/JVM. Reading model, freshness policy, poll scheduler,
               watch wire format. No Android types — the Wear module shares this verbatim.
 data-llu/     Pure Kotlin/JVM. LibreLinkUp client behind core's GlucoseSource interface.
 app/          Android phone app: polling service, secure storage, Room history, Compose UI.
+web/          Local Ktor server + browser client for Home and Trends.
 spike/        Python probe for measuring the live API.
 docs/         Research and plan.
 ```
