@@ -7,6 +7,7 @@ Android phone, and from there onto a Wear OS watch.
 by Abbott, and the cloud path adds minutes of latency. The official app stays the source of truth
 for any dosing decision. See [docs/00-research.md](docs/00-research.md) §6.
 
+Features: [FEATURES.md](FEATURES.md)
 Research: [docs/00-research.md](docs/00-research.md) · Staged plan: [docs/01-plan.md](docs/01-plan.md)
 Issue roadmap: [docs/02-roadmap.md](docs/02-roadmap.md) · UI design: [docs/03-ui-design.md](docs/03-ui-design.md)
 Alarm behaviour: [docs/04-alarms.md](docs/04-alarms.md) · Wear OS plan: [docs/06-wear-os.md](docs/06-wear-os.md) · Trend inference: [docs/05-trend-inference.md](docs/05-trend-inference.md)
