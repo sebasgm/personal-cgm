@@ -177,12 +177,45 @@ below has something to be compared against. Without this the battery number mean
 
 | # | Question | Why it matters | Result |
 |---|---|---|---|
-| 1 | Do third-party complications appear in the stock face's picker at all? | If not, W1–W4 are dead on this watch and the answer is a Tile-only design | |
-| 2 | Does a value actually appear, and how far behind the phone is it? | Baseline for the §3 freshness problem | |
-| 3 | Over 24h, how often does the displayed value actually change? | Decides whether W3 needs a Tile first. Under ~12 refreshes a day means the platform is throttling hard | |
-| 4 | Watch battery over 24h, with vs without the complication | The baseline every later decision is judged against | |
-| 5 | Does it survive a watch reboot, and Bluetooth dropping out and returning? | Data Layer buffering is supposed to handle this; confirm it does here | |
-| 6 | Anything OnePlus-specific: blanking, vanishing after AOD, refusing to re-add | This is the Gluroo risk, stated concretely | |
+| 1 | Do third-party complications appear in a **stock** face's picker? | If not, the plan is a watch face or a tile, not complications | **open** — see below |
+| 2 | Does a value appear, and how far behind the phone? | Baseline for the §3 freshness problem | **yes**, visibly behind the phone but acceptable in use |
+| 3 | Over 24h, how often does the displayed value change? | Decides whether a tile is needed before a watch face | partly answered: lag is tolerable |
+| 4 | Watch battery over 24h, with vs without | The baseline every later decision is judged against | **acceptable** in daily use with a third-party watch face |
+| 5 | Survives a reboot, and Bluetooth dropping out and back? | Data Layer buffering is supposed to handle this | not yet tested |
+| 6 | Anything OnePlus-specific: blanking, vanishing, refusing to re-add | The risk this stage exists to find | **none seen** |
+
+#### What running a reference app already told us
+
+A third-party CGM app runs on this watch with **its own watch face**, showing a live value,
+lagging the phone but usefully so, at a battery cost the wearer accepts.
+
+That is a large de-risking and it changes the plan, but it is worth being precise about what
+it does and does not establish:
+
+- **Established:** this watch will run a third-party Watch Face Format face that displays
+  live data pushed from a phone. The OnePlus-specific risk this stage existed to find did not
+  appear. The dual-chip battery cost of a non-stock face is real but tolerable in practice,
+  which was the main argument for preferring complications.
+- **Not established:** whether an arbitrary **stock** OnePlus face will accept a third-party
+  complication. An app shipping its own face sidesteps that question entirely — its face
+  declares the slots and fills them itself.
+
+The second point is the one still open, and it is a thirty-second check: try adding the
+reference app's complication to a stock OnePlus face and see whether it is offered.
+
+#### What this does to the order
+
+The plan opened with complications on a stock face, on the reasoning that it is the cheapest
+surface and the kindest to a watch whose always-on display runs on a separate low-power chip.
+The battery observation weakens that: the cost is evidently liveable.
+
+So **W3, our own Watch Face Format face, moves up** — it is the path now known to work on this
+watch, and it is what the reference app itself does. Complications are still worth shipping,
+because they are what lets the value appear on *someone else's* face, but they stop being the
+thing everything else waits behind.
+
+The lag being visible makes §3's age counter more important, not less: a value that is
+plainly behind needs to say how far behind, or it is just a wrong number.
 
 #### What each outcome means
 
