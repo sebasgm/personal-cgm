@@ -40,3 +40,8 @@ include(":app")
 // calling it is blocked. This reuses :core and :data-llu unchanged, which is the
 // reason they were kept free of Android in the first place.
 include(":web")
+
+// The Wear OS app. Consumes :core unchanged - the reading model, freshness rules,
+// thresholds and the wire format are all shared rather than reimplemented, so the
+// watch cannot disagree with the phone about whether a value is stale.
+include(":wear")

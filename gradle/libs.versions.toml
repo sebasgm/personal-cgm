@@ -13,9 +13,14 @@ work = "2.11.2"
 datastore = "1.2.1"
 junit = "5.11.4"
 ktor = "3.6.0"
+wearable = "20.0.1"
+wearCompose = "1.6.2"
 logback = "1.6.3"
 
 [libraries]
+play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "wearable" }
+wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wearCompose" }
+wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
 ktor-server-core = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }
 ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation-jvm", version.ref = "ktor" }

@@ -90,6 +90,8 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
+    // Publishes readings to the watch over the Data Layer.
+    implementation(libs.play.services.wearable)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

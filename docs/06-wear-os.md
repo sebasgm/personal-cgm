@@ -197,11 +197,31 @@ decisions the rest of this document makes.
 
 ### W1 — Data Layer + first complication
 
-- `:wear` module, Compose for Wear, `values-es`.
-- Phone: publish `WatchPayload` on each successful poll. The repository already exposes a
-  `results` `SharedFlow` for exactly this sink — it was put there in stage 2 and has had no
-  consumer until now.
-- Watch: `WearableListenerService` caching the latest payload.
+**Transport: ✅ built. Complications: waiting on W0.**
+
+The split is deliberate. Whether complications behave on this watch changes which
+*surface* the data lands on — complication, tile, or watch face — but all three need the
+data to arrive, so the transport was safe to build before W0 answers anything.
+
+What exists now:
+
+- `:wear` module, sharing `:core` unchanged. Its `applicationId` matches the phone's,
+  which the Data Layer requires: a mismatch means the two never see each other and
+  nothing reports why.
+- Phone publishes a `WatchPayload` DataItem on every successful fetch, marked urgent so
+  the sync is immediate rather than opportunistic. It consumes the repository's `results`
+  flow, which has existed since stage 2 with nothing attached to it.
+- Watch receives it in a `WearableListenerService`, so readings arrive whether or not
+  anything is on screen, and persists the latest one to a file — a complication that shows
+  nothing until the phone next sends would be blank every morning.
+- Out-of-order delivery is rejected by sequence number. The Data Layer gives no ordering
+  guarantee and a reconnection can deliver a buffered item after a newer one.
+- A minimal watch app showing value, trend, delta and a live age, with staleness taken from
+  `:core` so the watch cannot call a reading current after the phone has given up on it.
+
+Still to build, once W0 reports:
+
+
 - `ComplicationDataSourceService` exposing:
   - `SHORT_TEXT` — value + trend glyph
   - `RANGED_VALUE` — position in the target band, via `GlucoseThresholds.fraction()`

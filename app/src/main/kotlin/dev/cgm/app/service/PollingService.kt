@@ -44,6 +44,7 @@ class PollingService : LifecycleService() {
     private lateinit var settings: SecureSettings
     private lateinit var notifier: AlarmNotifier
     private val scheduler = PollScheduler()
+    private lateinit var watch: WatchBridge
 
     /**
      * Keeps the CPU running between polls.

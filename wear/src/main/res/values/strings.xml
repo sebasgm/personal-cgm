@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CGM</string>
+    <string name="wear_waiting">Esperando al teléfono</string>
+    <string name="wear_waiting_hint">Abre la app en el teléfono y comprueba que el reloj está emparejado.</string>
+    <string name="wear_age_seconds">hace %1$d s</string>
+    <string name="wear_age_minute">hace 1 min</string>
+    <string name="wear_age_minutes">hace %1$d min</string>
+    <string name="wear_late">tarde</string>
+    <string name="wear_stale">SIN SEÑAL</string>
+</resources>
