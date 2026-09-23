@@ -435,3 +435,49 @@ class AccessibilityPreferencesTest {
         assertEquals(fine, fine.sanitised())
     }
 }
+
+class WatchPayloadDosesTest {
+    private val now = 1_800_000_000_000L
+
+    private fun payload(doses: List<InsulinDose>) = WatchPayload(
+        snapshot = GlucoseSnapshot(GlucoseReading(160.0, now)),
+        sentAtMillis = now,
+        recentDoses = doses,
+    )
+
+    @Test
+    fun `carries doses across the wire`() {
+        val doses = listOf(
+            InsulinDose(kind = InsulinKind.BOLUS, units = 4.0, givenAtMillis = now - 900_000),
+            InsulinDose(kind = InsulinKind.BASAL, units = 12.0, givenAtMillis = now - 7_200_000),
+        )
+        val decoded = WatchPayload.decode(payload(doses).encode())
+        assertEquals(doses, decoded.recentDoses)
+        assertEquals(InsulinKind.BOLUS, decoded.recentDoses.first().kind)
+    }
+
+    @Test
+    fun `no doses is the default, not an error`() {
+        assertEquals(emptyList(), WatchPayload.decode(payload(emptyList()).encode()).recentDoses)
+    }
+
+    @Test
+    fun `a payload with doses still fits comfortably`() {
+        val many = (0 until 20).map {
+            InsulinDose(kind = InsulinKind.BOLUS, units = 3.5, givenAtMillis = now - it * 600_000L)
+        }
+        val full = payload(many).copy(
+            history = WatchPayload.downsample(
+                (0 until 500).map { GlucoseReading(120.0, now - it * 60_000L) }
+            )
+        )
+        assertTrue(full.encode().size < 10_000, "payload was ${full.encode().size} bytes")
+    }
+
+    @Test
+    fun `an older payload without doses still decodes`() {
+        // Forwards compatibility: the watch may run a build older than the phone's.
+        val legacy = """{"snapshot":{"reading":{"v":160.0,"t":$now}},"sentAtMillis":$now}"""
+        assertEquals(emptyList(), WatchPayload.decode(legacy.toByteArray()).recentDoses)
+    }
+}

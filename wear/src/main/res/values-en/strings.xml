@@ -8,4 +8,14 @@
     <string name="wear_age_minutes">%1$d min ago</string>
     <string name="wear_late">late</string>
     <string name="wear_stale">NO SIGNAL</string>
+    <string name="wear_channel_reading">Current reading</string>
+    <string name="wear_channel_reading_desc">Silent notification carrying the latest value.</string>
+    <string name="wear_no_recent_doses">No insulin in 3 h</string>
+    <string name="wear_recent_units">%1$s U in 3 h</string>
+    <string name="wear_doses_title">Insulin · last 3 h</string>
+    <string name="wear_doses_empty">No doses logged in the last three hours.</string>
+    <string name="wear_dose_basal">Basal</string>
+    <string name="wear_dose_bolus">Bolus</string>
+    <string name="wear_dose_line">%1$s · %2$s U</string>
+    <string name="wear_minutes_ago">%1$d min ago</string>
 </resources>

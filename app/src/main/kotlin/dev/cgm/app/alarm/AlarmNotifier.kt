@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import dev.cgm.app.Locales
 import dev.cgm.app.R
 import dev.cgm.app.service.StatusBarIcon
+import dev.cgm.app.service.PollingService
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
@@ -134,6 +135,11 @@ class AlarmNotifier(private val context: Context) {
             // Re-notifying without sound is how the engine keeps an alarm visible
             // while staying quiet during recovery or a snooze.
             .setOnlyAlertOnce(!makeSound)
+            // Grouped with the ongoing reading, so an alarm does not claim a second
+            // status bar slot and push the value out of view. The alert still
+            // announces itself with sound and a heads-up; what it stops doing is
+            // replacing the number on screen with a warning about that number.
+            .setGroup(PollingService.NOTIFICATION_GROUP)
             .addAction(
                 0,
                 strings.getString(R.string.alarm_snooze),

@@ -22,6 +22,7 @@ import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.Freshness
 import dev.cgm.core.PollOutcome
 import dev.cgm.core.PollScheduler
+import dev.cgm.core.WatchPayload
 import dev.cgm.core.StatusIconLabel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -225,6 +227,16 @@ class PollingService : LifecycleService() {
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            // One status bar icon, not two. Alarms join this group, so while one is
+            // firing the system collapses them and the icon that survives is this
+            // one — the current value. An alert that hides the number it is alerting
+            // about is worse than no icon at all.
+            .setGroup(NOTIFICATION_GROUP)
+            .setGroupSummary(true)
+            // The watch posts its own, which is how tapping it can open something
+            // on the watch. Bridging this as well would put two of the same value
+            // on the wrist.
+            .setLocalOnly(true)
             .setShowWhen(false)
             .build()
     }
@@ -253,6 +265,7 @@ class PollingService : LifecycleService() {
     companion object {
         private const val NOTIFICATION_ID = 1
         private const val WAKE_LOCK_TAG = "personal-cgm:polling"
+        const val NOTIFICATION_GROUP = "dev.cgm.app.glucose"
 
         private val _running = MutableStateFlow(false)
 

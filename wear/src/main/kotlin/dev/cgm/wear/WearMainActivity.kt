@@ -9,6 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import dev.cgm.core.InsulinDose
+import dev.cgm.core.InsulinKind
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,13 +47,23 @@ import kotlinx.coroutines.delay
  */
 class WearMainActivity : ComponentActivity() {
 
+    companion object {
+        /** Set by the silent notification, so tapping it lands on the doses. */
+        const val EXTRA_SHOW_DOSES = "show_doses"
+    }
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val store = WatchStoreHolder.get(this)
+        val openOnDoses = intent?.getBooleanExtra(EXTRA_SHOW_DOSES, false) == true
 
         setContent {
             MaterialTheme {
                 val payload by store.payload.collectAsState()
+                // Tapping the notification lands on the doses; tapping anywhere
+                // goes back to the reading. Two screens do not need navigation.
+                var showDoses by remember { mutableStateOf(openOnDoses) }
 
                 // Ticks whether or not anything arrives. A frozen age over a dead
                 // link is the failure this whole app is built to avoid, and it is
@@ -57,9 +75,19 @@ class WearMainActivity : ComponentActivity() {
                     }
                 }
 
-                Box(Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                        .clickable { showDoses = !showDoses },
+                    contentAlignment = Alignment.Center,
+                ) {
                     val snapshot = payload?.snapshot
-                    if (snapshot == null) Waiting() else Reading(snapshot, now)
+                    when {
+                        showDoses -> RecentDoses(payload?.recentDoses.orEmpty(), now)
+                        snapshot == null -> Waiting()
+                        else -> Reading(snapshot, now)
+                    }
                 }
             }
         }
@@ -145,3 +173,68 @@ private fun zoneColour(zone: Zone): Color = when (zone) {
     Zone.HIGH -> Color(0xFFF9A825)
     Zone.VERY_HIGH -> Color(0xFFEF6C00)
 }
+
+/**
+ * Insulin logged in the last three hours.
+ *
+ * What the silent notification opens onto. The question it answers — "have I
+ * already taken something for this" — gets asked while looking at a number that
+ * is higher than expected, and having to reach for a phone to answer it is
+ * exactly when the wrist stops being useful.
+ *
+ * The doses travel in the payload, so this works with the phone out of reach.
+ */
+@Composable
+private fun RecentDoses(doses: List<InsulinDose>, now: Long) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            stringResource(R.string.wear_doses_title),
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+        )
+
+        if (doses.isEmpty()) {
+            Text(
+                stringResource(R.string.wear_doses_empty),
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            return@Column
+        }
+
+        // Newest first: the most recent dose is the one being asked about.
+        doses.sortedByDescending { it.givenAtMillis }.forEach { dose ->
+            val minutes = ((now - dose.givenAtMillis) / 60_000).coerceAtLeast(0)
+            Column(
+                Modifier.padding(top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    stringResource(
+                        R.string.wear_dose_line,
+                        stringResource(
+                            if (dose.kind == InsulinKind.BASAL) R.string.wear_dose_basal
+                            else R.string.wear_dose_bolus
+                        ),
+                        formatUnits(dose.units),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    stringResource(R.string.wear_minutes_ago, minutes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+private fun formatUnits(units: Double): String =
+    if (units % 1.0 == 0.0) units.toInt().toString() else "%.1f".format(units)

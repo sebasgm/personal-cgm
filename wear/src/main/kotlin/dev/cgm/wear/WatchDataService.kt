@@ -31,14 +31,17 @@ class WatchDataService : WearableListenerService() {
 
         events.release()
 
-        if (accepted) {
-            // Stage W1's complications hook in here: this is the moment a push
-            // update should be requested, which is what keeps the watch face
-            // current without asking the platform to poll us.
-            onReadingAccepted()
-        }
+        if (accepted) onReadingAccepted(store)
     }
 
-    /** Extension point for the complication and tile updates that follow. */
-    private fun onReadingAccepted() = Unit
+    /**
+     * Everything that should happen when a reading lands.
+     *
+     * The complication push update joins this when complications are built: it is
+     * the moment to request one, which is what keeps a watch face current without
+     * asking the platform to poll us.
+     */
+    private fun onReadingAccepted(store: WatchStore) {
+        store.payload.value?.let { WatchNotifier(this).show(it) }
+    }
 }

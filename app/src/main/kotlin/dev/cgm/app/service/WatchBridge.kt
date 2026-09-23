@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
+import dev.cgm.core.InsulinDose
 import dev.cgm.core.SourceResult
 import dev.cgm.core.WatchPayload
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,10 @@ class WatchBridge(context: Context) {
      * unsupported, or simply not paired is the normal case for most installs, and
      * it must not disturb polling.
      */
-    suspend fun publish(result: SourceResult): Boolean = withContext(Dispatchers.IO) {
+    suspend fun publish(
+        result: SourceResult,
+        recentDoses: List<InsulinDose> = emptyList(),
+    ): Boolean = withContext(Dispatchers.IO) {
         val payload = WatchPayload(
             snapshot = result.snapshot,
             // Thinned on this side so the watch receives something small; it is
@@ -47,6 +51,7 @@ class WatchBridge(context: Context) {
             ),
             sentAtMillis = System.currentTimeMillis(),
             sequence = sequence.incrementAndGet(),
+            recentDoses = recentDoses,
         )
 
         val request = PutDataRequest.create(WatchPayload.PATH).apply {

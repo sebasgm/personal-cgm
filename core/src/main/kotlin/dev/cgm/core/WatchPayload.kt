@@ -26,6 +26,15 @@ data class WatchPayload(
     val sentAtMillis: Long,
     /** Bumped per payload so the watch can drop out-of-order Data Layer delivery. */
     val sequence: Long = 0,
+    /**
+     * Insulin logged in the last [DOSE_WINDOW_MILLIS], newest last.
+     *
+     * Carried so the watch can answer "what have I taken recently" without asking
+     * the phone for it. That question is asked in the moment — usually while
+     * looking at a number that is higher than expected — and a round trip to a
+     * phone in another room is exactly when it fails.
+     */
+    val recentDoses: List<InsulinDose> = emptyList(),
 ) {
     fun encode(): ByteArray = Json.encodeToString(serializer(), this).toByteArray()
 
@@ -35,6 +44,14 @@ data class WatchPayload(
 
         /** Keep payloads small; roughly 3 hours at 5-minute spacing. */
         const val MAX_HISTORY_POINTS = 48
+
+        /**
+         * How far back doses are carried.
+         *
+         * Three hours covers the tail of rapid-acting insulin, which is the window
+         * in which "did I already take something for this" is a live question.
+         */
+        const val DOSE_WINDOW_MILLIS = 3L * 60 * 60 * 1000
 
         fun decode(bytes: ByteArray): WatchPayload =
             Json.decodeFromString(serializer(), bytes.decodeToString())
