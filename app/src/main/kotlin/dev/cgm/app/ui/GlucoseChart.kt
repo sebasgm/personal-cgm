@@ -24,8 +24,6 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -136,31 +134,27 @@ fun GlucoseChart(
     Box(
         modifier
             .onSizeChanged { widthPx = it.width }
-            // Declared before the transform detector so it can claim the gesture.
-            // A plain drag already pans, so inspection has to be asked for; a long
-            // press is the conventional way to take a gesture that is spoken for.
+            // One detector, deliberately.
+            //
+            // Inspection used to live in its own long-press detector ahead of this
+            // one, which made dragging feel dead for the half second it spent
+            // waiting to see whether the press was long. A gesture that has to be
+            // outlasted before the chart reacts is the wrong trade for a feature
+            // nobody asked to be modal.
+            //
+            // So sliding does both: panning moves the window with the finger, which
+            // means the reading under the finger stays the *same* reading, and that
+            // is exactly the one worth naming.
             .pointerInput(readings, widthPx) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { selected = readingNear(it.x) },
-                    onDragEnd = { },
-                    onDragCancel = { },
-                ) { change, _ -> selected = readingNear(change.position.x) }
-            }
-            .pointerInput(readings, widthPx) {
-                detectTapGestures { offset ->
-                    val hit = readingNear(offset.x)
-                    // Tapping the same point again puts the chart back.
-                    selected = if (hit == selected) null else hit
-                }
-            }
-            .pointerInput(Unit) {
-                // Reported incrementally through the gesture, and 1f means the fingers
-                // rotated or panned without scaling — nothing to do with zoom.
-                detectTransformGestures { _, pan, zoom, _ ->
-                    // The window is moving, so a callout would start describing a
-                    // point that is no longer under it.
-                    if (zoom != 1f || pan.x != 0f) selected = null
-                    if (zoom != 1f) onZoom(zoom)
+                detectTransformGestures { centroid, pan, zoom, _ ->
+                    if (zoom != 1f) {
+                        // The window is being rescaled, so whatever was under the
+                        // finger is no longer where it was.
+                        selected = null
+                        onZoom(zoom)
+                    } else if (pan.x != 0f) {
+                        selected = readingNear(centroid.x)
+                    }
                     // Reported as a fraction of the chart's width, so the caller can
                     // turn it into time without knowing anything about pixels.
                     if (pan.x != 0f && size.width > 0) onPan(pan.x / size.width)
