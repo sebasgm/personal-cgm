@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import dev.cgm.app.data.ZoneWatcher
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -49,7 +50,9 @@ fun LogbookScreen(viewModel: CgmViewModel) {
     val state by viewModel.state.collectAsState()
     val thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default
     val context = LocalContext.current
-    val zone = remember { ZoneId.systemDefault() }
+    // Observed rather than remembered: a day boundary drawn in the zone you
+    // left is not a day.
+    val zone by ZoneWatcher.zone.collectAsState()
     val timeFormat = remember { DateTimeFormatter.ofPattern("HH:mm") }
 
     if (readings.isEmpty()) {

@@ -15,6 +15,8 @@ data class HourlyBin(
     val readingCount: Int,
     /** Distinct 5-minute buckets with data, out of twelve. */
     val coverageBuckets: Int,
+    /** The zone this hour's wall-clock was resolved in, when known. */
+    val zoneId: String = "",
 ) {
     // Arrays need these spelled out, or two equal bins compare unequal.
     override fun equals(other: Any?): Boolean =
@@ -69,7 +71,16 @@ data class TimeOfDayProfile(
     val coverage: Double,
     /** Distinct days anywhere in the window. */
     val dayCount: Int,
+    /**
+     * Time zones the window's readings were recorded in.
+     *
+     * More than one means the profile is mixing wall clocks: an hour recorded as
+     * 03:00 in one place and 03:00 in another are different moments in the body's
+     * day. Worth saying rather than silently averaging.
+     */
+    val zoneIds: Set<String> = emptySet(),
 ) {
+    val spansMultipleZones: Boolean get() = zoneIds.size > 1
     val hasData: Boolean get() = buckets.any { it.hasData }
 
     val isReliable: Boolean
@@ -114,6 +125,7 @@ object TimeOfDayProfiler {
         if (hours.isEmpty()) return TimeOfDayProfile.Empty
 
         val days = hours.map { it.localDate }.toHashSet().size
+        val zones = hours.mapNotNull { it.zoneId.takeIf(String::isNotEmpty) }.toHashSet()
         val grouped = hours.groupBy { (it.localHour / BUCKET_HOURS).coerceIn(0, BUCKET_COUNT - 1) }
 
         val buckets = (0 until BUCKET_COUNT).map { index ->
@@ -162,6 +174,7 @@ object TimeOfDayProfiler {
             coverage = if (expectedOverall == 0) 0.0
             else (hours.sumOf { it.coverageBuckets }.toDouble() / expectedOverall).coerceIn(0.0, 1.0),
             dayCount = days,
+            zoneIds = zones,
         )
     }
 }

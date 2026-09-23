@@ -96,6 +96,17 @@ fun DailyPatternCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp),
             )
+            if (profile.spansMultipleZones) {
+                Text(
+                    stringResource(
+                        R.string.trends_daily_pattern_zones,
+                        profile.zoneIds.size,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             if (profile.dayCount < TimeOfDayProfile.MIN_DAYS) {
                 Text(
                     stringResource(

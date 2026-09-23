@@ -190,6 +190,7 @@ class GlucoseRepository(
                     bins = it.bins(),
                     readingCount = it.count,
                     coverageBuckets = it.buckets,
+                    zoneId = it.zoneId,
                 )
             }
         )

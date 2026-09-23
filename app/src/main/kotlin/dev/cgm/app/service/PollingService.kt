@@ -16,6 +16,7 @@ import dev.cgm.app.Locales
 import dev.cgm.app.R
 import dev.cgm.app.alarm.AlarmNotifier
 import dev.cgm.app.data.GlucoseRepository
+import dev.cgm.app.data.TimeChangeReceiver
 import dev.cgm.app.data.SecureSettings
 import dev.cgm.core.AlarmEngine
 import dev.cgm.app.ui.MainActivity
@@ -63,6 +64,7 @@ class PollingService : LifecycleService() {
      * optimisation, and why it uses more power than an app that may sleep.
      */
     private var wakeLock: PowerManager.WakeLock? = null
+    private var clockReceiver: TimeChangeReceiver? = null
     private val alarms = AlarmEngine()
     private var loop: Job? = null
     private lateinit var strings: Context
@@ -258,6 +260,8 @@ class PollingService : LifecycleService() {
         loop?.cancel()
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
+        clockReceiver?.let { runCatching { unregisterReceiver(it) } }
+        clockReceiver = null
         _running.value = false
         super.onDestroy()
     }

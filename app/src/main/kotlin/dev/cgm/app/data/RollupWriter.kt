@@ -56,11 +56,19 @@ class RollupWriter(
     }
 
     private suspend fun rebuildHours(hourStarts: List<Long>, sensor: SensorInfo?) {
+        // An hour already summarised keeps the zone it was summarised in. Only a
+        // genuinely new hour takes the device's current one, so travelling does not
+        // rewrite where past readings sat in the day.
+        val existingZones = rollups
+            .between(hourStarts.min(), hourStarts.max() + HOUR_MILLIS)
+            .associate { it.hourStartMillis to it.zoneId }
+
         val rows = hourStarts.mapNotNull { hourStart ->
             val inHour = readings
                 .betweenInclusive(hourStart, hourStart + HOUR_MILLIS - 1)
                 .map { it.toReading() }
-            if (inHour.isEmpty()) null else summarise(hourStart, inHour, sensor)
+            if (inHour.isEmpty()) null
+            else summarise(hourStart, inHour, sensor, existingZones[hourStart])
         }
         if (rows.isNotEmpty()) rollups.upsert(rows)
     }
@@ -69,9 +77,14 @@ class RollupWriter(
         hourStartMillis: Long,
         readings: List<GlucoseReading>,
         sensor: SensorInfo?,
+        existingZone: String?,
     ): HourlyRollupEntity {
         val values = readings.map { it.valueMgdl }
-        val local = Instant.ofEpochMilli(hourStartMillis).atZone(zone())
+        val resolvedZone = existingZone
+            ?.takeIf(String::isNotEmpty)
+            ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
+            ?: zone()
+        val local = Instant.ofEpochMilli(hourStartMillis).atZone(resolvedZone)
 
         var sum = 0.0
         var sumSq = 0.0
@@ -102,6 +115,7 @@ class RollupWriter(
             // Which day of the sensor's session this hour fell in, so a bias
             // curve across sessions can be measured later.
             sensorDay = sensor?.dayOfSession(hourStartMillis),
+            zoneId = resolvedZone.id,
         )
     }
 

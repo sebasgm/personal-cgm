@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import dev.cgm.app.data.ZoneWatcher
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,7 +69,9 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun DosesScreen(viewModel: CgmViewModel) {
     val doses by viewModel.doses.collectAsState()
-    val zone = remember { ZoneId.systemDefault() }
+    // Observed rather than remembered: a day boundary drawn in the zone you
+    // left is not a day.
+    val zone by ZoneWatcher.zone.collectAsState()
 
     var kind by remember { mutableStateOf(InsulinKind.BOLUS) }
     var unitsText by remember { mutableStateOf("") }

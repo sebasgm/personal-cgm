@@ -241,4 +241,5 @@
     <string name="trends_daily_pattern_thin">Con menos de %1$d días esto describe unos pocos días, no un patrón: una noche rara domina la franja entera.</string>
     <string name="trends_daily_pattern_empty">Todavía no hay suficientes horas registradas para dibujar el patrón del día.</string>
     <string name="trends_most_variable">La franja menos predecible es %1$s.</string>
+    <string name="trends_daily_pattern_zones">Este periodo incluye %1$d husos horarios. Las franjas usan la hora local de cada lectura, así que las de días en husos distintos no describen el mismo momento del día.</string>
 </resources>

@@ -1,5 +1,6 @@
 package dev.cgm.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Index
@@ -53,6 +54,17 @@ class HourlyRollupEntity(
     val histogram: ByteArray,
     val sensorSerial: String?,
     val sensorDay: Int?,
+    /**
+     * The zone [localDate] and [localHour] were resolved in.
+     *
+     * Stored so a recompute reproduces the same answer. Without it, rebuilding an
+     * hour after the device changed zone would silently re-express history: the
+     * same reading would move between time-of-day slices depending on when the
+     * rebuild happened to run, which makes the daily pattern a function of
+     * maintenance rather than of what happened.
+     */
+    @ColumnInfo(defaultValue = "")
+    val zoneId: String = "",
 ) {
     fun moments() = Moments(count = count, sum = sum, sumSq = sumSq)
 

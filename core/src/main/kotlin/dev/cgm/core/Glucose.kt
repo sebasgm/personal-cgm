@@ -68,7 +68,15 @@ data class GlucoseReading(
     @SerialName("l") val isLow: Boolean = false,
 ) : Comparable<GlucoseReading> {
 
-    fun ageMillis(nowMillis: Long): Long = nowMillis - timestampMillis
+    /**
+     * How old this reading is, never negative.
+     *
+     * A reading timestamped in the future does not mean prescience, it means the
+     * clock moved — the user corrected it, a time zone changed the device's idea
+     * of now, or the network time arrived late. Left unclamped it renders as
+     * "-3 minutes ago" and, worse, reads as maximally fresh forever.
+     */
+    fun ageMillis(nowMillis: Long): Long = (nowMillis - timestampMillis).coerceAtLeast(0)
 
     override fun compareTo(other: GlucoseReading): Int =
         timestampMillis.compareTo(other.timestampMillis)

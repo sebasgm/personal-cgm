@@ -186,3 +186,57 @@ class TimeOfDayProfilerTest {
         assertTrue(range.start < 110 && range.endInclusive > 200, "range was $range")
     }
 }
+
+class ZoneAwarenessTest {
+    private val now = 1_800_000_000_000L
+
+    private fun hour(date: String, localHour: Int, zone: String) = HourlyBin(
+        localDate = date,
+        localHour = localHour,
+        bins = GlucoseHistogram.of(List(12) { 120.0 }),
+        readingCount = 12,
+        coverageBuckets = 12,
+        zoneId = zone,
+    )
+
+    @Test
+    fun `a single zone is not flagged`() {
+        val profile = TimeOfDayProfiler.of(
+            (1..7).map { hour("2026-09-0$it", 3, "Europe/Madrid") }
+        )
+        assertEquals(setOf("Europe/Madrid"), profile.zoneIds)
+        assertTrue(!profile.spansMultipleZones)
+    }
+
+    @Test
+    fun `travelling is visible in the profile`() {
+        // 03:00 in one place and 03:00 in another are different moments in a body's
+        // day, so a profile mixing them should say so rather than average them.
+        val profile = TimeOfDayProfiler.of(
+            listOf(
+                hour("2026-09-01", 3, "Europe/Madrid"),
+                hour("2026-09-05", 3, "America/Argentina/Buenos_Aires"),
+            )
+        )
+        assertTrue(profile.spansMultipleZones)
+        assertEquals(2, profile.zoneIds.size)
+    }
+
+    @Test
+    fun `rows predating the zone column are ignored rather than counted as a zone`() {
+        val profile = TimeOfDayProfiler.of(listOf(hour("2026-09-01", 3, "")))
+        assertTrue(profile.zoneIds.isEmpty())
+        assertTrue(!profile.spansMultipleZones)
+    }
+}
+
+class ClockJumpTest {
+    @Test
+    fun `a reading from the future is zero seconds old, not negative`() {
+        val now = 1_800_000_000_000L
+        val fromTheFuture = GlucoseReading(120.0, now + 10 * 60_000L)
+        assertEquals(0L, fromTheFuture.ageMillis(now))
+        // And it must not read as permanently fresh either way round.
+        assertEquals(Freshness.FRESH, FreshnessPolicy.Default.evaluate(fromTheFuture, now))
+    }
+}

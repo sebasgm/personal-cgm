@@ -241,4 +241,5 @@
     <string name="trends_daily_pattern_thin">Under %1$d days this describes a few days rather than a pattern: one unusual night dominates a whole slice.</string>
     <string name="trends_daily_pattern_empty">Not enough hours recorded yet to draw the daily pattern.</string>
     <string name="trends_most_variable">The least predictable slice is %1$s.</string>
+    <string name="trends_daily_pattern_zones">This period spans %1$d time zones. Slices use the local hour of each reading, so days in different zones are not describing the same moment of the day.</string>
 </resources>

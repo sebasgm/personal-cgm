@@ -205,7 +205,7 @@ interface DoseDao {
 
 @Database(
     entities = [ReadingEntity::class, DoseEntity::class, HourlyRollupEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class ReadingDatabase : RoomDatabase() {
@@ -278,9 +278,26 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Records the zone each rollup's wall clock was resolved in.
+         *
+         * Existing rows get an empty zone rather than today's: they were written
+         * in whatever zone was current then, and claiming to know which one would
+         * be a guess dressed as a fact. An empty zone simply means "unknown", and
+         * the daily pattern excludes it from its count rather than treating it as
+         * a distinct place.
+         */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `hourly_rollup` ADD COLUMN `zoneId` TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+
         fun create(context: Context): ReadingDatabase =
             Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }
