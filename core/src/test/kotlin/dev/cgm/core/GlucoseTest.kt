@@ -168,7 +168,10 @@ class SnapshotTest {
             unit = GlucoseUnit.MGDL,
             delta = GlucoseDelta(-7.0, 5 * 60_000L),
         )
-        assertEquals("-7", s.formattedDelta())
+        // The span is always shown: readings arrive about once a minute while the
+        // delta spans five, so a bare number invites being read against the
+        // previous value on screen, which it is not measured from.
+        assertEquals("-7 / 5m", s.formattedDelta())
         assertEquals("112", s.formattedValue())
     }
 }
@@ -479,5 +482,49 @@ class WatchPayloadDosesTest {
         // Forwards compatibility: the watch may run a build older than the phone's.
         val legacy = """{"snapshot":{"reading":{"v":160.0,"t":$now}},"sentAtMillis":$now}"""
         assertEquals(emptyList(), WatchPayload.decode(legacy.toByteArray()).recentDoses)
+    }
+}
+
+class DeltaLabellingTest {
+    private val now = 1_800_000_000_000L
+
+    private fun snapshot(deltaMgdl: Double, spanMinutes: Int) = GlucoseSnapshot(
+        reading = GlucoseReading(160.0, now),
+        delta = GlucoseDelta(deltaMgdl, spanMinutes * 60_000L),
+    )
+
+    @Test
+    fun `every delta states its span, including the usual five minutes`() {
+        assertEquals("+14 / 5m", snapshot(14.0, 5).formattedDelta())
+        assertEquals("-3 / 5m", snapshot(-3.0, 5).formattedDelta())
+        assertEquals("+40 / 15m", snapshot(40.0, 15).formattedDelta())
+    }
+
+    @Test
+    fun `a delta is not the difference from the previous reading`() {
+        // The case that caused the confusion: the value rose from 150 to 160 while
+        // the delta reads negative, because five minutes ago it was 163.
+        val history = listOf(
+            GlucoseReading(163.0, now - 5 * 60_000L),
+            GlucoseReading(150.0, now - 60_000L),
+        )
+        val current = GlucoseReading(160.0, now)
+        val delta = DeltaCalculator.compute(current, history)!!
+
+        assertEquals(-3.0, delta.valueMgdl, 0.001)
+        assertEquals(5 * 60_000L, delta.spanMillis)
+        // Against the previous reading it would have been +10, which is a
+        // different and much noisier question.
+        assertEquals(10.0, current.valueMgdl - history.last().valueMgdl, 0.001)
+    }
+
+    @Test
+    fun `mmol deltas keep their span too`() {
+        val s = GlucoseSnapshot(
+            reading = GlucoseReading(160.0, now),
+            unit = GlucoseUnit.MMOLL,
+            delta = GlucoseDelta(18.0182, 5 * 60_000L),
+        )
+        assertEquals("+1.0 / 5m", s.formattedDelta())
     }
 }

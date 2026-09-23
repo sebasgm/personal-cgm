@@ -104,14 +104,23 @@ data class GlucoseSnapshot(
     fun formattedValue(): String = unit.format(reading.valueMgdl)
 
     /**
-     * Signed change for display. A span meaningfully longer than the usual five
-     * minutes is labelled, so "+40 / 15m" can never be misread as "+40 / 5m".
+     * Signed change, **always with the interval it spans**.
+     *
+     * The span used to be hidden whenever it was close to the usual five minutes,
+     * on the assumption that a reader would infer it. They do not, and on this
+     * data they cannot: readings arrive about once a minute while the delta spans
+     * five, so consecutive displayed values do not account for it. Going
+     * 150 → 160 while the figure reads −3 looks like arithmetic failing, when it
+     * only means the value five minutes ago was 163.
+     *
+     * Hiding the span was a mistake made in the same file that added [GlucoseDelta]
+     * precisely because a delta cannot be read without its interval.
      */
     fun formattedDelta(): String? = delta?.let { d ->
         val v = unit.from(d.valueMgdl)
         val sign = if (v >= 0) "+" else ""
         val magnitude =
             if (unit.decimals == 0) "$sign${v.toInt()}" else String.format("%s%.1f", sign, v)
-        if (d.isConventional) magnitude else "$magnitude / ${d.spanMillis / 60_000}m"
+        "$magnitude / ${d.spanMillis / 60_000}m"
     }
 }
