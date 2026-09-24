@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dev.cgm.core.InsulinReminder
 import dev.cgm.core.InsulinReminders
 import dev.cgm.app.reminder.ReminderScheduler
+import dev.cgm.app.service.RelayConfig
 import dev.cgm.app.Features
 import dev.cgm.app.data.CgmState
 import dev.cgm.app.data.GlucoseRepository
@@ -292,6 +293,19 @@ class CgmViewModel(
                 repository.timeOfDayProfile(now - _period.value.millis, now)
             }
         }
+    }
+
+    // -- relay -------------------------------------------------------------------
+
+    val relayConfig: StateFlow<RelayConfig> = settings.relayConfig
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RelayConfig.Empty)
+
+    fun saveRelay(config: RelayConfig) {
+        viewModelScope.launch { settings.saveRelayConfig(config) }
+    }
+
+    fun clearRelay() {
+        viewModelScope.launch { settings.clearRelay() }
     }
 
     // -- insulin reminders -----------------------------------------------------

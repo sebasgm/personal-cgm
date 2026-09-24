@@ -39,7 +39,7 @@ class WatchBridge(context: Context) {
     suspend fun publish(
         result: SourceResult,
         recentDoses: List<InsulinDose> = emptyList(),
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): WatchPayload? = withContext(Dispatchers.IO) {
         val payload = WatchPayload(
             snapshot = result.snapshot,
             // Thinned on this side so the watch receives something small; it is
@@ -62,6 +62,9 @@ class WatchBridge(context: Context) {
             setUrgent()
         }
 
-        runCatching { Tasks.await(dataClient.putDataItem(request)) }.isSuccess
+        // Returned so the caller can forward the very same payload elsewhere
+        // rather than building a second one that could drift from it.
+        runCatching { Tasks.await(dataClient.putDataItem(request)) }
+        payload
     }
 }

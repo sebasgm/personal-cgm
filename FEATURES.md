@@ -137,13 +137,21 @@ That describes the choice, not anyone else's product.
 
 ## 10. Privacy and ownership
 
-- **Everything runs on your device.** No account, no server, no analytics, nothing uploaded.
+- **Everything runs on your device by default.** No account, no analytics, nothing uploaded
+  unless you switch on the relay below.
 - Credentials encrypted with a key held in the hardware keystore; the password only ever goes
   to the CGM vendor.
 - **History is yours and local** — the app accumulates its own minute-resolution record, which
   is what makes the long-range views possible.
-- A **browser view** for the current reading and trends, served by a small local process that
-  stores nothing and listens only on the local machine unless deliberately told otherwise.
+- An **optional relay**, off until configured, pushing the current reading to a server you
+  host so it can be read from a browser anywhere.
+
+  **Unusual:** the server holds one value in memory and no history, cannot reach the sensor
+  vendor at all, and forgets everything on restart. The worst a compromise yields is one
+  number; the worst an outage costs is the seconds until the next push.
+
+  While it is on, your latest reading exists somewhere other than your phone. The screen that
+  enables it says so.
 
 ---
 
@@ -153,8 +161,9 @@ Each is a decision, not an omission.
 
 - **Not a medical device.** It describes what happened; it never suggests what to do.
 - **Predictions never drive or suppress alarms.** A model's opinion cannot silence a measured low.
-- **No backend, no accounts of its own.** Sign-in means the vendor's credentials; a lock on the
-  app is a lock on this device.
+- **No accounts.** Sign-in means the vendor's credentials; a lock on the app is a lock on this
+  device. The optional relay is a pipe, not an identity: one shared key, nothing to
+  administer, no record of who you are.
 - **No caregiver sharing.** The upstream service already does it, and a device-based alert
   would fail exactly when it is needed — a phone that is dead, offline or asleep.
 - **No promise that alarms arrive.** The operating system can delay or suppress notifications,

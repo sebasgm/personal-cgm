@@ -49,6 +49,7 @@ class PollingService : LifecycleService() {
     private lateinit var notifier: AlarmNotifier
     private val scheduler = PollScheduler()
     private lateinit var watch: WatchBridge
+    private val relay = RelayPublisher()
 
     /**
      * Keeps the CPU running between polls.
@@ -148,7 +149,12 @@ class PollingService : LifecycleService() {
                     val doses = repository
                         .dosesBetween(now - WatchPayload.DOSE_WINDOW_MILLIS, now)
                         .first()
-                    watch.publish(result, doses)
+                    val payload = watch.publish(result, doses)
+
+                    // Same payload onward to the relay, when one is configured.
+                    // Separately guarded: a relay that is unreachable must not be
+                    // able to stop the watch being fed.
+                    payload?.let { runCatching { relay.publish(settings.relayConfigOnce(), it) } }
                 }
             }
         }

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.cgm.core.AccessibilityPreferences
+import dev.cgm.app.service.RelayConfig
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.InsulinReminders
 import dev.cgm.core.AlarmRuntimeState
@@ -180,6 +181,37 @@ class SecureSettings(private val context: Context) : SessionStore {
         }
     }
 
+    // -- relay ------------------------------------------------------------------
+
+    /**
+     * Where readings are pushed, and the key that authorises it.
+     *
+     * The key is encrypted like any other credential: it is the one thing
+     * standing between a URL on the internet and someone's glucose.
+     */
+    val relayConfig: Flow<RelayConfig> = context.dataStore.data.map { prefs ->
+        RelayConfig(
+            baseUrl = prefs[KEY_RELAY_URL].orEmpty(),
+            secret = prefs[KEY_RELAY_SECRET]?.let(KeystoreCrypto::decrypt).orEmpty(),
+        )
+    }
+
+    suspend fun relayConfigOnce(): RelayConfig = relayConfig.first()
+
+    suspend fun saveRelayConfig(config: RelayConfig) {
+        context.dataStore.edit {
+            it[KEY_RELAY_URL] = config.baseUrl.trim()
+            it[KEY_RELAY_SECRET] = KeystoreCrypto.encrypt(config.secret)
+        }
+    }
+
+    suspend fun clearRelay() {
+        context.dataStore.edit {
+            it.remove(KEY_RELAY_URL)
+            it.remove(KEY_RELAY_SECRET)
+        }
+    }
+
     // -- insulin reminders -----------------------------------------------------
 
     /**
@@ -271,6 +303,8 @@ class SecureSettings(private val context: Context) : SessionStore {
     }
 
     private companion object {
+        val KEY_RELAY_URL: Preferences.Key<String> = stringPreferencesKey("relay_url")
+        val KEY_RELAY_SECRET: Preferences.Key<String> = stringPreferencesKey("relay_secret_enc")
         val KEY_REMINDERS: Preferences.Key<String> = stringPreferencesKey("insulin_reminders")
         val KEY_ACCESSIBILITY: Preferences.Key<String> = stringPreferencesKey("accessibility")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")

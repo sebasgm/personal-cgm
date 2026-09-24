@@ -46,16 +46,16 @@ $('login-form').addEventListener('submit', async (event) => {
   error.hidden = true;
 
   try {
-    const response = await fetch('/api/login', {
+    const response = await fetch('/api/unlock', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: $('email').value, password: $('password').value }),
+      body: JSON.stringify({ secret: $('secret').value }),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      throw new Error(body.error || 'Sign-in failed');
+      throw new Error(body.error || 'Wrong key');
     }
-    $('password').value = '';
+    $('secret').value = '';
     start();
   } catch (e) {
     error.textContent = e.message;
@@ -94,6 +94,15 @@ async function refresh() {
   try {
     const response = await fetch('/api/dashboard');
     if (response.status === 401) return stop();
+    if (response.status === 503) {
+      // The phone has not pushed recently. Better to say so than to leave the
+      // last number sitting there looking current.
+      dashboard = null;
+      $('value').textContent = '——';
+      $('age').textContent = 'no recent reading from the phone';
+      error.hidden = true;
+      return;
+    }
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || 'Could not reach LibreLinkUp');

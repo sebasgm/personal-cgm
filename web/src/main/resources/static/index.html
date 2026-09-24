@@ -13,18 +13,17 @@
 <main id="login" class="screen">
   <h1>Personal CGM</h1>
   <p class="muted">
-    Sign in with your <strong>LibreLinkUp follower</strong> account &mdash; the one
-    invited to follow the sensor, not the LibreView account wearing it.
+    Enter the access key from the phone app, under <strong>Settings &rarr; Relay</strong>.
   </p>
-  <form id="login-form" autocomplete="on">
-    <label>Email<input type="email" id="email" required autocomplete="username"></label>
-    <label>Password<input type="password" id="password" required autocomplete="current-password"></label>
-    <button type="submit" id="login-button">Sign in</button>
+  <form id="login-form">
+    <label>Access key<input type="password" id="secret" required autocomplete="current-password"></label>
+    <button type="submit" id="login-button">Unlock</button>
   </form>
   <p id="login-error" class="error" hidden></p>
   <p class="fineprint">
-    Credentials go to Abbott through this machine and are never written to disk here.
-    This server keeps your session in memory only and forgets it when it stops.
+    This page shows what your phone last sent. It holds no history and cannot fetch
+    anything on its own &mdash; if the phone stops sending, this stops updating, and
+    says so rather than leaving the last number up.
   </p>
 </main>
 

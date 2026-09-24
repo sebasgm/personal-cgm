@@ -263,4 +263,15 @@
     <string name="reminders_daily">Every day</string>
     <string name="reminders_next">Next: %1$s</string>
     <string name="reminders_delete">Delete</string>
+    <string name="set_relay">Web relay</string>
+    <string name="set_relay_subtitle">See your readings from a browser</string>
+    <string name="relay_explain">The phone sends each reading to a server you host, so it can be read from a browser. The server keeps no history: only the latest value, in memory, and it forgets that on restart.</string>
+    <string name="relay_url">Server address</string>
+    <string name="relay_key">Access key</string>
+    <string name="relay_key_hint">The same key goes on the server (CGM_RELAY_SECRET) and is asked for once in the browser.</string>
+    <string name="relay_generate">Generate key</string>
+    <string name="relay_copy">Copy key</string>
+    <string name="relay_stop">Stop sending</string>
+    <string name="relay_insecure">Without https the key and your readings cross the network in clear.</string>
+    <string name="relay_privacy">This is the only feature that sends data off the phone. While it is on, your latest value also exists on that server. Anyone holding the key can read it.</string>
 </resources>

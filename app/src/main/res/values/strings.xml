@@ -263,4 +263,15 @@
     <string name="reminders_daily">Todos los días</string>
     <string name="reminders_next">Próximo: %1$s</string>
     <string name="reminders_delete">Eliminar</string>
+    <string name="set_relay">Relé web</string>
+    <string name="set_relay_subtitle">Ver tus lecturas desde un navegador</string>
+    <string name="relay_explain">El teléfono envía cada lectura a un servidor que tú alojas, para poder verla desde un navegador. El servidor no guarda historial: solo el último valor, en memoria, y lo olvida al reiniciarse.</string>
+    <string name="relay_url">Dirección del servidor</string>
+    <string name="relay_key">Clave de acceso</string>
+    <string name="relay_key_hint">La misma clave va en el servidor (CGM_RELAY_SECRET) y se pide una vez en el navegador.</string>
+    <string name="relay_generate">Generar clave</string>
+    <string name="relay_copy">Copiar clave</string>
+    <string name="relay_stop">Dejar de enviar</string>
+    <string name="relay_insecure">Sin https la clave y tus lecturas viajan sin cifrar.</string>
+    <string name="relay_privacy">Esta es la única función que envía datos fuera del teléfono. Mientras esté activa, tu último valor existe también en ese servidor. Quien tenga la clave puede verlo.</string>
 </resources>

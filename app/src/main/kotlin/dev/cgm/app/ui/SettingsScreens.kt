@@ -158,6 +158,11 @@ fun SettingsScreen(
         }
 
         SettingsRow(
+            title = stringResource(R.string.set_relay),
+            subtitle = stringResource(R.string.set_relay_subtitle),
+        ) { onOpen(Destination.Relay) }
+
+        SettingsRow(
             title = stringResource(R.string.set_reminders),
             subtitle = stringResource(R.string.set_reminders_subtitle),
         ) { onOpen(Destination.Reminders) }

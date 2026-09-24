@@ -68,6 +68,21 @@ data class DashboardDto(
     val serverTimeMillis: Long,
 )
 
+/**
+ * The relay's view of a pushed payload.
+ *
+ * Reuses the same assembly as a locally fetched result, so the browser cannot
+ * end up with two different ideas of what a zone or a coverage figure means
+ * depending on where the reading came from.
+ */
+fun buildDashboard(
+    payload: dev.cgm.core.WatchPayload,
+    nowMillis: Long,
+): DashboardDto = buildDashboard(
+    result = SourceResult(snapshot = payload.snapshot, history = payload.history),
+    nowMillis = nowMillis,
+)
+
 fun buildDashboard(
     result: SourceResult,
     nowMillis: Long,
