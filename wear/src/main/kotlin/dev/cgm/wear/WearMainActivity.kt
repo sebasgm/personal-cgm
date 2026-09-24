@@ -1,6 +1,10 @@
 package dev.cgm.wear
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -47,15 +51,36 @@ import kotlinx.coroutines.delay
  */
 class WearMainActivity : ComponentActivity() {
 
+    private fun ensureNotificationPermission() {
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS,
+        )
+        if (granted != PackageManager.PERMISSION_GRANTED) {
+            requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     companion object {
         /** Set by the silent notification, so tapping it lands on the doses. */
         const val EXTRA_SHOW_DOSES = "show_doses"
     }
 
 
+    /**
+     * Wear OS 4 and up need this granted at runtime, and it is denied until asked.
+     *
+     * Declaring it in the manifest is not enough — the notification is simply
+     * dropped, with nothing logged and nothing on screen to say why. Asked for
+     * here because opening the app is the only moment a watch app can ask.
+     */
+    private val requestNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val store = WatchStoreHolder.get(this)
+        ensureNotificationPermission()
         val openOnDoses = intent?.getBooleanExtra(EXTRA_SHOW_DOSES, false) == true
 
         setContent {
