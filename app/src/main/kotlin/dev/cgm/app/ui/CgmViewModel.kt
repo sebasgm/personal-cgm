@@ -3,6 +3,7 @@ package dev.cgm.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dev.cgm.app.Features
 import dev.cgm.app.data.CgmState
 import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.Locales
@@ -304,7 +305,15 @@ class CgmViewModel(
 
     // -- forecast -----------------------------------------------------------
 
+    /**
+     * Whether the projection is on.
+     *
+     * The build flag overrides the stored preference rather than sitting beside
+     * it: somebody who switched the projection on before it was disabled should
+     * not still have it, and this is the single place that decides.
+     */
     val forecastEnabled: StateFlow<Boolean> = settings.forecastEnabled
+        .map { it && Features.PROJECTION }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun setForecastEnabled(enabled: Boolean) {

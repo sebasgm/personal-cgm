@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import dev.cgm.app.Features
 import dev.cgm.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -338,6 +339,7 @@ private fun FormulaTooltip() {
  */
 @Composable
 private fun ForecastReliabilityCard(viewModel: CgmViewModel) {
+    if (!Features.PROJECTION) return
     val enabled by viewModel.forecastEnabled.collectAsState()
     if (!enabled) return
     val calibration by viewModel.calibration.collectAsState()

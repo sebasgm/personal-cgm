@@ -42,6 +42,7 @@ import android.app.Activity
 import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
 import dev.cgm.app.Locales
+import dev.cgm.app.Features
 import dev.cgm.app.R
 import dev.cgm.app.alarm.AlarmNotifier
 import dev.cgm.app.service.BatteryExemption
@@ -585,6 +586,7 @@ private fun ContinuityCard(viewModel: CgmViewModel) {
  */
 @Composable
 private fun ForecastSetting(viewModel: CgmViewModel) {
+    if (!Features.PROJECTION) return
     val enabled by viewModel.forecastEnabled.collectAsState()
     val calibration by viewModel.calibration.collectAsState()
 
