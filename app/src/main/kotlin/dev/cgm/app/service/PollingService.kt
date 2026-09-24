@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.PowerManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
@@ -77,7 +78,80 @@ class PollingService : LifecycleService() {
         notifier = AlarmNotifier(this)
         // Notification text must follow the app's chosen language, not the device's.
         strings = Locales.wrap(this)
+        watch = WatchBridge(this)
         _running.value = true
+
+        acquireWakeLock()
+        registerClockReceiver()
+        publishToWatch()
+    }
+
+    /**
+     * Keeps the CPU running between polls.
+     *
+     * A foreground service guarantees the process survives; it guarantees nothing
+     * about the CPU. `delay()` is an ordinary timer, and in deep sleep it does not
+     * fire until something else wakes the device — so the loop overshoots by
+     * minutes at a time, and every minute missed is a reading lost for good.
+     */
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        wakeLock = getSystemService(PowerManager::class.java)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG)
+            .apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+    }
+
+    /**
+     * Notices the clock or the zone moving.
+     *
+     * Freshness, staleness and signal loss are all measured against "now". When
+     * the device's idea of now jumps they are all wrong until something
+     * recomputes them, and waiting for the next poll means up to a minute of a
+     * screen confidently stating something untrue.
+     *
+     * Registered through [ContextCompat] because a target of 34 or above must
+     * declare whether a runtime receiver is exported, and getting that wrong is a
+     * SecurityException thrown from service startup.
+     */
+    private fun registerClockReceiver() {
+        if (clockReceiver != null) return
+        val receiver = TimeChangeReceiver {
+            lifecycleScope.launch {
+                updateNotification()
+                evaluateAlarms()
+            }
+        }
+        ContextCompat.registerReceiver(
+            this,
+            receiver,
+            TimeChangeReceiver.filter(),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        clockReceiver = receiver
+    }
+
+    /**
+     * Sends every reading on to a paired watch.
+     *
+     * In its own coroutine with its own failure handling: a watch that is absent,
+     * unpaired or unreachable is the normal case, and it must never be able to
+     * take the poll loop down with it.
+     */
+    private fun publishToWatch() {
+        lifecycleScope.launch {
+            repository.results.collect { result ->
+                runCatching {
+                    val now = System.currentTimeMillis()
+                    val doses = repository
+                        .dosesBetween(now - WatchPayload.DOSE_WINDOW_MILLIS, now)
+                        .first()
+                    watch.publish(result, doses)
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
