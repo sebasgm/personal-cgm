@@ -22,6 +22,12 @@ class CgmSession : Session() {
 /**
  * One card: the value, how old it is, and recent insulin.
  *
+ * The accessibility typeface does not reach here, and cannot. Car App Library
+ * templates are rendered by the car's own host, which owns typography outright so
+ * that every app on a dashboard looks and reads the same way under driver
+ * distraction rules. There is no typeface API to call. What the host does honour
+ * is the car's own display settings, which is the lever a driver actually has.
+ *
  * The age is not decoration here. A driver glances at this for well under a
  * second and has no way to tell a current reading from a frozen one, so the app's
  * rule holds harder in a car than anywhere else: a stale value shows no number at

@@ -16,6 +16,7 @@ import dev.cgm.app.service.StatusBarIcon
 import dev.cgm.app.service.PollingService
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.AlarmKind
+import dev.cgm.core.ReadingFont
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
 import dev.cgm.core.GlucoseSnapshot
@@ -114,6 +115,8 @@ class AlarmNotifier(private val context: Context) {
         setting: AlarmSetting,
         snapshot: GlucoseSnapshot?,
         makeSound: Boolean,
+        /** The same face as the ongoing reading, so the tray does not change mid-alarm. */
+        font: ReadingFont = ReadingFont.SYSTEM,
     ) {
         val channel = channelId(kind, setting.overrideDnd)
         val open = PendingIntent.getActivity(
@@ -126,7 +129,7 @@ class AlarmNotifier(private val context: Context) {
         val builder = NotificationCompat.Builder(context, channel)
             .setContentTitle(title(kind, snapshot))
             .setContentText(body(kind, setting, snapshot))
-            .setSmallIcon(StatusBarIcon.of(iconLabel(kind, snapshot)))
+            .setSmallIcon(StatusBarIcon.of(context, iconLabel(kind, snapshot), font))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentIntent(open)

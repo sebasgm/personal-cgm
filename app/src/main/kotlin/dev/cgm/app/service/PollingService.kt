@@ -23,6 +23,7 @@ import dev.cgm.core.AlarmEngine
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.Freshness
 import dev.cgm.core.PollOutcome
+import dev.cgm.core.ReadingFont
 import dev.cgm.core.PollScheduler
 import dev.cgm.core.WatchPayload
 import dev.cgm.core.StatusIconLabel
@@ -50,6 +51,16 @@ class PollingService : LifecycleService() {
     private val scheduler = PollScheduler()
     private lateinit var watch: WatchBridge
     private val relay = RelayPublisher()
+
+    /**
+     * The typeface the reader chose, kept to hand for the status bar icon.
+     *
+     * Followed rather than fetched per notification: this is rebuilt on every
+     * poll, and a settings read there would be a disk hit a minute for a value
+     * that changes about never.
+     */
+    @Volatile
+    private var readingFont: ReadingFont = ReadingFont.SYSTEM
 
     /**
      * Keeps the CPU running between polls.
@@ -85,6 +96,10 @@ class PollingService : LifecycleService() {
         acquireWakeLock()
         registerClockReceiver()
         publishToWatch()
+
+        lifecycleScope.launch {
+            settings.accessibility.collect { readingFont = it.font }
+        }
     }
 
     /**
@@ -239,6 +254,7 @@ class PollingService : LifecycleService() {
                 setting = configured[kind],
                 snapshot = state.snapshot,
                 makeSound = kind in decision.sound,
+                font = readingFont,
             )
         }
         settings.saveAlarmState(decision.state)
@@ -305,7 +321,7 @@ class PollingService : LifecycleService() {
         return NotificationCompat.Builder(this, CgmApplication.CHANNEL_STATUS)
             .setContentTitle(title)
             .setContentText(detail)
-            .setSmallIcon(StatusBarIcon.of(label))
+            .setSmallIcon(StatusBarIcon.of(this, label, readingFont))
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

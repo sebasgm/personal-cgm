@@ -6,6 +6,10 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.content.Context
+import androidx.core.content.res.ResourcesCompat
+import dev.cgm.app.R
+import dev.cgm.core.ReadingFont
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.IconCompat
 import kotlin.math.ceil
@@ -54,15 +58,19 @@ object StatusBarIcon {
     /** A pixel each side, so antialiasing at the outer edge is not clipped. */
     private const val PAD_PX = 1
 
+    /** Used for "HI", "LO" and "?" when no typeface was chosen. */
+    private val condensed: Typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+        typeface = condensed
         textAlign = Paint.Align.CENTER
     }
     private val bounds = Rect()
 
     private var cachedLabel: String? = null
     private var cached: IconCompat? = null
+    private var cachedFont: ReadingFont? = null
 
     /**
      * An icon showing [label], reusing the last one when the value has not moved.
@@ -71,19 +79,47 @@ object StatusBarIcon {
      * notification after every poll, so without it a bitmap would be allocated
      * every minute forever, and most of those polls return the same number.
      */
+    /**
+     * An icon showing [label], in whichever typeface the reader chose.
+     *
+     * The font setting wins over size here, and that is a real trade. Digits are
+     * drawn by hand precisely because narrow ones are drawn *larger* — width is
+     * what hits the icon slot's limit first — so a real typeface, whose glyphs
+     * are wider, comes out smaller.
+     *
+     * Someone who has gone to Settings and picked a legibility or dyslexia face
+     * has said something specific about how they read characters, and that should
+     * hold in the one place they glance at most. Someone on the system default has
+     * asked for nothing, so they keep the largest number available.
+     */
     @Synchronized
-    fun of(label: String): IconCompat {
-        cached?.let { if (cachedLabel == label) return it }
-        return render(label).also {
+    fun of(context: Context, label: String, font: ReadingFont): IconCompat {
+        cached?.let { if (cachedLabel == label && cachedFont == font) return it }
+        return render(context, label, font).also {
             cachedLabel = label
+            cachedFont = font
             cached = it
         }
     }
 
-    private fun render(label: String): IconCompat {
-        val bitmap =
-            if (SevenSegment.canRender(label)) renderDigits(label) else renderText(label)
+    private fun render(context: Context, label: String, font: ReadingFont): IconCompat {
+        val typeface = typefaceFor(context, font)
+        val bitmap = when {
+            // Only the hand-drawn digits reach the full size, and only the system
+            // default leaves the choice to us.
+            typeface == null && SevenSegment.canRender(label) -> renderDigits(label)
+            else -> renderText(label, typeface)
+        }
         return IconCompat.createWithBitmap(bitmap)
+    }
+
+    /** Null means no preference expressed, so the size-optimised path is used. */
+    private fun typefaceFor(context: Context, font: ReadingFont): Typeface? = when (font) {
+        ReadingFont.SYSTEM -> null
+        ReadingFont.HYPERLEGIBLE ->
+            ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_bold)
+        ReadingFont.DYSLEXIC ->
+            ResourcesCompat.getFont(context, R.font.open_dyslexic_bold)
     }
 
     /** Digits drawn at full render height, in a bitmap only as wide as they need. */
@@ -107,7 +143,8 @@ object StatusBarIcon {
     }
 
     /** Anything not made of digits — "HI", "LO", "?", "--" — comes from the font. */
-    private fun renderText(label: String): Bitmap {
+    private fun renderText(label: String, typeface: Typeface? = null): Bitmap {
+        paint.typeface = typeface ?: condensed
         // Measure once at an arbitrary size, then scale so the glyphs are exactly
         // HEIGHT_PX tall, and size the bitmap to whatever width that needs.
         paint.textSize = HEIGHT_PX.toFloat()

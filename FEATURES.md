@@ -102,6 +102,10 @@ That describes the choice, not anyone else's product.
 - **Text size, letter spacing and line spacing** as continuous controls, placed *above* the
   font choice because they matter more and help every reader.
 - Live preview, including the large number.
+- The chosen typeface reaches the **status bar number** too, where it is otherwise drawn by
+  hand. Picking a legibility or dyslexia face trades a little size for familiar letterforms,
+  which is the right trade for someone who went and asked for one; leaving it on the system
+  default keeps the largest number available.
 - **Three zone palettes**: conventional, colour-blind-safe (separating zones along blue–yellow
   and legible in greyscale), and high contrast.
 - **Colour is never the only cue** — zones also carry position, labels and shape.
