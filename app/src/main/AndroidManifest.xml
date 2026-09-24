@@ -40,6 +40,29 @@
             </intent-filter>
         </activity>
 
+        <!--
+          The car screen. Declared as IOT because Android Auto accepts only five
+          categories and a glucose monitor is none of them; a sensor reporting to
+          the phone is the closest honest fit. Requires Android Auto's developer
+          mode with unknown sources allowed, since this is sideloaded.
+        -->
+        <service
+            android:name=".car.CgmCarAppService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.IOT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1" />
+
         <service
             android:name=".service.PollingService"
             android:exported="false"

@@ -92,6 +92,10 @@ dependencies {
     implementation(libs.okhttp)
     // Publishes readings to the watch over the Data Layer.
     implementation(libs.play.services.wearable)
+    // The car screen. app-projected is the Android Auto half; the base artifact
+    // alone builds but never gets a host to talk to.
+    implementation(libs.car.app)
+    implementation(libs.car.app.projected)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

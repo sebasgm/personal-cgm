@@ -242,4 +242,10 @@
     <string name="trends_daily_pattern_empty">Not enough hours recorded yet to draw the daily pattern.</string>
     <string name="trends_most_variable">The least predictable slice is %1$s.</string>
     <string name="trends_daily_pattern_zones">This period spans %1$d time zones. Slices use the local hour of each reading, so days in different zones are not describing the same moment of the day.</string>
+    <string name="car_no_reading">No reading</string>
+    <string name="car_stale_value">No signal</string>
+    <string name="car_stale_note">The last value is no longer current.</string>
+    <string name="car_age_now">just now</string>
+    <string name="car_age_minutes">%1$d min ago</string>
+    <string name="car_change">Change</string>
 </resources>

@@ -242,4 +242,10 @@
     <string name="trends_daily_pattern_empty">Todavía no hay suficientes horas registradas para dibujar el patrón del día.</string>
     <string name="trends_most_variable">La franja menos predecible es %1$s.</string>
     <string name="trends_daily_pattern_zones">Este periodo incluye %1$d husos horarios. Las franjas usan la hora local de cada lectura, así que las de días en husos distintos no describen el mismo momento del día.</string>
+    <string name="car_no_reading">Sin lectura</string>
+    <string name="car_stale_value">Sin señal</string>
+    <string name="car_stale_note">El último valor ya no es actual.</string>
+    <string name="car_age_now">ahora mismo</string>
+    <string name="car_age_minutes">hace %1$d min</string>
+    <string name="car_change">Cambio</string>
 </resources>

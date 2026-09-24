@@ -48,6 +48,17 @@ sealed interface Destination {
  * long before a localised context exists, so a `String` here would freeze whatever
  * language happened to be active at class-load time.
  */
+/**
+ * How long away before returning lands on Home rather than where you left off.
+ *
+ * Five minutes is roughly when the reason for opening the app changes. Under
+ * that you are still doing the thing you were doing — reading the logbook,
+ * editing an alarm — and being thrown back to Home loses your place. Past it you
+ * have almost certainly picked the phone up to check a number, and Settings is
+ * where you *were*, not where you want to be.
+ */
+const val RETURN_TO_HOME_AFTER_MILLIS = 5L * 60 * 1000
+
 enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
     HOME(R.string.nav_now, Destination.Home),
     TRENDS(R.string.nav_trends, Destination.Trends),

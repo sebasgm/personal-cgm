@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Declares which car surfaces this app uses. "template" is the Car App Library
+  route; it is deliberately not "media", which is the other way a non-approved
+  category reaches Android Auto and which would take over the media tab.
+-->
+<automotiveApp>
+    <uses name="template" />
+</automotiveApp>

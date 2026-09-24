@@ -443,10 +443,32 @@ Returning to the app after five minutes should land on Home rather than wherever
 Small, and correct: Settings or Logbook is where you *were*, not where you want to be when you
 pick the phone up to check a number.
 
-### Android Auto
+### Android Auto — **built, unverified**
 
-A surface for the car. Related to the Bluetooth report above and worth building after it is
-understood, not before.
+Android Auto accepts five app categories: navigation, points of interest, internet of things,
+weather and media. A glucose monitor is none of them.
+
+The usual workaround is to register as a **media** app, which puts the value in the media tab
+and works — at the cost of taking that tab over. You get glucose or you get music, and the car
+offers play and pause controls for a number.
+
+This declares **IOT** instead and uses the Car App Library to draw a proper card. A sensor
+reporting to a phone is a connected device, which is the closest honest fit, and since the app
+is sideloaded there is no store review to satisfy.
+
+Two things it needs from you:
+
+- **Android Auto developer mode**, with unknown sources allowed. Tap the version in Android
+  Auto's settings repeatedly, then enable it.
+- **Testing.** It cannot be verified here — a car screen needs a car or the Desktop Head Unit.
+  It builds, the service merges into the manifest, and that is the whole of what is known.
+
+It shows and never controls: a value, its age, and the change. Nothing is tappable, which the
+category's own rules require while driving anyway.
+
+The staleness rule matters more here than anywhere else. A driver glances for under a second
+with no way to tell a current reading from a frozen one, so a stale value shows **no number**
+rather than one that looks fine.
 
 ### Scheduled reminders
 
