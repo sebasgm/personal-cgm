@@ -16,6 +16,10 @@ Nothing yet.
 
 ## [3.0.0] - 2026-09-24
 
+Licensed under the PolyForm Noncommercial License 1.0.0: free to use, modify and share for
+any noncommercial purpose, and not to be sold. That is a deliberate restriction and it means
+the project is source available rather than open source.
+
 The phone app is the released part, and it is stable: reading, charting, alarms, logbook,
 insulin, trends and accessibility are all in daily use.
 

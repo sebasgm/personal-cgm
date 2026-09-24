@@ -3,9 +3,18 @@
 Personal pipeline for getting FreeStyle Libre glucose readings from LibreLinkUp onto an
 Android phone, and from there onto a Wear OS watch.
 
-**Not a medical device.** The LibreLinkUp API is unofficial, reverse-engineered and unsupported
-by Abbott, and the cloud path adds minutes of latency. The official app stays the source of truth
-for any dosing decision. See [docs/00-research.md](docs/00-research.md) §6.
+> ### Not medical advice, and not a medical device
+>
+> This app shows readings it did not measure, through an interface it does not control. It can
+> be late, wrong, or silent without warning, and its alarms can fail to arrive for reasons
+> outside its control.
+>
+> **Do not use it to decide a dose or to treat a low.** Your manufacturer's app and a
+> fingerstick are the sources that count. It has not been assessed by any regulator and comes
+> with no warranty.
+
+The interface it reads is unofficial, reverse-engineered and unsupported, and the cloud path
+adds minutes of latency. See [docs/00-research.md](docs/00-research.md) §6.
 
 Features: [FEATURES.md](FEATURES.md)
 Research: [docs/00-research.md](docs/00-research.md) · Staged plan: [docs/01-plan.md](docs/01-plan.md)
@@ -87,15 +96,21 @@ removed in 9.6.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+**PolyForm Noncommercial License 1.0.0** — see [LICENSE](LICENSE).
 
-Do what you like with it: use it, change it, ship it, sell it. The only conditions are that
-you keep the copyright and licence notice, state what you changed, and accept that it comes
-with no warranty of any kind. That last point is not boilerplate here — this reads medical
-data through an interface nobody supports, and anyone building on it inherits that.
+Use it, change it, share it, build on it, for any noncommercial purpose. Personal use, hobby
+projects, study and research are all fine, as is use by charities, schools, public research
+bodies, health organisations and government institutions.
 
-The bundled fonts are separately licensed under the SIL Open Font License; see
-[NOTICE](NOTICE) and [licenses/OFL.txt](licenses/OFL.txt).
+The one thing you may not do is **sell it**, or make it part of something you sell.
+
+That restriction means this is *source available* rather than open source in the OSI sense:
+it discriminates by field of use, so F-Droid and similar repositories will not carry it, it
+cannot be combined with GPL-licensed code, and some people will not contribute to it on
+principle. That is the deliberate price of the restriction.
+
+The bundled fonts keep their own licence — SIL Open Font License; see [NOTICE](NOTICE) and
+[licenses/OFL.txt](licenses/OFL.txt).
 
 ## Not affiliated
 

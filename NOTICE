@@ -1,32 +1,44 @@
 Personal CGM
 Copyright 2026 Sebastián Marra
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Licensed under the PolyForm Noncommercial License 1.0.0. See LICENSE.
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+You may use, modify and share this software for any noncommercial purpose.
+Personal use, hobby projects, study and research are permitted, as is use by
+charities, schools, public research bodies, health organisations and government
+institutions. What is not permitted is selling it, or using it as part of
+something sold.
 
 --------------------------------------------------------------------------------
 
-This product is not affiliated with, endorsed by, or connected to Abbott
+NOT MEDICAL ADVICE, AND NOT A MEDICAL DEVICE
+
+This software displays glucose readings it did not measure, obtained through an
+interface it does not control. It can be late, wrong, or silent without warning,
+and its alarms can fail to arrive for reasons outside its control.
+
+Nothing it shows is medical advice. Do not use it to decide a dose, to treat a
+low, or in place of the equipment and guidance your clinician gave you. The
+manufacturer's own app and a fingerstick are the sources that count.
+
+It has not been assessed or approved by any regulator, and it carries no
+warranty of any kind.
+
+--------------------------------------------------------------------------------
+
+NOT AFFILIATED
+
+This project is not affiliated with, endorsed by, or connected to Abbott
 Laboratories or any maker of continuous glucose monitoring hardware. It reads a
 service interface that is not publicly documented and is not supported by its
-operator, which may change or stop working without notice. All trademarks are
-the property of their respective owners.
-
-This software is not a medical device. See the medical disclaimer in README.md.
+operator, which may change or stop working at any time. All trademarks are the
+property of their respective owners.
 
 --------------------------------------------------------------------------------
 
-Bundled fonts, each used under the SIL Open Font License 1.1
-(see licenses/OFL.txt):
+BUNDLED FONTS
+
+Used under the SIL Open Font License 1.1 (see licenses/OFL.txt):
 
   Atkinson Hyperlegible
   Copyright 2020 Braille Institute of America, Inc.
