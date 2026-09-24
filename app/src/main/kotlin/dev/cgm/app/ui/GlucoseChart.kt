@@ -24,6 +24,21 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.abs
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.text.font.FontWeight
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import dev.cgm.core.ChartSeries
 import dev.cgm.core.ColorVision
 import dev.cgm.core.Forecast
@@ -87,19 +102,61 @@ fun GlucoseChart(
     val forecastColor = ChartColors.forecast
     val alarmColor = ChartColors.alarmLine
     val vision = LocalColorVision.current
+    val calloutSurface = MaterialTheme.colorScheme.surfaceVariant
     val measurer = rememberTextMeasurer()
 
+    /** The reading being inspected, or null. Read only inside the draw lambda. */
+    var selected by remember { mutableStateOf<GlucoseReading?>(null) }
+    var widthPx by remember { mutableIntStateOf(0) }
+
+    val shown = forecast?.takeIf { isLive }
+    val firstTime = readings.firstOrNull()?.timestampMillis ?: 0L
+    val lastTime = (readings.lastOrNull()?.timestampMillis ?: 0L) + (shown?.horizonMillis ?: 0L)
+    val timeSpan = (lastTime - firstTime).coerceAtLeast(1L)
+    val gutterPx = with(LocalDensity.current) { AXIS_GUTTER.toPx() }
+
+    /**
+     * Which reading a touch landed on.
+     *
+     * Held through [rememberUpdatedState] so the tap detector below can key on
+     * `Unit`. Keying it on the readings instead tears the detector down and
+     * rebuilds it every time one arrives — including halfway through a pinch,
+     * which is what made zooming feel broken the first time this was attempted.
+     */
+    val hitTest by rememberUpdatedState<(Float) -> GlucoseReading?> { x ->
+        if (readings.isEmpty() || widthPx <= 0) null
+        else {
+            val plot = (widthPx - gutterPx).coerceAtLeast(1f)
+            val at = firstTime + (((x - gutterPx) / plot).coerceIn(0f, 1f) * timeSpan).toLong()
+            readings.minByOrNull { abs(it.timestampMillis - at) }
+        }
+    }
+
     Box(
-        modifier.pointerInput(Unit) {
+        modifier
+            .onSizeChanged { widthPx = it.width }
+            // Tap only. A long press ahead of the transform detector made every
+            // drag wait half a second for it to decide, and a drag-to-inspect
+            // wrote state on every pointer event. A tap costs one write, once.
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    val hit = hitTest(offset.x)
+                    selected = if (hit == selected) null else hit
+                }
+            }
+            .pointerInput(Unit) {
             // Reported incrementally through the gesture, and 1f means the fingers
             // rotated or panned without scaling — nothing to do with zoom.
-            detectTransformGestures { _, pan, zoom, _ ->
-                if (zoom != 1f) onZoom(zoom)
-                // Reported as a fraction of the chart's width, so the caller can
-                // turn it into time without knowing anything about pixels.
-                if (pan.x != 0f && size.width > 0) onPan(pan.x / size.width)
+                detectTransformGestures { _, pan, zoom, _ ->
+                    // Guarded so this is one write at the start of a gesture
+                    // rather than one per pointer event.
+                    if (selected != null) selected = null
+                    if (zoom != 1f) onZoom(zoom)
+                    // Reported as a fraction of the chart's width, so the caller can
+                    // turn it into time without knowing anything about pixels.
+                    if (pan.x != 0f && size.width > 0) onPan(pan.x / size.width)
+                }
             }
-        }
     ) {
         if (readings.isEmpty()) {
             Text(
@@ -110,8 +167,6 @@ fun GlucoseChart(
             )
             return@Box
         }
-
-        val shown = forecast?.takeIf { isLive }
 
         // The axis has to contain the band, or the projection gets clipped by the
         // top of the chart exactly when it is saying something worth seeing.
@@ -129,12 +184,8 @@ fun GlucoseChart(
 
             fun y(valueMgdl: Double) = (1f - axis.fraction(valueMgdl)) * size.height
 
-            val firstTime = readings.first().timestampMillis
-            // Room on the right for the projection. The window still *ends* at the
-            // last reading; this only widens what the axis covers.
-            val lastTime = readings.last().timestampMillis +
-                (shown?.horizonMillis ?: 0L)
-            val timeSpan = (lastTime - firstTime).coerceAtLeast(1L)
+            // firstTime, lastTime and timeSpan come from the composable scope, so
+            // the hit test and the drawing cannot name different readings.
             fun x(t: Long) = gutter + ((t - firstTime).toFloat() / timeSpan) * plotWidth
 
             drawInRangeBand(band, gutter, plotWidth, ::y, thresholds)
@@ -142,6 +193,19 @@ fun GlucoseChart(
             drawAlarmLevels(alarmLevels, axis, alarmColor, gutter, plotWidth, ::y)
             drawTrace(readings, trace, ::x, ::y, plotWidth)
             shown?.let { drawForecast(it, forecastColor, ::x, ::y) }
+            selected?.takeIf { it.timestampMillis in firstTime..lastTime }?.let {
+                drawInspection(
+                    reading = it,
+                    unit = unit,
+                    colour = ZoneColors.of(thresholds.classify(it.valueMgdl), vision),
+                    labelColor = labelColor,
+                    surface = calloutSurface,
+                    measurer = measurer,
+                    x = ::x,
+                    y = ::y,
+                )
+            }
+
             if (isLive) {
                 drawCurrentPoint(
                     vision = vision,
@@ -208,6 +272,90 @@ private fun DrawScope.drawForecast(
         end = Offset(x(origin), size.height),
         strokeWidth = GRID_STROKE.toPx(),
     )
+}
+
+/**
+ * The callout for an inspected reading: a marker on the trace and its value and
+ * time in a box.
+ *
+ * The time is the point of it. The chart answers "what shape was the day" well
+ * enough, but "what exactly was it, and when" needs a number and a clock, and at
+ * seven days' zoom a pixel is a quarter of an hour — nothing can be read off the
+ * axis.
+ *
+ * The box is placed on whichever side of the marker has room, because the reading
+ * worth inspecting is often the one at the edge of the window.
+ */
+private fun DrawScope.drawInspection(
+    reading: GlucoseReading,
+    unit: GlucoseUnit,
+    colour: Color,
+    labelColor: Color,
+    surface: Color,
+    measurer: TextMeasurer,
+    x: (Long) -> Float,
+    y: (Double) -> Float,
+) {
+    val markerX = x(reading.timestampMillis)
+    val markerY = y(reading.valueMgdl)
+
+    // A full-height line, so the moment is locatable even where the trace is flat.
+    drawLine(
+        color = colour.copy(alpha = 0.55f),
+        start = Offset(markerX, 0f),
+        end = Offset(markerX, size.height),
+        strokeWidth = GRID_STROKE.toPx(),
+    )
+    drawCircle(color = colour, radius = CURRENT_RADIUS.toPx() * 0.8f, center = Offset(markerX, markerY))
+    drawCircle(
+        color = surface,
+        radius = CURRENT_RADIUS.toPx() * 0.35f,
+        center = Offset(markerX, markerY),
+    )
+
+    val value = measurer.measure(
+        "${unit.format(reading.valueMgdl)} ${unit.suffix}",
+        TextStyle(fontSize = 13.sp, color = labelColor, fontWeight = FontWeight.Bold),
+    )
+    val stamp = measurer.measure(
+        InspectionFormat.of(reading.timestampMillis),
+        TextStyle(fontSize = 11.sp, color = labelColor),
+    )
+
+    val padding = 8.dp.toPx()
+    val boxWidth = maxOf(value.size.width, stamp.size.width) + padding * 2
+    val boxHeight = value.size.height + stamp.size.height + padding * 2
+
+    // Prefer the right of the marker, flip when that would run off the chart.
+    val left = if (markerX + CALLOUT_GAP.toPx() + boxWidth <= size.width) {
+        markerX + CALLOUT_GAP.toPx()
+    } else {
+        markerX - CALLOUT_GAP.toPx() - boxWidth
+    }.coerceAtLeast(0f)
+    val top = (markerY - boxHeight - CALLOUT_GAP.toPx()).coerceIn(0f, size.height - boxHeight)
+
+    drawRoundRect(
+        color = surface,
+        topLeft = Offset(left, top),
+        size = Size(boxWidth, boxHeight),
+        cornerRadius = CornerRadius(8.dp.toPx()),
+    )
+    drawText(value, topLeft = Offset(left + padding, top + padding))
+    drawText(stamp, topLeft = Offset(left + padding, top + padding + value.size.height))
+}
+
+/**
+ * The time of an inspected reading.
+ *
+ * Always carries the date, not only the clock: the chart can be browsed back
+ * through weeks, and "14:32" alone would be true of every one of them.
+ */
+private object InspectionFormat {
+    private val formatter = DateTimeFormatter.ofPattern("d MMM · HH:mm")
+
+    fun of(millis: Long): String = Instant.ofEpochMilli(millis)
+        .atZone(ZoneId.systemDefault())
+        .format(formatter)
 }
 
 /**
@@ -388,6 +536,7 @@ private val FORECAST_STROKE = 2.dp
 private val FORECAST_DASH = 5.dp
 private const val FORECAST_BAND_ALPHA = 0.16f
 private const val FORECAST_DIVIDER_ALPHA = 0.45f
+private val CALLOUT_GAP = 10.dp
 private val DASH_ON = 4.dp
 private val DASH_OFF = 4.dp
 
