@@ -14,6 +14,40 @@ decision and a pass over the security plan.
 
 ### Added
 
+- Hourly rollups summarising history: additive sums so any window is assembled from stored
+  rows rather than recomputed, and a per-hour distribution so time in range can be recalculated
+  for any thresholds after the fact. Local date and hour are resolved when a row is written,
+  because "my 3am" is a wall-clock idea and epoch arithmetic yields UTC.
+- Daily pattern on Trends: the day in eight three-hour slices, each a band rather than a bar.
+  A slice averaging 140 with a spread of 60–260 and one averaging 140 with a spread of 125–155
+  are different days that a chart of averages draws identically.
+- Time in range, GMI and estimated A1C over selectable periods, every figure stating the
+  coverage behind it and rendering muted below the point where it would be reliable.
+- Tap a point on the chart for its value and date.
+- Wear OS app and the transport that feeds it, sharing the reading model, thresholds and
+  freshness rules with the phone so the two cannot disagree about whether a value is current.
+- Silent notification on the watch carrying the latest reading, opening onto the last three
+  hours of insulin — the question usually being asked when a number is higher than expected.
+- Daily insulin reminders, on the phone and the watch. Each firing schedules the next in the
+  current zone rather than repeating on a fixed interval, so daylight saving and travel move
+  them correctly.
+- Android Auto screen, declared as an IOT app so it draws its own card instead of taking over
+  the media tab. Stale readings show no number at all: a driver has under a second to look and
+  no way to tell a current value from a frozen one.
+- Accessibility settings: three typefaces, continuous text size, letter and line spacing, and
+  three zone palettes including a colour-blind-safe one that separates zones along blue–yellow
+  and stays legible in greyscale. Size and spacing sit above the font choice because they help
+  more, and help everyone.
+- Release notes in the app, generated from this file.
+- Continuity report showing how much of the last day was actually recorded — a gap here cannot
+  be backfilled, so it is worth being able to see rather than infer.
+- Forecast benchmark scoring prediction models against your own history, including a clinical
+  error grid so a dangerous error is not averaged in with a harmless one.
+- Optional relay: the phone pushes the current reading to a server you host so it can be read
+  from a browser. One value in memory, no history, no ability to reach the vendor, forgotten on
+  restart. Off until configured, and the only feature that sends data off the device.
+- Return to Home when the app is opened after five minutes away.
+
 - LibreLinkUp as a data source: login, session persistence across restarts, and polling on a
   schedule that backs off on failure and gives up loudly rather than silently on a rejected
   credential.
@@ -56,6 +90,18 @@ decision and a pass over the security plan.
 
 ### Changed
 
+- Freshness thresholds retuned against recorded live timing rather than estimated: on this
+  connection the worst age of a healthy reading is under three minutes, so late is five and
+  stale is ten.
+- Deltas always state the interval they span. The change is measured over five minutes while
+  readings arrive every minute, so two consecutive values never account for it — 150 to 160
+  reading as −3 only means the value five minutes ago was 163.
+- Alarms share a notification group with the ongoing reading, so an alert no longer claims a
+  second status bar slot and pushes the value out of view.
+- Status bar digits are larger: the icon is sized to the label instead of padded into a square,
+  and narrower glyphs are drawn bigger because width is what hits the slot's limit first.
+- Retention raised to two years, since the longest chart window has to fit inside it.
+- The projection is switched off behind a build flag, pending a decision to bring it back.
 - Statistics are aggregated in SQL rather than by loading rows, and retention was raised to
   two years so a one-year window cannot silently truncate.
 - The chart's window became a continuous span with a movable end, replacing four fixed spans
@@ -63,6 +109,22 @@ decision and a pass over the security plan.
 
 ### Fixed
 
+- The wake lock, the watch bridge and the time zone receiver were declared but never started.
+  The phone had therefore never published a reading to the watch, and the overnight polling fix
+  had never been in effect.
+- The poll loop slept through the night. A foreground service keeps the process alive but not
+  the CPU, so its timer did not fire in deep sleep and every minute missed was a reading lost.
+- Rebuilding a rollup after a time zone change silently re-expressed history, moving readings
+  between slices depending on when maintenance ran. Rows now record the zone they were
+  resolved in.
+- Reading age could go negative when the clock moved, rendering as "-3 minutes ago" while
+  reading as maximally fresh.
+- Screens that group by day cached the time zone once and kept drawing day boundaries from the
+  zone you left.
+- Pinch and pan became unresponsive when inspection was wired into the gesture path.
+- The watch never asked for notification permission, so everything it posted was dropped.
+- Deltas were computed from graph data spaced about fifteen minutes apart and presented as if
+  they spanned five.
 - The trace was drawn with pixel rather than dp stroke widths, which made it close to
   invisible on a high-density display.
 - A stale reading no longer keeps its zone colour anywhere — not in the big value, not in the
@@ -83,6 +145,7 @@ decision and a pass over the security plan.
   until someone pressed Start by hand — with no reading, no value in the status bar, and no
   indication why. It now starts whenever a configured app opens, and Settings says plainly
   whether it is polling or stopped.
+
 
 ### Security
 
