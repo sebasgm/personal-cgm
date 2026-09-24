@@ -7,6 +7,7 @@ import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.data.ReadingDatabase
 import dev.cgm.app.data.RollupWriter
 import dev.cgm.app.data.SecureSettings
+import dev.cgm.app.reminder.ReminderScheduler
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -18,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 class CgmApplication : Application() {
 
     val settings: SecureSettings by lazy { SecureSettings(this) }
+    val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(this) }
     private val database: ReadingDatabase by lazy { ReadingDatabase.create(this) }
     val repository: GlucoseRepository by lazy {
         GlucoseRepository(

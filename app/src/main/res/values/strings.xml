@@ -248,4 +248,19 @@
     <string name="car_age_now">ahora mismo</string>
     <string name="car_age_minutes">hace %1$d min</string>
     <string name="car_change">Cambio</string>
+    <string name="reminder_channel">Recordatorios de insulina</string>
+    <string name="reminder_channel_desc">Avisos a una hora fija. No dependen de ninguna lectura.</string>
+    <string name="reminder_title_basal">Insulina basal</string>
+    <string name="reminder_title_bolus">Insulina en bolo</string>
+    <string name="reminder_body_plain">Toca para registrar la dosis.</string>
+    <string name="reminder_body_units">Dosis habitual: %1$s U. Toca para registrarla.</string>
+    <string name="set_reminders">Recordatorios de insulina</string>
+    <string name="set_reminders_subtitle">Avisos diarios a una hora fija</string>
+    <string name="reminders_empty">Sin recordatorios. Añade uno para que te avise a una hora fija.</string>
+    <string name="reminders_add">Añadir recordatorio</string>
+    <string name="reminders_inexact">Android no tiene permiso para alarmas exactas, así que los recordatorios pueden llegar tarde.</string>
+    <string name="reminders_grant_exact">Permitir alarmas exactas</string>
+    <string name="reminders_daily">Todos los días</string>
+    <string name="reminders_next">Próximo: %1$s</string>
+    <string name="reminders_delete">Eliminar</string>
 </resources>

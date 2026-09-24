@@ -3,6 +3,9 @@ package dev.cgm.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dev.cgm.core.InsulinReminder
+import dev.cgm.core.InsulinReminders
+import dev.cgm.app.reminder.ReminderScheduler
 import dev.cgm.app.Features
 import dev.cgm.app.data.CgmState
 import dev.cgm.app.data.GlucoseRepository
@@ -48,6 +51,7 @@ import kotlinx.coroutines.withContext
 class CgmViewModel(
     private val repository: GlucoseRepository,
     private val settings: SecureSettings,
+    private val scheduler: ReminderScheduler? = null,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
@@ -287,6 +291,33 @@ class CgmViewModel(
             _timeOfDay.value = withContext(Dispatchers.IO) {
                 repository.timeOfDayProfile(now - _period.value.millis, now)
             }
+        }
+    }
+
+    // -- insulin reminders -----------------------------------------------------
+
+    val reminders: StateFlow<InsulinReminders> = settings.reminders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InsulinReminders.Empty)
+
+    /**
+     * Save and re-lay the alarms in one step.
+     *
+     * Never separately: a reminder saved but not scheduled is a row in a list
+     * that will never fire, and nothing on screen would distinguish it from one
+     * that will.
+     */
+    fun saveReminder(reminder: InsulinReminder) = updateReminders { it.with(reminder) }
+
+    fun deleteReminder(id: String) = updateReminders { it.without(id) }
+
+    fun setReminderEnabled(reminder: InsulinReminder, enabled: Boolean) =
+        updateReminders { it.with(reminder.copy(enabled = enabled)) }
+
+    private fun updateReminders(change: (InsulinReminders) -> InsulinReminders) {
+        viewModelScope.launch {
+            val updated = change(settings.remindersOnce())
+            settings.saveReminders(updated)
+            scheduler?.rescheduleAll(updated)
         }
     }
 
@@ -537,11 +568,15 @@ class CgmViewModel(
         /** Enough to cover several weeks of dosing without paging. */
         const val DOSE_LIMIT = 300
 
-        fun factory(repository: GlucoseRepository, settings: SecureSettings) =
+        fun factory(
+                repository: GlucoseRepository,
+                settings: SecureSettings,
+                scheduler: ReminderScheduler? = null,
+            ) =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    CgmViewModel(repository, settings) as T
+                    CgmViewModel(repository, settings, scheduler) as T
             }
     }
 }

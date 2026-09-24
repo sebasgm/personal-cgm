@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.cgm.core.AccessibilityPreferences
 import dev.cgm.core.AlarmKind
+import dev.cgm.core.InsulinReminders
 import dev.cgm.core.AlarmRuntimeState
 import dev.cgm.core.AlarmSettings
 import dev.cgm.core.FreshnessPolicy
@@ -179,6 +180,24 @@ class SecureSettings(private val context: Context) : SessionStore {
         }
     }
 
+    // -- insulin reminders -----------------------------------------------------
+
+    /**
+     * Standing reminders. Plain JSON: a handful of rows, no schema to migrate,
+     * and nothing here is secret.
+     */
+    val reminders: Flow<InsulinReminders> = context.dataStore.data.map { prefs ->
+        prefs[KEY_REMINDERS]
+            ?.let { runCatching { json.decodeFromString<InsulinReminders>(it) }.getOrNull() }
+            ?: InsulinReminders.Empty
+    }
+
+    suspend fun remindersOnce(): InsulinReminders = reminders.first()
+
+    suspend fun saveReminders(value: InsulinReminders) {
+        context.dataStore.edit { it[KEY_REMINDERS] = json.encodeToString(value) }
+    }
+
     // -- accessibility --------------------------------------------------------
 
     /**
@@ -252,6 +271,7 @@ class SecureSettings(private val context: Context) : SessionStore {
     }
 
     private companion object {
+        val KEY_REMINDERS: Preferences.Key<String> = stringPreferencesKey("insulin_reminders")
         val KEY_ACCESSIBILITY: Preferences.Key<String> = stringPreferencesKey("accessibility")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
         val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")

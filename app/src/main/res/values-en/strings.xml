@@ -248,4 +248,19 @@
     <string name="car_age_now">just now</string>
     <string name="car_age_minutes">%1$d min ago</string>
     <string name="car_change">Change</string>
+    <string name="reminder_channel">Insulin reminders</string>
+    <string name="reminder_channel_desc">Prompts at a fixed time. They do not depend on any reading.</string>
+    <string name="reminder_title_basal">Basal insulin</string>
+    <string name="reminder_title_bolus">Bolus insulin</string>
+    <string name="reminder_body_plain">Tap to log the dose.</string>
+    <string name="reminder_body_units">Usual dose: %1$s U. Tap to log it.</string>
+    <string name="set_reminders">Insulin reminders</string>
+    <string name="set_reminders_subtitle">Daily prompts at a fixed time</string>
+    <string name="reminders_empty">No reminders. Add one to be prompted at a fixed time.</string>
+    <string name="reminders_add">Add reminder</string>
+    <string name="reminders_inexact">Android has not granted exact alarms, so reminders may arrive late.</string>
+    <string name="reminders_grant_exact">Allow exact alarms</string>
+    <string name="reminders_daily">Every day</string>
+    <string name="reminders_next">Next: %1$s</string>
+    <string name="reminders_delete">Delete</string>
 </resources>

@@ -20,6 +20,13 @@
       device is in deep sleep, which is most of the night - see PollingService.
     -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!--
+      Reminders fire at a wall-clock time. From Android 12 an exact alarm needs
+      this grant; without it the system batches them and a reminder can arrive
+      tens of minutes late, so the app checks and says so rather than letting it
+      be discovered.
+    -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
@@ -77,6 +84,19 @@
         <receiver
             android:name=".alarm.AlarmActionReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".reminder.ReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="dev.cgm.app.REMINDER_FIRE" />
+            </intent-filter>
+            <!-- A reboot clears every scheduled alarm, so they are laid down again. -->
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".service.BootReceiver"

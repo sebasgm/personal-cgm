@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
             // preferences, so they have to be known before the first frame is
             // composed rather than applied to one already on screen.
             val vm: CgmViewModel = viewModel(
-                factory = CgmViewModel.factory(app.repository, app.settings)
+                factory = CgmViewModel.factory(app.repository, app.settings, app.reminderScheduler)
             )
             val accessibility by vm.accessibility.collectAsState()
 
@@ -206,6 +206,7 @@ private fun MainScaffold(
                 Destination.Alarms -> AlarmsScreen(viewModel) { stack = stack + it }
                 Destination.Ranges -> RangesScreen(viewModel)
                 Destination.Accessibility -> AccessibilityScreen(viewModel)
+                Destination.Reminders -> RemindersScreen(viewModel)
                 Destination.ReleaseNotes -> ReleaseNotesScreen()
                 Destination.Disclaimer -> DisclaimerReadOnlyScreen()
                 is Destination.AlarmDetail -> AlarmDetailScreen(viewModel, current.kind)
