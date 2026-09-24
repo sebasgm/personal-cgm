@@ -421,3 +421,42 @@ polling fix.
 The watch. See **`docs/06-wear-os.md`**, which replaces stages 3–5 of `docs/01-plan.md` with
 a plan specific to the OnePlus Watch 3. Android Auto (#3), non-Wear watches (#4) and direct
 BLE (#2) stay behind it, as they have since the first roadmap.
+
+---
+
+## 7. Requested 2026-09-24
+
+### Accessibility: spoken readings
+
+A text-to-speech interface for blind users. Larger than it sounds, and worth scoping
+deliberately: reading a number aloud is easy, but the useful version speaks the things this
+app already treats as inseparable from the number — the trend, **the age**, and whether the
+value is stale. A spoken "one hundred and sixty" with no indication it is forty minutes old
+is the same failure as a green number that is forty minutes old, with less to correct it.
+
+Probably three surfaces: a speak-now action, spoken alarms, and proper TalkBack labelling
+throughout, which is the part that makes the rest usable and the part most often skipped.
+
+### Open on Home after a while away
+
+Returning to the app after five minutes should land on Home rather than wherever it was left.
+Small, and correct: Settings or Logbook is where you *were*, not where you want to be when you
+pick the phone up to check a number.
+
+### Android Auto
+
+A surface for the car. Related to the Bluetooth report above and worth building after it is
+understood, not before.
+
+### Scheduled reminders
+
+Time-based prompts, distinct from alarms: alarms fire on a reading, reminders fire on a clock.
+Shares the notification and Do Not Disturb machinery already built, and the scheduling belongs
+with the exact-alarm work rather than with `delay()`.
+
+### Open bugs
+
+- **Tracking lost after a Bluetooth connect/disconnect cycle** with Android Auto. The watch
+  half is explained — the phone was never publishing — but the notification going blank is
+  not, and is still to be reproduced. Suspect the service being killed and `START_STICKY`
+  restarting it into a state where the loop is alive but the notification is not rebuilt.
