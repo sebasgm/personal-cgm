@@ -12,6 +12,24 @@ decision and a pass over the security plan.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [3.0.0] - 2026-09-24
+
+The phone app is the released part, and it is stable: reading, charting, alarms, logbook,
+insulin, trends and accessibility are all in daily use.
+
+Two things ship alongside it and are **not** finished, deliberately kept in rather than held
+back, because each is useful now and neither is load-bearing:
+
+- **The Wear OS app** receives readings and shows them, but has no complication, tile or watch
+  face yet, which is how a watch is actually read. It has not been verified on hardware.
+- **The relay and its browser client** work end to end, but have only been exercised against a
+  locally run server, and nothing has run on a hosted one.
+
+Neither affects the phone. Both can be ignored entirely.
+
+
 ### Added
 
 - Hourly rollups summarising history: additive sums so any window is assembled from stored

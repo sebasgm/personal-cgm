@@ -21,8 +21,8 @@ android {
         // older releases would mean carrying the dead watch-face runtime with it.
         minSdk = 33
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3000
+        versionName = "3.0.0"
     }
 
     buildTypes {

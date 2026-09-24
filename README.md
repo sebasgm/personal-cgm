@@ -84,3 +84,21 @@ removed in 9.6.
 - **Timestamps are absolute epoch millis end to end.** The watch needs the raw instant to render
   reading age through the platform's time-difference bindings — the one display that stays true
   when complication updates get throttled. See research §3c.
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
+
+Do what you like with it: use it, change it, ship it, sell it. The only conditions are that
+you keep the copyright and licence notice, state what you changed, and accept that it comes
+with no warranty of any kind. That last point is not boilerplate here — this reads medical
+data through an interface nobody supports, and anyone building on it inherits that.
+
+The bundled fonts are separately licensed under the SIL Open Font License; see
+[NOTICE](NOTICE) and [licenses/OFL.txt](licenses/OFL.txt).
+
+## Not affiliated
+
+This project is not affiliated with, endorsed by, or connected to Abbott Laboratories or any
+maker of CGM hardware. It reads an undocumented service interface that its operator does not
+support and may change or withdraw at any time.
