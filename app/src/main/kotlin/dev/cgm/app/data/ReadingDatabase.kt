@@ -15,6 +15,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import dev.cgm.core.CarbEntry
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.InsulinDose
 import dev.cgm.core.InsulinKind
@@ -203,14 +204,73 @@ interface DoseDao {
     fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<DoseEntity>>
 }
 
+/**
+ * Carbohydrates the user recorded.
+ *
+ * Its own table beside `doses` rather than a `kind` column on it. Units and grams
+ * are different quantities, and a single table holding both would let a query add
+ * them together — which is a bug that reads as a number rather than as an error.
+ */
+@Entity(
+    tableName = "carbs",
+    indices = [Index("eatenAtMillis")],
+)
+data class CarbEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val grams: Double,
+    val eatenAtMillis: Long,
+    val note: String?,
+) {
+    fun toEntry() = CarbEntry(
+        id = id,
+        grams = grams,
+        eatenAtMillis = eatenAtMillis,
+        note = note,
+    )
+
+    companion object {
+        fun from(entry: CarbEntry) = CarbEntity(
+            id = entry.id,
+            grams = entry.grams,
+            eatenAtMillis = entry.eatenAtMillis,
+            note = entry.note,
+        )
+    }
+}
+
+@Dao
+interface CarbDao {
+
+    @Upsert
+    suspend fun upsert(entry: CarbEntity)
+
+    @Delete
+    suspend fun delete(entry: CarbEntity)
+
+    @Query("SELECT * FROM carbs ORDER BY eatenAtMillis DESC LIMIT :limit")
+    fun observeRecent(limit: Int): Flow<List<CarbEntity>>
+
+    @Query(
+        "SELECT * FROM carbs WHERE eatenAtMillis >= :startMillis " +
+            "AND eatenAtMillis <= :endMillis ORDER BY eatenAtMillis ASC"
+    )
+    fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<CarbEntity>>
+}
+
 @Database(
-    entities = [ReadingEntity::class, DoseEntity::class, HourlyRollupEntity::class],
-    version = 4,
+    entities = [
+        ReadingEntity::class,
+        DoseEntity::class,
+        CarbEntity::class,
+        HourlyRollupEntity::class,
+    ],
+    version = 5,
     exportSchema = false,
 )
 abstract class ReadingDatabase : RoomDatabase() {
     abstract fun readings(): ReadingDao
     abstract fun doses(): DoseDao
+    abstract fun carbs(): CarbDao
     abstract fun rollups(): HourlyRollupDao
 
     companion object {
@@ -295,9 +355,32 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds the carbs table.
+         *
+         * A real migration for the same reason every other one here is: the readings
+         * beside it cannot be re-fetched, so a destructive fallback would trade a new
+         * feature for every month of history the phone has accumulated.
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `carbs` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`grams` REAL NOT NULL, " +
+                        "`eatenAtMillis` INTEGER NOT NULL, " +
+                        "`note` TEXT)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_carbs_eatenAtMillis` " +
+                        "ON `carbs` (`eatenAtMillis`)"
+                )
+            }
+        }
+
         fun create(context: Context): ReadingDatabase =
             Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
     }
 }

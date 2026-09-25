@@ -197,7 +197,7 @@ private fun MainScaffold(
                 Destination.Home -> HomeScreen(viewModel)
                 Destination.Trends -> TrendsScreen(viewModel)
                 Destination.Logbook -> LogbookScreen(viewModel)
-                Destination.Doses -> DosesScreen(viewModel)
+                Destination.Diary -> DiaryScreen(viewModel)
                 Destination.Settings -> SettingsScreen(
                     viewModel = viewModel,
                     onStartService = onStartService,

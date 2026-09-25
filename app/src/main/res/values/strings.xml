@@ -163,7 +163,7 @@
     <string name="disc_p3">Los valores pueden estar equivocados, llegar tarde o faltar. Pasan por los servidores de Abbott, tu red y los límites de segundo plano de Android antes de llegar a esta pantalla, y cualquiera de esos puede retrasarlos o perderlos. Un número en pantalla sin ninguna advertencia al lado sigue significando sólo «este es el valor más reciente que pudimos obtener».</string>
     <string name="disc_p4">Las alarmas pueden no llegar. Android puede retrasar o suprimir notificaciones mientras el teléfono duerme, con No molestar activado o ahorrando batería, y esta app no puede anular todo eso. Nunca confíes en ella para que te despierte. Una noche en silencio no es prueba de que no haya pasado nada.</string>
     <string name="disc_p5">Si te sentís mal, creé lo que te dice tu cuerpo antes que lo que muestra esta app, y buscá atención médica. Nada de esto reemplaza a tu médico.</string>
-    <string name="nav_doses">Dosis</string>
+    <string name="nav_diary">Diario</string>
     <string name="dose_log_title">Registrar dosis</string>
     <string name="dose_bolus">Bolo</string>
     <string name="dose_basal">Basal</string>
@@ -176,9 +176,6 @@
     <string name="dose_minus_60">−1 h</string>
     <string name="dose_note">Nota (opcional)</string>
     <string name="dose_save">Guardar</string>
-    <string name="dose_today">Hoy: %1$s U basal · %2$s U bolo</string>
-    <string name="dose_recent">Últimas dosis</string>
-    <string name="dose_empty">Todavía no registraste ninguna dosis.</string>
     <string name="dose_delete">Eliminar</string>
     <string name="dose_decrease">Menos</string>
     <string name="dose_increase">Más</string>
@@ -236,10 +233,17 @@
     <string name="reminder_ok">Entendido</string>
     <string name="reminder_read_full">Ver el aviso completo en Ajustes.</string>
     <string name="trends_daily_pattern">Patrón del día</string>
-    <string name="trends_daily_pattern_note">Cada franja de 3 horas, reunida a lo largo del periodo. La caja es el 50% central de las lecturas y la línea de dentro, la mediana; las guías llegan del percentil 10 al 90. Lo que se lee aquí no es solo dónde está esa parte del día, sino cuánto varía.</string>
+    <string name="trends_daily_pattern_note">Cada hora del día, reunida a lo largo del periodo. La línea es la mediana; la banda intensa es el 50% central de las lecturas y la pálida llega del percentil 10 al 90. Lo que se lee aquí no es solo dónde está cada parte del día, sino cuánto varía.</string>
     <string name="trends_daily_pattern_days">%1$d días con datos</string>
     <string name="trends_daily_pattern_thin">Con menos de %1$d días esto describe unos pocos días, no un patrón: una noche rara domina la franja entera.</string>
     <string name="trends_daily_pattern_empty">Todavía no hay suficientes horas registradas para dibujar el patrón del día.</string>
+    <string name="trends_slices">El día en franjas</string>
+    <string name="trends_slices_note">Cada franja de 3 horas, reunida a lo largo del periodo. La caja es el 50% central de las lecturas y la línea de dentro, la mediana; las guías llegan del percentil 10 al 90. Lo que se lee aquí no es solo dónde está esa parte del día, sino cuánto varía.</string>
+    <string name="trends_inspect_hint">Tocá cualquiera de los dos gráficos para ver los números de una franja. Tocá otra vez para cerrarlos.</string>
+    <string name="trends_inspect_median">Mediana %1$s</string>
+    <string name="trends_inspect_middle">50%% central %1$s–%2$s</string>
+    <string name="trends_inspect_spread">Percentil 10–90 %1$s–%2$s</string>
+    <string name="trends_inspect_days">%1$d días · %2$d lecturas</string>
     <string name="trends_most_variable">La franja menos predecible es %1$s.</string>
     <string name="trends_daily_pattern_zones">Este periodo incluye %1$d husos horarios. Las franjas usan la hora local de cada lectura, así que las de días en husos distintos no describen el mismo momento del día.</string>
     <string name="car_no_reading">Sin lectura</string>
@@ -274,4 +278,16 @@
     <string name="relay_stop">Dejar de enviar</string>
     <string name="relay_insecure">Sin https la clave y tus lecturas viajan sin cifrar.</string>
     <string name="relay_privacy">Esta es la única función que envía datos fuera del teléfono. Mientras esté activa, tu último valor existe también en ese servidor. Quien tenga la clave puede verlo.</string>
+    <string name="diary_insulin">Insulina</string>
+    <string name="diary_food">Comida</string>
+    <string name="diary_food_title">Registrar comida</string>
+    <string name="carb_grams">Carbohidratos</string>
+    <string name="carb_grams_suffix">g</string>
+    <string name="carb_invalid">Ingresá una cantidad entre 1 y %1$s g</string>
+    <string name="carb_row">%1$s g de carbohidratos</string>
+    <string name="carb_quick">Cantidades habituales</string>
+    <string name="diary_today">Hoy: %1$s U basal · %2$s U bolo · %3$s g</string>
+    <string name="diary_recent">Últimas anotaciones</string>
+    <string name="diary_empty">Todavía no anotaste nada.</string>
+    <string name="diary_note">Registra insulina y comida. Es lo que anotás vos; el Registro es lo que midió el sensor.</string>
 </resources>

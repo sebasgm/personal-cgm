@@ -33,7 +33,14 @@ sealed interface Destination {
     data object Home : Destination
     data object Trends : Destination
     data object Logbook : Destination
-    data object Doses : Destination
+    /**
+     * Insulin and food, as the user records them.
+     *
+     * Named the diary rather than the log: "log" is already the Logbook of readings
+     * the sensor produced, and would also read as a device log. This is the record of
+     * what a person did, which is the opposite kind of fact.
+     */
+    data object Diary : Destination
     data object Settings : Destination
     data object Alarms : Destination
     data class AlarmDetail(val kind: AlarmKind) : Destination
@@ -65,7 +72,7 @@ enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
     HOME(R.string.nav_now, Destination.Home),
     TRENDS(R.string.nav_trends, Destination.Trends),
     LOGBOOK(R.string.nav_logbook, Destination.Logbook),
-    DOSES(R.string.nav_doses, Destination.Doses),
+    DIARY(R.string.nav_diary, Destination.Diary),
     SETTINGS(R.string.nav_settings, Destination.Settings);
 
     companion object {
@@ -73,7 +80,7 @@ enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
             Destination.Home -> HOME
             Destination.Trends -> TRENDS
             Destination.Logbook -> LOGBOOK
-            Destination.Doses -> DOSES
+            Destination.Diary -> DIARY
             Destination.Settings,
             Destination.Alarms,
             Destination.Ranges,

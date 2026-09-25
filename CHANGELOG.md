@@ -12,7 +12,43 @@ decision and a pass over the security plan.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- A clock along the bottom of the main chart, on round wall-clock times with a faint line at
+  each, so the moment a point belongs to can be read without tapping it. The tick that crosses
+  local midnight carries its date rather than "00:00": a window browsed back three days would
+  otherwise be indistinguishable from this morning's. Boundaries are resolved through a time
+  zone rather than by dividing epoch millis, which puts them in the wrong place wherever an
+  offset is not a whole hour.
+- Carbohydrate logging, in grams, beside insulin on the same screen — a meal and the bolus for
+  it are one event to the person having them. Chips fill the field with the amounts people
+  actually estimate in; there is no food database, because grams are the only part of a meal
+  this app can line up against a rise on the chart. Carbohydrates live in their own table
+  behind a real migration, and are never totalled with insulin: units and grams are different
+  quantities.
+- The daily pattern at one-hour resolution as well as three, which is what the ribbon is drawn
+  from.
+- Tap either daily-pattern chart for the numbers behind a slice: median, middle 50%, 10–90
+  spread, and how many days and readings are behind it. The day count is the part that was not
+  available anywhere before — a band's width says how variable an hour was, not how much was
+  behind it, and three days and thirty days draw the same picture.
+
+### Changed
+
+- The Doses tab is now the **Diary**, and holds insulin and food. "Log" was not available: the
+  Logbook is already the record of what the sensor measured, and this is the record of what a
+  person did — the distinction between an immutable measurement and a correctable entry is the
+  only thing worth knowing about the two screens, so the names keep it.
+- The daily pattern card now carries **both** charts: a continuous ribbon across the 24 hours —
+  median line, middle-50% band, paler 10th-to-90th band — above the eight three-hour box plots
+  that were already there. They are the same percentiles at two widths and neither replaces the
+  other: a box spanning 18:00 to 21:00 cannot say whether a rise starts before dinner or after
+  it, which is what the ribbon is for, while exact figures for a named part of the day are
+  easier to read off a box than off a curve. Both share one value scale, and the ribbon breaks
+  across hours with nothing recorded, exactly as the live trace breaks across gaps.
+- GMI and estimated A1C are the first card on Trends, under the coverage notice. They were below
+  two charts and a scroll, which made the figure anyone opened the screen for read as a footnote
+  to the charts rather than as the summary they support.
 
 ## [3.0.0] - 2026-09-24
 

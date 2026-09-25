@@ -16,6 +16,7 @@ import dev.cgm.core.AccessibilityPreferences
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
+import dev.cgm.core.CarbEntry
 import dev.cgm.core.ChartHistory
 import dev.cgm.core.ChartZoom
 import dev.cgm.core.ContinuityReport
@@ -219,6 +220,38 @@ class CgmViewModel(
 
     fun deleteDose(dose: InsulinDose) {
         viewModelScope.launch { repository.deleteDose(dose) }
+    }
+
+    // -- carbohydrates ------------------------------------------------------
+
+    val carbs: StateFlow<List<CarbEntry>> = repository.recentCarbs(CARB_LIMIT)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Records a meal. [onResult] reports whether it was accepted, so the form can
+     * keep what was typed if it was not.
+     */
+    fun logCarbs(
+        grams: Double,
+        eatenAtMillis: Long,
+        note: String?,
+        onResult: (Boolean) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            onResult(
+                repository.saveCarbs(
+                    CarbEntry(
+                        grams = CarbEntry.roundGrams(grams),
+                        eatenAtMillis = eatenAtMillis,
+                        note = CarbEntry.cleanNote(note),
+                    )
+                )
+            )
+        }
+    }
+
+    fun deleteCarbs(entry: CarbEntry) {
+        viewModelScope.launch { repository.deleteCarbs(entry) }
     }
 
     // -- language -----------------------------------------------------------
@@ -581,6 +614,9 @@ class CgmViewModel(
 
         /** Enough to cover several weeks of dosing without paging. */
         const val DOSE_LIMIT = 300
+
+        /** Meals outnumber doses only slightly; the same few weeks either way. */
+        const val CARB_LIMIT = 300
 
         fun factory(
                 repository: GlucoseRepository,

@@ -50,6 +50,9 @@ data class TimeOfDayBucket(
 
     /** Label like "00–03", in the 24-hour clock the chart's axis uses. */
     fun label(): String = "%02d–%02d".format(startHour, endHour % 24)
+
+    /** Where this slice sits on a 0..24 axis: its middle, not its edge. */
+    val centreHour: Double get() = startHour + (endHour - startHour) / 2.0
 }
 
 /**
@@ -67,6 +70,16 @@ data class TimeOfDayBucket(
  */
 data class TimeOfDayProfile(
     val buckets: List<TimeOfDayBucket>,
+    /**
+     * The same window at one-hour resolution: 24 slices rather than eight.
+     *
+     * What the ribbon on screen is drawn from. Three-hour boxes are the clinical
+     * summary and [buckets] keeps them for the sentence underneath, but a box per
+     * three hours cannot show *when* inside those three hours a rise starts — and
+     * "my dinner spike begins at 21:00, not 19:00" is the thing a daily pattern is
+     * consulted for.
+     */
+    val hours: List<TimeOfDayBucket> = emptyList(),
     /** Fraction of the window that has data behind it. */
     val coverage: Double,
     /** Distinct days anywhere in the window. */
@@ -87,10 +100,16 @@ data class TimeOfDayProfile(
         get() = coverage >= GlucoseStatistics.RELIABLE_COVERAGE &&
             dayCount >= MIN_DAYS
 
-    /** Lowest and highest percentile drawn, for scaling an axis to fit the bands. */
+    /**
+     * Lowest and highest percentile drawn, for scaling an axis to fit the bands.
+     *
+     * Spans both resolutions, because an hour can be more extreme than the
+     * three-hour slice containing it and whichever is drawn must fit.
+     */
     fun valueRange(): ClosedFloatingPointRange<Double>? {
-        val lows = buckets.mapNotNull { it.p10 }
-        val highs = buckets.mapNotNull { it.p90 }
+        val all = buckets + hours
+        val lows = all.mapNotNull { it.p10 }
+        val highs = all.mapNotNull { it.p90 }
         if (lows.isEmpty() || highs.isEmpty()) return null
         return lows.min()..highs.max()
     }
@@ -107,7 +126,12 @@ data class TimeOfDayProfile(
          */
         const val MIN_DAYS = 7
 
-        val Empty = TimeOfDayProfile(emptyList(), 0.0, 0)
+        val Empty = TimeOfDayProfile(
+            buckets = emptyList(),
+            hours = emptyList(),
+            coverage = 0.0,
+            dayCount = 0,
+        )
     }
 }
 
@@ -121,21 +145,44 @@ object TimeOfDayProfiler {
     /** Coverage buckets a fully recorded hour contains. */
     private const val BUCKETS_PER_HOUR = 12
 
-    fun of(hours: List<HourlyBin>): TimeOfDayProfile {
-        if (hours.isEmpty()) return TimeOfDayProfile.Empty
+    fun of(bins: List<HourlyBin>): TimeOfDayProfile {
+        if (bins.isEmpty()) return TimeOfDayProfile.Empty
 
-        val days = hours.map { it.localDate }.toHashSet().size
-        val zones = hours.mapNotNull { it.zoneId.takeIf(String::isNotEmpty) }.toHashSet()
-        val grouped = hours.groupBy { (it.localHour / BUCKET_HOURS).coerceIn(0, BUCKET_COUNT - 1) }
+        val days = bins.map { it.localDate }.toHashSet().size
+        val zones = bins.mapNotNull { it.zoneId.takeIf(String::isNotEmpty) }.toHashSet()
 
-        val buckets = (0 until BUCKET_COUNT).map { index ->
-            val startHour = index * BUCKET_HOURS
-            val inBucket = grouped[index].orEmpty()
+        val expectedOverall = days * 24 * BUCKETS_PER_HOUR
+        return TimeOfDayProfile(
+            buckets = slices(bins, BUCKET_HOURS),
+            hours = slices(bins, 1),
+            coverage = if (expectedOverall == 0) 0.0
+            else (bins.sumOf { it.coverageBuckets }.toDouble() / expectedOverall).coerceIn(0.0, 1.0),
+            dayCount = days,
+            zoneIds = zones,
+        )
+    }
 
-            if (inBucket.isEmpty()) {
+    /**
+     * The day cut into slices of [spanHours], each summarising every day in the
+     * window.
+     *
+     * One function for both resolutions rather than two that could disagree: the
+     * ribbon on screen and the sentence beneath it are the same statistic read at
+     * different widths, and a bug in one of two copies would show up as the chart
+     * contradicting its own caption.
+     */
+    private fun slices(bins: List<HourlyBin>, spanHours: Int): List<TimeOfDayBucket> {
+        val count = 24 / spanHours
+        val grouped = bins.groupBy { (it.localHour / spanHours).coerceIn(0, count - 1) }
+
+        return (0 until count).map { index ->
+            val startHour = index * spanHours
+            val inSlice = grouped[index].orEmpty()
+
+            if (inSlice.isEmpty()) {
                 return@map TimeOfDayBucket(
                     startHour = startHour,
-                    endHour = startHour + BUCKET_HOURS,
+                    endHour = startHour + spanHours,
                     readingCount = 0,
                     dayCount = 0,
                     coverage = 0.0,
@@ -146,20 +193,20 @@ object TimeOfDayProfiler {
             // Merging distributions is what makes any window answerable from
             // hourly rows without touching a reading.
             val merged = GlucoseHistogram.empty()
-            inBucket.forEach { GlucoseHistogram.merge(merged, it.bins) }
+            inSlice.forEach { GlucoseHistogram.merge(merged, it.bins) }
 
-            val bucketDays = inBucket.map { it.localDate }.toHashSet().size
+            val sliceDays = inSlice.map { it.localDate }.toHashSet().size
             // An hour is fully covered at twelve five-minute buckets, and a slice
-            // spans three hours on each of the days that contributed.
-            val expected = bucketDays * BUCKET_HOURS * BUCKETS_PER_HOUR
+            // spans its own hours on each of the days that contributed.
+            val expected = sliceDays * spanHours * BUCKETS_PER_HOUR
 
             TimeOfDayBucket(
                 startHour = startHour,
-                endHour = startHour + BUCKET_HOURS,
-                readingCount = inBucket.sumOf { it.readingCount },
-                dayCount = bucketDays,
+                endHour = startHour + spanHours,
+                readingCount = inSlice.sumOf { it.readingCount },
+                dayCount = sliceDays,
                 coverage = if (expected == 0) 0.0
-                else (inBucket.sumOf { it.coverageBuckets }.toDouble() / expected).coerceIn(0.0, 1.0),
+                else (inSlice.sumOf { it.coverageBuckets }.toDouble() / expected).coerceIn(0.0, 1.0),
                 median = GlucoseHistogram.percentile(merged, 0.50),
                 p10 = GlucoseHistogram.percentile(merged, 0.10),
                 p25 = GlucoseHistogram.percentile(merged, 0.25),
@@ -167,14 +214,5 @@ object TimeOfDayProfiler {
                 p90 = GlucoseHistogram.percentile(merged, 0.90),
             )
         }
-
-        val expectedOverall = days * 24 * BUCKETS_PER_HOUR
-        return TimeOfDayProfile(
-            buckets = buckets,
-            coverage = if (expectedOverall == 0) 0.0
-            else (hours.sumOf { it.coverageBuckets }.toDouble() / expectedOverall).coerceIn(0.0, 1.0),
-            dayCount = days,
-            zoneIds = zones,
-        )
     }
 }

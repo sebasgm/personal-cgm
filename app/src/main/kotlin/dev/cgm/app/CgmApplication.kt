@@ -28,6 +28,7 @@ class CgmApplication : Application() {
             RollupWriter(database.readings(), database.rollups()),
             database.rollups(),
             database.doses(),
+            database.carbs(),
         )
     }
 

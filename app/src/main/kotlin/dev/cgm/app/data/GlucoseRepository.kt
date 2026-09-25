@@ -3,6 +3,7 @@ package dev.cgm.app.data
 import androidx.annotation.StringRes
 import dev.cgm.app.R
 
+import dev.cgm.core.CarbEntry
 import dev.cgm.core.ContinuityAnalyzer
 import dev.cgm.core.ContinuityReport
 import dev.cgm.core.DeltaCalculator
@@ -102,6 +103,7 @@ class GlucoseRepository(
     /** Read side of the rollups, for the time-of-day profile. */
     private val rollupDao: HourlyRollupDao? = null,
     private val doseDao: DoseDao,
+    private val carbDao: CarbDao,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
 
@@ -156,6 +158,24 @@ class GlucoseRepository(
     }
 
     suspend fun deleteDose(dose: InsulinDose) = doseDao.delete(DoseEntity.from(dose))
+
+    // -- carbohydrates ------------------------------------------------------
+
+    fun recentCarbs(limit: Int): Flow<List<CarbEntry>> =
+        carbDao.observeRecent(limit).map { rows -> rows.map(CarbEntity::toEntry) }
+
+    /** Meals in a window, for lining carbohydrates up against a rise on the chart. */
+    fun carbsBetween(startMillis: Long, endMillis: Long): Flow<List<CarbEntry>> =
+        carbDao.observeBetween(startMillis, endMillis).map { rows -> rows.map(CarbEntity::toEntry) }
+
+    /** Stores a meal, or refuses it. Reports rather than throws, exactly as a dose does. */
+    suspend fun saveCarbs(entry: CarbEntry): Boolean {
+        if (!entry.isPlausible) return false
+        carbDao.upsert(CarbEntity.from(entry))
+        return true
+    }
+
+    suspend fun deleteCarbs(entry: CarbEntry) = carbDao.delete(CarbEntity.from(entry))
 
     /**
      * How complete the last [windowMillis] of history actually is.

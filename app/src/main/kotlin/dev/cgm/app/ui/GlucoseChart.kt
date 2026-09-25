@@ -45,6 +45,8 @@ import dev.cgm.core.Forecast
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
+import dev.cgm.core.TimeAxis
+import dev.cgm.core.TimeTick
 import dev.cgm.core.ValueAxis
 
 /**
@@ -177,12 +179,30 @@ fun GlucoseChart(
         )
         val labelStyle = TextStyle(fontSize = 11.sp, color = labelColor)
 
+        // Formatting eight labels through java.time on every frame would be work
+        // done once per pinch event for an answer that only changes when the window
+        // does, so it is remembered against the window's own edges.
+        val ticks = remember(firstTime, lastTime) {
+            TimeAxis.ticks(firstTime, lastTime, ZoneId.systemDefault())
+        }
+
         Canvas(Modifier.fillMaxSize()) {
             // Left gutter for the axis labels, so the trace never runs under them.
             val gutter = AXIS_GUTTER.toPx()
             val plotWidth = (size.width - gutter).coerceAtLeast(1f)
+            // And a strip along the bottom for the clock. Taken off the plot rather
+            // than drawn over it: a label sitting on the trace is a label that
+            // obscures exactly the reading someone is trying to date.
+            //
+            // Measured rather than fixed, because 11sp is 11sp times whatever font
+            // scale the phone is set to — a hardcoded strip clips its own labels for
+            // anyone who has turned text size up, which is precisely the reader who
+            // needs them.
+            val axisHeight = measurer.measure("00:00", labelStyle).size.height +
+                TIME_LABEL_GAP.toPx() * 2
+            val plotHeight = (size.height - axisHeight).coerceAtLeast(1f)
 
-            fun y(valueMgdl: Double) = (1f - axis.fraction(valueMgdl)) * size.height
+            fun y(valueMgdl: Double) = (1f - axis.fraction(valueMgdl)) * plotHeight
 
             // firstTime, lastTime and timeSpan come from the composable scope, so
             // the hit test and the drawing cannot name different readings.
@@ -190,9 +210,19 @@ fun GlucoseChart(
 
             drawInRangeBand(band, gutter, plotWidth, ::y, thresholds)
             drawGrid(axis, grid, labelColor, gutter, plotWidth, ::y, measurer, labelStyle, unit)
+            drawTimeAxis(
+                ticks = ticks,
+                gridColor = grid,
+                labelColor = labelColor,
+                gutter = gutter,
+                plotHeight = plotHeight,
+                measurer = measurer,
+                labelStyle = labelStyle,
+                x = ::x,
+            )
             drawAlarmLevels(alarmLevels, axis, alarmColor, gutter, plotWidth, ::y)
             drawTrace(readings, trace, ::x, ::y, plotWidth)
-            shown?.let { drawForecast(it, forecastColor, ::x, ::y) }
+            shown?.let { drawForecast(it, forecastColor, plotHeight, ::x, ::y) }
             selected?.takeIf { it.timestampMillis in firstTime..lastTime }?.let {
                 drawInspection(
                     reading = it,
@@ -201,6 +231,7 @@ fun GlucoseChart(
                     labelColor = labelColor,
                     surface = calloutSurface,
                     measurer = measurer,
+                    plotHeight = plotHeight,
                     x = ::x,
                     y = ::y,
                 )
@@ -231,6 +262,7 @@ fun GlucoseChart(
 private fun DrawScope.drawForecast(
     forecast: Forecast,
     color: Color,
+    plotHeight: Float,
     x: (Long) -> Float,
     y: (Double) -> Float,
 ) {
@@ -269,7 +301,7 @@ private fun DrawScope.drawForecast(
     drawLine(
         color = color.copy(alpha = FORECAST_DIVIDER_ALPHA),
         start = Offset(x(origin), 0f),
-        end = Offset(x(origin), size.height),
+        end = Offset(x(origin), plotHeight),
         strokeWidth = GRID_STROKE.toPx(),
     )
 }
@@ -293,6 +325,7 @@ private fun DrawScope.drawInspection(
     labelColor: Color,
     surface: Color,
     measurer: TextMeasurer,
+    plotHeight: Float,
     x: (Long) -> Float,
     y: (Double) -> Float,
 ) {
@@ -303,7 +336,7 @@ private fun DrawScope.drawInspection(
     drawLine(
         color = colour.copy(alpha = 0.55f),
         start = Offset(markerX, 0f),
-        end = Offset(markerX, size.height),
+        end = Offset(markerX, plotHeight),
         strokeWidth = GRID_STROKE.toPx(),
     )
     drawCircle(color = colour, radius = CURRENT_RADIUS.toPx() * 0.8f, center = Offset(markerX, markerY))
@@ -332,7 +365,8 @@ private fun DrawScope.drawInspection(
     } else {
         markerX - CALLOUT_GAP.toPx() - boxWidth
     }.coerceAtLeast(0f)
-    val top = (markerY - boxHeight - CALLOUT_GAP.toPx()).coerceIn(0f, size.height - boxHeight)
+    val top = (markerY - boxHeight - CALLOUT_GAP.toPx())
+        .coerceIn(0f, (plotHeight - boxHeight).coerceAtLeast(0f))
 
     drawRoundRect(
         color = surface,
@@ -411,6 +445,68 @@ private fun DrawScope.drawGrid(
             ),
             style = labelStyle.copy(color = labelColor),
         )
+    }
+}
+
+/**
+ * The clock along the bottom, and a faint line down from each label.
+ *
+ * Without it the chart says what your glucose did but not when, and the only way
+ * to find out was to tap a point — so a window browsed back three days looked
+ * exactly like this morning's. The labels are wall-clock times rather than offsets
+ * from now, and the tick that crosses local midnight carries its date instead of
+ * "00:00", because on this chart *which day* is the thing that must never be
+ * ambiguous.
+ *
+ * The lines are drawn as background rather than as ticks below the axis: they are
+ * what lets a dot be read across to a time without a finger on the screen, which
+ * is the whole request. Day boundaries get a stronger one — it is a bigger claim
+ * than "three hours later".
+ *
+ * Labels are dropped when they would collide rather than shrunk or rotated. A
+ * ladder of round spacings already keeps them sparse, and the one case that still
+ * overlaps is a date beside a clock time at the edge of the window, where losing
+ * the clock time costs nothing.
+ */
+private fun DrawScope.drawTimeAxis(
+    ticks: List<TimeTick>,
+    gridColor: Color,
+    labelColor: Color,
+    gutter: Float,
+    plotHeight: Float,
+    measurer: TextMeasurer,
+    labelStyle: TextStyle,
+    x: (Long) -> Float,
+) {
+    if (ticks.isEmpty()) return
+    val gap = LABEL_GAP.toPx()
+    var occupiedTo = gutter - gap
+
+    ticks.forEach { tick ->
+        val tickX = x(tick.atMillis)
+        drawLine(
+            color = gridColor.copy(
+                alpha = if (tick.startsDay) DAY_LINE_ALPHA else TIME_LINE_ALPHA
+            ),
+            start = Offset(tickX, 0f),
+            end = Offset(tickX, plotHeight),
+            strokeWidth = GRID_STROKE.toPx(),
+        )
+
+        val measured = measurer.measure(tick.label, labelStyle)
+        // Centred on the tick, then pulled back inside the chart so the first and
+        // last labels stay readable instead of running off the edge.
+        val left = (tickX - measured.size.width / 2f)
+            .coerceIn(gutter, (size.width - measured.size.width).coerceAtLeast(gutter))
+        if (left < occupiedTo + gap) return@forEach
+
+        drawText(
+            textMeasurer = measurer,
+            text = tick.label,
+            topLeft = Offset(left, plotHeight + TIME_LABEL_GAP.toPx()),
+            style = labelStyle.copy(color = labelColor),
+        )
+        occupiedTo = left + measured.size.width
     }
 }
 
@@ -516,6 +612,25 @@ private fun DrawScope.drawCurrentPoint(
 
 private val AXIS_GUTTER = 34.dp
 private val LABEL_GAP = 6.dp
+
+/**
+ * Air above and below the clock labels.
+ *
+ * The strip's height is the label's own measured height plus twice this, so it
+ * follows the font scale. Kept tight either way: this is height taken away from the
+ * trace, which is the reason the screen exists.
+ */
+private val TIME_LABEL_GAP = 2.5.dp
+
+/**
+ * Fainter than the value gridlines. The horizontal lines are read against —
+ * "is this above 180" — while these only locate a moment, and a grid of equal
+ * weight in both directions turns the chart into graph paper.
+ */
+private const val TIME_LINE_ALPHA = 0.22f
+
+/** Midnight is a stronger statement than "three hours later", so it is a stronger line. */
+private const val DAY_LINE_ALPHA = 0.5f
 /**
  * Thin on purpose. The line is context; the dots are the measurements, and every
  * bit taken off the stroke makes them stand out more without growing them further.

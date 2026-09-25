@@ -88,6 +88,12 @@ fun TrendsScreen(viewModel: CgmViewModel) {
             return@Column
         }
 
+        // A1C first. It is the single figure anyone opening this screen came for,
+        // and it was previously below two charts and a scroll — a number you have
+        // to go looking for reads as a footnote to the charts rather than as the
+        // summary they support. The coverage notice stays above it, because how much
+        // of the window this rests on governs how the figure should be read.
+        A1cCard(stats, period)
         TimeInRangeCard(stats)
         DailyPatternCard(
             profile = timeOfDay,
@@ -95,7 +101,6 @@ fun TrendsScreen(viewModel: CgmViewModel) {
             unit = state.unit,
         )
         ForecastReliabilityCard(viewModel)
-        A1cCard(stats, period)
         SummaryCard(stats)
     }
 }

@@ -109,3 +109,71 @@ class InsulinDayTotalsTest {
         assertEquals(0.0, totals.totalUnits)
     }
 }
+
+class CarbEntryTest {
+
+    private val now = 1_800_000_000_000L
+
+    private fun carbs(grams: Double, at: Long = now) =
+        CarbEntry(grams = grams, eatenAtMillis = at)
+
+    @Test
+    fun `an ordinary meal is plausible`() {
+        assertTrue(carbs(45.0).isPlausible)
+        assertTrue(carbs(1.0).isPlausible)
+    }
+
+    @Test
+    fun `nothing eaten is not an entry`() {
+        assertFalse(carbs(0.0).isPlausible)
+        assertFalse(carbs(-10.0).isPlausible)
+    }
+
+    /** The guard is for 400 typed where 40 was meant, not for a large lunch. */
+    @Test
+    fun `an implausible amount is rejected`() {
+        assertTrue(carbs(CarbEntry.MAX_PLAUSIBLE_GRAMS).isPlausible)
+        assertFalse(carbs(CarbEntry.MAX_PLAUSIBLE_GRAMS + 1).isPlausible)
+    }
+
+    @Test
+    fun `an entry with no time is not plausible`() {
+        assertFalse(carbs(30.0, at = 0).isPlausible)
+    }
+
+    /**
+     * Whole grams. The figure comes from a label or a guess, so a decimal place
+     * would claim precision the estimate never had.
+     */
+    @Test
+    fun `grams round to whole numbers`() {
+        assertEquals(45.0, CarbEntry.roundGrams(45.4))
+        assertEquals(46.0, CarbEntry.roundGrams(45.6))
+        assertEquals(0.0, CarbEntry.roundGrams(-3.0))
+    }
+
+    /** The same separator hazard as the dose field, and the same answer. */
+    @Test
+    fun `grams parse with either decimal separator`() {
+        assertEquals(12.5, CarbEntry.parseGrams("12,5"))
+        assertEquals(12.5, CarbEntry.parseGrams("12.5"))
+        assertEquals(45.0, CarbEntry.parseGrams(" 45 "))
+        assertNull(CarbEntry.parseGrams(""))
+        assertNull(CarbEntry.parseGrams("45 g"))
+    }
+
+    @Test
+    fun `a blank note is the same as no note`() {
+        assertNull(CarbEntry.cleanNote("   "))
+        assertEquals("pizza", CarbEntry.cleanNote(" pizza "))
+    }
+
+    @Test
+    fun `a day of meals totals its grams`() {
+        assertEquals(
+            105.0,
+            CarbEntry.totalGrams(listOf(carbs(45.0), carbs(30.0), carbs(30.0))),
+        )
+        assertEquals(0.0, CarbEntry.totalGrams(emptyList()))
+    }
+}

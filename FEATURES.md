@@ -33,6 +33,13 @@ That describes the choice, not anyone else's product.
 
 - Pinch to zoom from fifteen minutes to seven days; drag to browse history, with day arrows,
   a date picker and a return-to-now control.
+- **A clock along the bottom**, on round wall-clock times, with a faint line at each so a point
+  can be read across to a time without touching the screen. The tick that crosses midnight
+  carries its date instead of "00:00".
+
+  **Unusual:** the date rather than the hour at the day boundary. Browsing back three days
+  otherwise looks exactly like this morning, which is the one thing this chart must never be
+  ambiguous about.
 - **Alarm thresholds drawn as dashed lines** — the levels that will actually wake you, rather
   than the display's zone boundaries.
 - An explicit no-signal state after five minutes without data.
@@ -65,25 +72,66 @@ That describes the choice, not anyone else's product.
 
 ## 4. Trends and patterns
 
+- **GMI and estimated A1C** first on the screen, formulas in a tooltip, stated plainly as
+  estimates from sensor data rather than laboratory values.
 - **Time in range** across five zones, stacked and individually, over selectable periods.
-- **GMI and estimated A1C**, formulas in a tooltip, stated plainly as estimates from sensor
-  data rather than laboratory values.
-- **Daily pattern**: the day in eight three-hour slices, each a band — middle 50% as a box,
-  median inside, whiskers to the 10th and 90th percentile.
+- **The day drawn twice**, from the same percentiles over the same window:
 
-  **Unusual:** a slice averaging 140 with a spread of 60–260 and one averaging 140 with a
-  spread of 125–155 are different days that a chart of averages draws identically.
+  - a **ribbon** continuous across the 24 hours at hourly resolution — median line, middle-50%
+    band, paler 10th-to-90th band — which answers *when*: where a rise starts, how long a
+    plateau lasts, whether the night drifts;
+  - eight **three-hour boxes** — middle 50% as a box, median inside, whiskers to the 10th and
+    90th — which answer *how much*: exact figures for a named part of the day, readable without
+    interpolating anything.
 
-- The least predictable slice is named, since that is usually the one worth looking at.
+  **Unusual:** two charts rather than one, because they are not substitutes. A question whose
+  answer is a time needs a chart continuous in time; a question whose answer is a number is
+  easier to read off discrete boxes.
+
+  **Unusual:** bands rather than averages, in both. An hour averaging 140 with a spread of
+  60–260 and one averaging 140 with a spread of 125–155 are different days that a chart of
+  averages draws identically.
+
+- Both share one value scale, so neither can look calmer than the other through a scale of its
+  own, and the ribbon breaks across hours with nothing recorded.
+- **Tap either chart** for a slice's median, middle 50%, 10–90 spread — and the number of days
+  behind it.
+
+  **Unusual:** the day count in the callout. A band's width says how variable that part of the
+  day was and nothing about how much was behind it, and "07–08 is usually 90" means something
+  different over three days than over thirty.
+
+- The least predictable three-hour slice is named, since that is usually the one worth looking
+  at.
 - **Every statistic states its coverage**, and below a reliability threshold is shown muted
   with an explanation rather than presented confidently.
 
-## 5. Logbook and treatments
+## 5. Logbook and diary
 
-- Every raw reading, grouped by day, each day's header carrying its average and time in range.
-- Zone as a coloured dot rather than coloured text, which keeps a long list readable.
-- **Insulin logging** for basal and bolus doses, entered on a numeric keypad, with a time that
-  defaults to now but can be moved — doses get logged after the fact.
+- **The logbook** is every raw reading, grouped by day, each day's header carrying its average
+  and time in range. Zone as a coloured dot rather than coloured text, which keeps a long list
+  readable.
+- **The diary** is the other half: insulin and food, as *you* record them.
+
+  **Unusual:** two separate screens with deliberately different names. One is what the sensor
+  measured and cannot be edited; the other is what a person did and must be correctable. Calling
+  either of them "the log" would blur the only distinction that matters about them.
+
+- **Insulin logging** for basal and bolus doses, entered on a numeric keypad.
+- **Carbohydrate logging** in grams, with chips for the amounts people actually estimate in.
+
+  **Unusual:** grams only — no food database, no portion picker. Grams are the part of a meal
+  this app can line up against a rise on the chart, and a form that asks for more is a form that
+  stops being filled in.
+
+- A time that defaults to now but can be nudged or set exactly: meals and doses get logged after
+  the fact, and an entry filed under the moment you remembered would sit an hour after the rise
+  it explains.
+- Insulin and carbohydrates are shown **interleaved in one history**, since a bolus and the meal
+  it covered only make sense beside each other — and that is how you spot the meal you forgot to
+  dose for.
+- They are never added together. Units and grams are different quantities, and they are stored in
+  separate tables so that no query can total them.
 
 ## 6. Units, language and notes
 

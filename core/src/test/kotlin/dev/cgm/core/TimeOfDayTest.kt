@@ -185,6 +185,69 @@ class TimeOfDayProfilerTest {
         assertNotNull(range)
         assertTrue(range.start < 110 && range.endInclusive > 200, "range was $range")
     }
+
+    @Test
+    fun `also reports the day at one-hour resolution`() {
+        val profile = TimeOfDayProfiler.of(fullWeek { 120.0 })
+
+        assertEquals(24, profile.hours.size)
+        assertEquals((0 until 24).toList(), profile.hours.map { it.startHour })
+        assertEquals(listOf(1), profile.hours.map { it.endHour - it.startHour }.distinct())
+        assertEquals("07–08", profile.hours[7].label())
+    }
+
+    /**
+     * The point of the finer resolution: a rise that begins at 21:00 is invisible in
+     * a slice that averages 18:00 to 21:00 with 21:00 to midnight.
+     */
+    @Test
+    fun `an hourly slice can differ from the three-hour slice containing it`() {
+        val profile = TimeOfDayProfiler.of(
+            fullWeek { hour -> if (hour == 22) 240.0 else 100.0 }
+        )
+
+        assertEquals(240.0, profile.hours[22].median!!, 3.0)
+        assertEquals(100.0, profile.hours[21].median!!, 3.0)
+        // The three-hour slice 21–00 blends all three and lands in between.
+        val slice = profile.buckets.single { it.startHour == 21 }
+        assertTrue(slice.median!! < 200, "the coarse slice hid the spike: ${slice.median}")
+    }
+
+    @Test
+    fun `an hour with nothing recorded has no band rather than a band at zero`() {
+        val profile = TimeOfDayProfiler.of(
+            (1..7).flatMap { day ->
+                (0 until 24).filter { it != 4 }.map { h -> hour("2026-09-0$day", h, 120.0) }
+            }
+        )
+
+        val missing = profile.hours[4]
+        assertTrue(!missing.hasData)
+        assertNull(missing.median)
+        assertNull(missing.p10)
+        assertEquals(0.0, missing.coverage)
+    }
+
+    @Test
+    fun `an hourly slice is fully covered by one complete hour a day`() {
+        val profile = TimeOfDayProfiler.of(
+            (1..7).map { hour("2026-09-0$it", 9, 120.0, count = 12, coverageBuckets = 12) }
+        )
+
+        assertEquals(1.0, profile.hours[9].coverage)
+        assertEquals(7, profile.hours[9].dayCount)
+    }
+
+    /** Both resolutions read the same rollups, so their middles have to agree. */
+    @Test
+    fun `the hourly slices sum to the same readings as the three-hour ones`() {
+        val profile = TimeOfDayProfiler.of(fullWeek { 120.0 })
+
+        assertEquals(
+            profile.buckets.sumOf { it.readingCount },
+            profile.hours.sumOf { it.readingCount },
+        )
+    }
 }
 
 class ZoneAwarenessTest {

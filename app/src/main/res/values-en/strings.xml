@@ -163,7 +163,7 @@
     <string name="disc_p3">Values can be wrong, late, or missing. They pass through Abbott\'s servers, your network and Android\'s background limits before reaching this screen, and any of those can delay or drop them. A number on screen with no warning beside it still only means "this is the most recent value we managed to fetch".</string>
     <string name="disc_p4">Alarms can fail to arrive. Android may delay or suppress notifications while the phone is asleep, in Do Not Disturb, or saving battery, and this app cannot override all of that. Never rely on it to wake you. Treat a silent night as no evidence that nothing happened.</string>
     <string name="disc_p5">If you feel unwell, believe what your body is telling you over what this app shows, and seek medical advice. Nothing here replaces your clinician.</string>
-    <string name="nav_doses">Doses</string>
+    <string name="nav_diary">Diary</string>
     <string name="dose_log_title">Log a dose</string>
     <string name="dose_bolus">Bolus</string>
     <string name="dose_basal">Basal</string>
@@ -176,9 +176,6 @@
     <string name="dose_minus_60">−1 h</string>
     <string name="dose_note">Note (optional)</string>
     <string name="dose_save">Save</string>
-    <string name="dose_today">Today: %1$s U basal · %2$s U bolus</string>
-    <string name="dose_recent">Recent doses</string>
-    <string name="dose_empty">No doses logged yet.</string>
     <string name="dose_delete">Delete</string>
     <string name="dose_decrease">Less</string>
     <string name="dose_increase">More</string>
@@ -236,10 +233,17 @@
     <string name="reminder_ok">Understood</string>
     <string name="reminder_read_full">The full notice is in Settings.</string>
     <string name="trends_daily_pattern">Daily pattern</string>
-    <string name="trends_daily_pattern_note">Each 3-hour slice, gathered across the period. The box is the middle 50% of readings with the median inside it; the whiskers reach from the 10th to the 90th percentile. What this shows is not only where that part of the day sits, but how much it varies.</string>
+    <string name="trends_daily_pattern_note">Each hour of the day, gathered across the period. The line is the median; the strong band is the middle 50% of readings and the pale one reaches from the 10th to the 90th percentile. What this shows is not only where each part of the day sits, but how much it varies.</string>
     <string name="trends_daily_pattern_days">%1$d days with data</string>
     <string name="trends_daily_pattern_thin">Under %1$d days this describes a few days rather than a pattern: one unusual night dominates a whole slice.</string>
     <string name="trends_daily_pattern_empty">Not enough hours recorded yet to draw the daily pattern.</string>
+    <string name="trends_slices">The day in slices</string>
+    <string name="trends_slices_note">Each 3-hour slice, gathered across the period. The box is the middle 50% of readings with the median inside it; the whiskers reach from the 10th to the 90th percentile. What this shows is not only where that part of the day sits, but how much it varies.</string>
+    <string name="trends_inspect_hint">Tap either chart for a slice\'s numbers. Tap again to close them.</string>
+    <string name="trends_inspect_median">Median %1$s</string>
+    <string name="trends_inspect_middle">Middle 50%% %1$s–%2$s</string>
+    <string name="trends_inspect_spread">10th–90th %1$s–%2$s</string>
+    <string name="trends_inspect_days">%1$d days · %2$d readings</string>
     <string name="trends_most_variable">The least predictable slice is %1$s.</string>
     <string name="trends_daily_pattern_zones">This period spans %1$d time zones. Slices use the local hour of each reading, so days in different zones are not describing the same moment of the day.</string>
     <string name="car_no_reading">No reading</string>
@@ -274,4 +278,16 @@
     <string name="relay_stop">Stop sending</string>
     <string name="relay_insecure">Without https the key and your readings cross the network in clear.</string>
     <string name="relay_privacy">This is the only feature that sends data off the phone. While it is on, your latest value also exists on that server. Anyone holding the key can read it.</string>
+    <string name="diary_insulin">Insulin</string>
+    <string name="diary_food">Food</string>
+    <string name="diary_food_title">Log food</string>
+    <string name="carb_grams">Carbohydrates</string>
+    <string name="carb_grams_suffix">g</string>
+    <string name="carb_invalid">Enter an amount between 1 and %1$s g</string>
+    <string name="carb_row">%1$s g of carbs</string>
+    <string name="carb_quick">Common amounts</string>
+    <string name="diary_today">Today: %1$s U basal · %2$s U bolus · %3$s g</string>
+    <string name="diary_recent">Recent entries</string>
+    <string name="diary_empty">Nothing logged yet.</string>
+    <string name="diary_note">Insulin and food, as you record them. The Logbook is what the sensor measured.</string>
 </resources>
