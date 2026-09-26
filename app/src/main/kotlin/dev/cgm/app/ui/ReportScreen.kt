@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
@@ -52,6 +53,7 @@ import dev.cgm.app.R
 import dev.cgm.app.data.ReportFiles
 import dev.cgm.core.RangeReport
 import dev.cgm.core.Report
+import dev.cgm.core.ReportBands
 import dev.cgm.core.ReportExport
 import dev.cgm.core.ReportFormat
 import dev.cgm.core.ReportPreferences
@@ -59,102 +61,13 @@ import dev.cgm.core.ReportSplit
 import kotlin.math.roundToInt
 
 /**
- * How the report is cut. Lives in Settings; the report itself lives in Trends.
+ * The report, at the foot of the Trends tab: how it is cut, what it says, and the
+ * ways out of the app.
  *
- * Split apart because the two are used at different moments. Choosing a period
- * and a split is something done once and rarely revisited, while the report is
- * read whenever there is a reason to look — and putting the knobs above it every
- * time would make a configuration screen out of a reading one.
- */
-@Composable
-fun ReportSettingsScreen(viewModel: CgmViewModel) {
-    val preferences by viewModel.reportPreferences.collectAsState()
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-    ) {
-        Text(stringResource(R.string.set_report), style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            stringResource(R.string.report_settings_explain),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(20.dp))
-        Text(stringResource(R.string.report_period), style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(6.dp))
-        val period = ReportPeriod.ofDays(preferences.periodDays)
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ReportPeriod.entries.forEach { option ->
-                FilterChip(
-                    selected = option == period,
-                    onClick = {
-                        viewModel.saveReportPreferences(
-                            preferences.copy(periodDays = option.days)
-                        )
-                    },
-                    label = { Text(option.label) },
-                )
-            }
-        }
-
-        Spacer(Modifier.height(20.dp))
-        Text(stringResource(R.string.report_split), style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(6.dp))
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ReportSplit.entries.forEach { option ->
-                FilterChip(
-                    selected = option == preferences.split,
-                    onClick = {
-                        viewModel.saveReportPreferences(preferences.copy(split = option))
-                    },
-                    label = { Text(stringResource(option.labelRes)) },
-                )
-            }
-        }
-
-        // The count only means anything for an equal split: the calendar splits
-        // get however many days, weeks or months the period actually contains.
-        if (preferences.split == ReportSplit.EQUAL) {
-            Spacer(Modifier.height(16.dp))
-            Text(
-                stringResource(R.string.report_ranges, preferences.rangeCount),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Slider(
-                value = preferences.rangeCount.toFloat(),
-                onValueChange = {
-                    viewModel.saveReportPreferences(
-                        preferences.copy(rangeCount = it.roundToInt())
-                    )
-                },
-                valueRange = ReportPreferences.MIN_RANGES.toFloat()..
-                    ReportPreferences.MAX_EQUAL_RANGES.toFloat(),
-                steps = ReportPreferences.MAX_EQUAL_RANGES - ReportPreferences.MIN_RANGES - 1,
-            )
-        }
-
-        Spacer(Modifier.height(20.dp))
-        Text(
-            stringResource(R.string.report_no_backfill),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-/**
- * The report itself, at the foot of the Trends tab.
+ * The controls sit with the exports rather than in Settings. Choosing a period
+ * and choosing a file format are one task — you are deciding what to send
+ * someone — and splitting them across two tabs meant changing a period, walking
+ * back here, and checking whether the thing you exported was the thing you meant.
  *
  * Mean and median sit side by side rather than one being chosen for you. Glucose
  * is right-skewed — there is far more room above target than below it — so the
@@ -178,20 +91,70 @@ fun ReportSection(viewModel: CgmViewModel) {
      */
     var printJob by remember { mutableStateOf<WebView?>(null) }
 
-    // Rebuilds on arrival and whenever the stored choices change, which is the
-    // only thing that can alter the shape of it.
+    // Rebuilds on arrival and whenever the choices change, which is the only
+    // thing that can alter the shape of it.
     LaunchedEffect(preferences) { viewModel.refreshReport(preferences) }
 
     Column(Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.set_report), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            stringResource(R.string.report_shape, periodLabel(preferences), splitLabel(preferences)),
+            stringResource(R.string.report_explain),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        Spacer(Modifier.height(14.dp))
+        ChipRow(
+            label = stringResource(R.string.report_period),
+            options = ReportPeriod.entries,
+            selected = ReportPeriod.ofDays(preferences.periodDays),
+            text = { it.label },
+        ) { viewModel.saveReportPreferences(preferences.copy(periodDays = it.days)) }
+
         Spacer(Modifier.height(12.dp))
+        ChipRow(
+            label = stringResource(R.string.report_split),
+            options = ReportSplit.entries,
+            selected = preferences.split,
+            text = { stringResource(it.labelRes) },
+        ) { viewModel.saveReportPreferences(preferences.copy(split = it)) }
+
+        // The count only means anything for an equal split: the calendar splits
+        // get however many days, weeks or months the period actually contains.
+        if (preferences.split == ReportSplit.EQUAL) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                stringResource(R.string.report_ranges, preferences.rangeCount),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Slider(
+                value = preferences.rangeCount.toFloat(),
+                onValueChange = {
+                    viewModel.saveReportPreferences(
+                        preferences.copy(rangeCount = it.roundToInt())
+                    )
+                },
+                valueRange = ReportPreferences.MIN_RANGES.toFloat()..
+                    ReportPreferences.MAX_EQUAL_RANGES.toFloat(),
+                steps = ReportPreferences.MAX_EQUAL_RANGES - ReportPreferences.MIN_RANGES - 1,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        ChipRow(
+            label = stringResource(R.string.report_bands),
+            options = ReportBands.OPTIONS,
+            selected = preferences.bandsPerDay,
+            text = { if (it == 0) stringResource(R.string.report_bands_none) else "$it" },
+        ) { viewModel.saveReportPreferences(preferences.copy(bandsPerDay = it)) }
+        Text(
+            stringResource(R.string.report_bands_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(18.dp))
         val ready = report?.takeIf { it.hasData }
         when {
             building && report == null -> CircularProgressIndicator()
@@ -208,6 +171,7 @@ fun ReportSection(viewModel: CgmViewModel) {
             Text(stringResource(R.string.report_export), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
             val noReceiver = stringResource(R.string.report_share_failed)
+            val printFailed = stringResource(R.string.report_print_failed)
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -222,7 +186,6 @@ fun ReportSection(viewModel: CgmViewModel) {
                 // It paginates and embeds fonts better than a hand-drawn page
                 // renderer would, and it leaves one document to keep correct
                 // instead of two that have to agree.
-                val printFailed = stringResource(R.string.report_print_failed)
                 OutlinedButton(onClick = {
                     printJob = printReport(
                         context = context,
@@ -237,6 +200,36 @@ fun ReportSection(viewModel: CgmViewModel) {
                     Text(stringResource(R.string.report_pdf))
                 }
             }
+        }
+    }
+}
+
+/**
+ * A labelled row of chips, scrollable sideways.
+ *
+ * Four of these on one screen, so they are one composable rather than four
+ * near-identical blocks that drift apart the first time one is adjusted.
+ */
+@Composable
+private fun <T> ChipRow(
+    label: String,
+    options: Iterable<T>,
+    selected: T?,
+    text: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    Text(label, style = MaterialTheme.typography.labelLarge)
+    Spacer(Modifier.height(6.dp))
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { option ->
+            FilterChip(
+                selected = option == selected,
+                onClick = { onSelect(option) },
+                label = { Text(text(option)) },
+            )
         }
     }
 }
@@ -305,21 +298,22 @@ private fun RangeRow(range: RangeReport, unitSuffix: String, header: Boolean) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // The day across, in whatever bands were asked for. Medians only: this is
+        // the line someone scans for where the day goes wrong, and four figures
+        // per band would turn the scan into a reading exercise.
+        if (range.bands.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                range.bands.joinToString("   ") { band ->
+                    "${band.startHour}h ${band.median?.let { "%.0f".format(it) } ?: "—"}"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
-
-@Composable
-private fun periodLabel(preferences: ReportPreferences): String =
-    ReportPeriod.ofDays(preferences.periodDays)?.label
-        ?: stringResource(R.string.report_days, preferences.periodDays)
-
-@Composable
-private fun splitLabel(preferences: ReportPreferences): String =
-    if (preferences.split == ReportSplit.EQUAL) {
-        stringResource(R.string.report_split_equal_n, preferences.rangeCount)
-    } else {
-        stringResource(preferences.split.labelRes)
-    }
 
 private val ReportSplit.labelRes: Int
     get() = when (this) {
@@ -361,11 +355,18 @@ private fun printReport(
     val printManager = activity.getSystemService(PrintManager::class.java)
         ?: run { onFailure(); return null }
 
-    val html = runCatching { ReportExport.export(report, ReportFormat.HTML) }
+    // The HTML is written out on the way past, and printed from the file rather
+    // than from a string. Asking for a PDF leaves the HTML beside it — the same
+    // bytes, so what came off the printer can be checked against a file that
+    // exists — and there is one document rather than two that have to agree.
+    val file = runCatching { ReportFiles.write(activity, report, ReportFormat.HTML) }
         .getOrElse { onFailure(); return null }
-    val name = ReportExport.fileName(report, ReportFormat.HTML).removeSuffix(".html")
+    val name = file.name.removeSuffix(".html")
 
     val webView = WebView(activity)
+    // The page has no scripts and fetches nothing; this is only so it can read
+    // the file just written into the app's own cache.
+    webView.settings.allowFileAccess = true
     webView.webViewClient = object : WebViewClient() {
         override fun onPageFinished(view: WebView, url: String?) {
             val adapter = ReleasingAdapter(view.createPrintDocumentAdapter(name), onFinished)
@@ -380,7 +381,7 @@ private fun printReport(
             }.onFailure { onFailure() }
         }
     }
-    webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+    webView.loadUrl(Uri.fromFile(file).toString())
     return webView
 }
 

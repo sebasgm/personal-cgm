@@ -372,6 +372,7 @@ class CgmViewModel(
                     endMillis = now,
                     split = preferences.split,
                     rangeCount = preferences.rangeCount,
+                    bandsPerDay = preferences.bandsPerDay,
                     thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
                     unit = snapshot?.unit ?: GlucoseUnit.MGDL,
                 )

@@ -214,7 +214,6 @@ private fun MainScaffold(
                 Destination.Accessibility -> AccessibilityScreen(viewModel)
                 Destination.Reminders -> RemindersScreen(viewModel)
                 Destination.Relay -> RelayScreen(viewModel)
-                Destination.ReportSettings -> ReportSettingsScreen(viewModel)
                 Destination.ReleaseNotes -> ReleaseNotesScreen()
                 Destination.Disclaimer -> DisclaimerReadOnlyScreen()
                 is Destination.AlarmDetail -> AlarmDetailScreen(viewModel, current.kind)

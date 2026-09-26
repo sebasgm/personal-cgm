@@ -25,10 +25,13 @@ data class ReportPreferences(
     val periodDays: Int = 30,
     val split: ReportSplit = ReportSplit.WEEK,
     val rangeCount: Int = 4,
+    /** Figures per day within each range; 0 leaves them out. See [ReportBands]. */
+    val bandsPerDay: Int = 0,
 ) {
     fun sanitised(): ReportPreferences = copy(
         periodDays = periodDays.coerceIn(1, MAX_PERIOD_DAYS),
         rangeCount = rangeCount.coerceIn(MIN_RANGES, MAX_EQUAL_RANGES),
+        bandsPerDay = ReportBands.nearest(bandsPerDay),
     )
 
     val periodMillis: Long get() = periodDays * DAY_MILLIS
@@ -56,10 +59,64 @@ data class ReportSpec(
     val split: ReportSplit = ReportSplit.WEEK,
     /** Used only by [ReportSplit.EQUAL]. */
     val rangeCount: Int = 4,
+    /**
+     * How many times a day each range reports a figure, or 0 for none.
+     *
+     * Six gives a value every four hours: the shape of a day at the resolution
+     * someone actually acts on, rather than one number standing in for a whole
+     * week. The bands are equal divisions of the local day, so this has to divide
+     * 24 — see [ReportBands.OPTIONS].
+     */
+    val bandsPerDay: Int = 0,
     val thresholds: GlucoseThresholds = GlucoseThresholds.Default,
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
 ) {
     val spanMillis: Long get() = (endMillis - startMillis).coerceAtLeast(0)
+}
+
+/** The divisions of the day a report may ask for. */
+object ReportBands {
+    /**
+     * Only divisors of 24, so every band is the same width.
+     *
+     * Five bands a day would be 4.8 hours each, which puts a boundary at 04:48
+     * and makes two adjacent figures incomparable. A band you cannot name is a
+     * band nobody will read off a printed page.
+     */
+    val OPTIONS = listOf(0, 1, 2, 3, 4, 6, 8, 12, 24)
+
+    fun nearest(bandsPerDay: Int): Int =
+        if (bandsPerDay in OPTIONS) bandsPerDay else OPTIONS.minBy { kotlin.math.abs(it - bandsPerDay) }
+}
+
+/**
+ * One part of the local day, within one range.
+ *
+ * Built from the hourly rollups' local hour, so the bands stay put across a time
+ * zone change: 08:00 means the reader's eight in the morning, which is the only
+ * reading of it that makes a figure comparable with the one above it.
+ */
+data class BandReport(
+    val startHour: Int,
+    val endHour: Int,
+    val bins: IntArray,
+    val moments: Moments,
+    val coverage: Double,
+) {
+    val readingCount: Int get() = moments.count
+    val hasData: Boolean get() = readingCount > 0
+    val mean: Double? get() = moments.mean
+    val median: Double? get() = GlucoseHistogram.percentile(bins, 0.50)
+    val p10: Double? get() = GlucoseHistogram.percentile(bins, 0.10)
+    val p90: Double? get() = GlucoseHistogram.percentile(bins, 0.90)
+
+    /** "08–12", in whole local hours. */
+    val label: String get() = "%02d–%02d".format(startHour, endHour % 24)
+
+    override fun equals(other: Any?): Boolean =
+        other is BandReport && other.startHour == startHour && other.moments == moments
+
+    override fun hashCode(): Int = 31 * startHour + moments.hashCode()
 }
 
 /**
@@ -78,6 +135,8 @@ data class RangeReport(
     val moments: Moments,
     val coverage: Double,
     val zoneFractions: Map<Zone, Double>,
+    /** Empty unless [ReportSpec.bandsPerDay] asked for them. */
+    val bands: List<BandReport> = emptyList(),
 ) {
     val readingCount: Int get() = moments.count
     val hasData: Boolean get() = readingCount > 0
@@ -216,7 +275,55 @@ object ReportBuilder {
             moments = moments,
             coverage = if (expected <= 0) 0.0 else (buckets.toDouble() / expected).coerceIn(0.0, 1.0),
             zoneFractions = GlucoseHistogram.zoneFractions(merged, spec.thresholds),
+            bands = bands(hours, from, to, spec.bandsPerDay),
         )
+    }
+
+    /**
+     * The same hours, regrouped by where they fall in the local day.
+     *
+     * Grouped on the rollup's own local hour rather than on the instant, so a
+     * band keeps its wall-clock meaning across a time zone change or a DST shift.
+     * A "08–12" figure that silently became 07–11 halfway down the page would be
+     * worse than no figure.
+     *
+     * Bands with nothing in them are kept. A gap in a printed grid is a fact —
+     * dropping the row would leave the ones after it lined up under the wrong
+     * heading.
+     */
+    private fun bands(
+        hours: List<HourlyBin>,
+        from: Long,
+        to: Long,
+        bandsPerDay: Int,
+    ): List<BandReport> {
+        if (bandsPerDay <= 0) return emptyList()
+
+        val width = (HOURS_PER_DAY / bandsPerDay).coerceAtLeast(1)
+        val byBand = hours.groupBy { (it.localHour / width).coerceIn(0, bandsPerDay - 1) }
+
+        // What one band could hold if every day in the range were fully recorded.
+        val days = (to - from).toDouble() / DAY_MILLIS
+        val expected = days * width * BUCKETS_PER_HOUR
+
+        return (0 until bandsPerDay).map { index ->
+            val inBand = byBand[index].orEmpty()
+            val merged = GlucoseHistogram.empty()
+            var moments = Moments.Empty
+            var buckets = 0
+            inBand.forEach { hour ->
+                GlucoseHistogram.merge(merged, hour.bins)
+                buckets += hour.coverageBuckets
+                moments += momentsOf(hour.bins)
+            }
+            BandReport(
+                startHour = index * width,
+                endHour = (index + 1) * width,
+                bins = merged,
+                moments = moments,
+                coverage = if (expected <= 0) 0.0 else (buckets / expected).coerceIn(0.0, 1.0),
+            )
+        }
     }
 
     private fun momentsOf(bins: IntArray): Moments {
@@ -249,6 +356,8 @@ object ReportBuilder {
     const val MAX_RANGES = 400
 
     private const val HOUR_MILLIS = 60L * 60 * 1000
+    private const val DAY_MILLIS = 24L * HOUR_MILLIS
+    private const val HOURS_PER_DAY = 24
     private const val BUCKETS_PER_HOUR = 12
 
     private val DAY = DateTimeFormatter.ofPattern("d MMM yyyy")

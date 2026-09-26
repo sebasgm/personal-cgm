@@ -289,7 +289,6 @@
     <string name="diary_empty">Todavía no anotaste nada.</string>
     <string name="diary_note">Registra insulina y comida. Es lo que anotás vos; el Registro es lo que midió el sensor.</string>
     <string name="set_report">Informe</string>
-    <string name="set_report_subtitle">Resumen por períodos, para exportar o imprimir</string>
     <string name="report_period">Período</string>
     <string name="report_split">Dividir en</string>
     <string name="report_split_day">Días</string>
@@ -306,16 +305,15 @@
     <string name="report_in_range">En rango</string>
     <string name="report_coverage">Cobertura</string>
     <string name="report_share_failed">No hay ninguna app que pueda recibir este archivo.</string>
-    <string name="report_settings_explain">Elegí el período y en cuántos tramos se divide. El informe se arma en la pestaña de Tendencias, al final.</string>
     <string name="report_no_backfill">El historial se acumula desde que instalaste la app. Un período más largo que eso figura con poca cobertura, y así se exporta.</string>
-    <string name="report_shape">%1$s, por %2$s · se configura en Ajustes</string>
-    <string name="report_days">%1$d días</string>
-    <string name="report_split_equal_n">%1$d partes iguales</string>
     <string name="report_print_failed">No se pudo abrir la impresión. Probá exportar el HTML y abrirlo desde ahí.</string>
     <string name="trends_expand">Abrir en pantalla completa</string>
     <string name="trends_close">Cerrar</string>
     <string name="trends_fullscreen_hint">Deslizá para leer una franja. Girá el teléfono para tener más ancho.</string>
-    <string name="set_section_report">Informe</string>
     <string name="set_section_sharing">Compartir</string>
     <string name="set_section_system">Servicio y seguridad</string>
+    <string name="report_explain">Un resumen del período elegido, dividido en tramos, para exportar o imprimir.</string>
+    <string name="report_bands">Valores por día</string>
+    <string name="report_bands_none">Ninguno</string>
+    <string name="report_bands_hint">Divide cada tramo en partes iguales del día. Con 6, una cifra cada cuatro horas: sirve para ver en qué momento del día se desarma, algo que un solo promedio no dice.</string>
 </resources>

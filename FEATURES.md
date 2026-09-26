@@ -175,8 +175,16 @@ That describes the choice, not anyone else's product.
 
 - **A report over any window, cut into ranges you choose** — by day, week, month, or into a
   set number of equal parts — with the distribution, mean, median, time in range and coverage
-  for each, exportable as CSV, JSON or HTML and printable to PDF. The shape is chosen once and
-  kept; the report is read wherever the other trends are.
+  for each, exportable as CSV, JSON or HTML and printable to PDF. It is configured where it is
+  read and exported, rather than in a settings screen somewhere else.
+
+- **A figure every few hours inside each range**, at a resolution you pick — six a day gives one
+  every four hours.
+
+  **Unusual:** a range's mean says how a week went; six figures a day say *when* in the day it
+  went that way, which is the part anyone can act on. The bands follow wall-clock hours rather
+  than elapsed time, so the same band stays comparable across a time zone change, and a band with
+  nothing recorded keeps its place instead of quietly shifting the others.
 
   **Unusual:** mean and median are shown together rather than one standing in for the summary.
   Glucose has far more room above target than below it, so the two separate whenever a stretch

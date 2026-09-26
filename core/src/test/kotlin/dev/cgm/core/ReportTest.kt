@@ -156,6 +156,58 @@ class ReportBuilderTest {
         assertNull(empty.median)
     }
 
+    // -- bands ----------------------------------------------------------------
+
+    @Test
+    fun `bands divide the local day and keep their wall-clock meaning`() {
+        val spec = span("2026-09-01T00:00", "2026-09-02T00:00", ReportSplit.DAY)
+            .copy(bandsPerDay = 6)
+        // Two hours, one at 02:00 and one at 14:00 local, with different values.
+        val early = HourlyBin(
+            localDate = "2026-09-01", localHour = 2,
+            bins = GlucoseHistogram.of(List(12) { 90.0 }),
+            readingCount = 12, coverageBuckets = 12,
+        ) to at("2026-09-01T02:00")
+        val afternoon = HourlyBin(
+            localDate = "2026-09-01", localHour = 14,
+            bins = GlucoseHistogram.of(List(12) { 210.0 }),
+            readingCount = 12, coverageBuckets = 12,
+        ) to at("2026-09-01T14:00")
+
+        val bands = build(spec, listOf(early, afternoon)).ranges.single().bands
+        assertEquals(6, bands.size, "six bands a day")
+        assertEquals(4, bands[0].endHour - bands[0].startHour, "four hours each")
+        assertEquals("00–04", bands[0].label)
+        assertEquals("20–00", bands[5].label, "the last band wraps its end to midnight")
+
+        // 02:00 lands in 00–04 and 14:00 in 12–16, whatever the instants were.
+        assertEquals(90.0, bands[0].median!!, 3.0)
+        assertEquals(210.0, bands[3].median!!, 3.0)
+        assertTrue(!bands[1].hasData, "an unrecorded band stays in the list, empty")
+    }
+
+    @Test
+    fun `asking for no bands produces none`() {
+        val spec = span("2026-09-01T00:00", "2026-09-02T00:00", ReportSplit.DAY)
+        val report = build(spec, listOf(hour(at("2026-09-01T02:00"), 100.0)))
+        assertTrue(report.ranges.single().bands.isEmpty())
+        assertTrue(report.overall.bands.isEmpty())
+    }
+
+    @Test
+    fun `only divisors of 24 are accepted, so every band is the same width`() {
+        // Five bands would be 4.8 hours each, putting a boundary at 04:48 and
+        // making two adjacent figures incomparable.
+        assertEquals(4, ReportBands.nearest(5))
+        assertEquals(6, ReportBands.nearest(7))
+        assertEquals(24, ReportBands.nearest(99))
+        ReportBands.OPTIONS.filter { it > 0 }.forEach {
+            assertEquals(0, 24 % it, "$it bands would not divide the day evenly")
+        }
+        // A stored value from a hand edit is pulled onto the nearest legal one
+        // rather than dividing the day into ragged pieces.
+        assertEquals(4, ReportPreferences(bandsPerDay = 5).sanitised().bandsPerDay)
+    }
 }
 
 class ReportExportTest {

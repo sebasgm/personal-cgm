@@ -116,13 +116,6 @@ fun SettingsScreen(
             }
         }
 
-        SettingsSection(stringResource(R.string.set_section_report)) {
-            SettingsRow(
-                title = stringResource(R.string.set_report),
-                subtitle = stringResource(R.string.set_report_subtitle),
-            ) { onOpen(Destination.ReportSettings) }
-        }
-
         SettingsSection(stringResource(R.string.set_display)) {
             UnitPicker(
                 selected = state.unitOverride,

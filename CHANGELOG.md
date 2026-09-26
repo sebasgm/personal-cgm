@@ -14,6 +14,15 @@ decision and a pass over the security plan.
 
 ### Added
 
+- **A configurable number of figures per day inside each range.** Six gives a value every four
+  hours, so a week's row reads as six numbers rather than one mean — which is what says *when* in
+  the day it comes apart. Only divisors of 24 are offered: five bands would be 4.8 hours each,
+  putting a boundary at 04:48 and making two adjacent figures incomparable. Bands are grouped on
+  the rollups' own local hour, so 08–12 stays the reader's morning across a time zone change or a
+  DST shift. Empty bands are kept rather than dropped, because a gap in a printed grid is a fact
+  and removing the row would line the rest up under the wrong heading. The HTML export gets a
+  ranges-by-bands table of medians, CSV a row per range per band, and JSON a `bands` array.
+
 - **Sliding across either daily-pattern chart reads its slices**, with the figures following the
   finger instead of arriving one tap at a time, and **tapping opens that chart full screen**,
   where turning the phone sideways gives a 24-hour axis the width it wants. The card stacks both
@@ -61,6 +70,13 @@ decision and a pass over the security plan.
 
 ### Changed
 
+- **The report's controls moved to sit with its exports**, at the foot of the Trends tab, and are
+  no longer in Settings. Choosing a period and choosing a file format are one task — deciding what
+  to send someone — and splitting them across two tabs meant changing a period, walking back, and
+  checking whether what you exported was what you meant.
+- **Asking for a PDF now writes the HTML file too**, and prints that file rather than a string held
+  in memory. The printed page and the exported file are the same bytes, so what came off the
+  printer can be checked against something that exists.
 - **Reopening the app always returns the chart to the present.** The window state outlives the
   screen, so a chart left on last Tuesday used to still be there on reopening — and a stale
   window is the one thing this app must never present as the current value. The "Now" button

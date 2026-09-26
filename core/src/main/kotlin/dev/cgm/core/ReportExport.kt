@@ -84,6 +84,28 @@ object ReportExport {
             )
         }
 
+        // The band grid, when one was asked for: one row per range per part of the
+        // day, which pivots straight into the range-by-band table someone reading
+        // this in a spreadsheet actually wants.
+        if (report.spec.bandsPerDay > 0) {
+            appendLine()
+            appendLine(
+                "band_range,band,start_hour,end_hour,readings,coverage," +
+                    "mean_mgdl,median_mgdl,p10_mgdl,p90_mgdl"
+            )
+            (report.ranges + report.overall).forEach { r ->
+                r.bands.forEach { b ->
+                    appendLine(
+                        listOf(
+                            quote(r.label), quote(b.label), b.startHour, b.endHour,
+                            b.readingCount, fmt(b.coverage),
+                            fmt(b.mean), fmt(b.median), fmt(b.p10), fmt(b.p90),
+                        ).joinToString(",")
+                    )
+                }
+            }
+        }
+
         appendLine()
         appendLine("histogram_range,bin_low_mgdl,bin_high_mgdl,count")
         report.ranges.forEach { r ->
@@ -108,6 +130,7 @@ object ReportExport {
         appendLine("""    "high": ${report.spec.thresholds.highMgdl},""")
         appendLine("""    "veryHigh": ${report.spec.thresholds.veryHighMgdl}""")
         appendLine("""  },""")
+        appendLine("""  "bandsPerDay": ${report.spec.bandsPerDay},""")
         appendLine("""  "overall": ${rangeJson(report.overall, zone, indent = 2)},""")
         appendLine("""  "ranges": [""")
         report.ranges.forEachIndexed { index, r ->
@@ -120,6 +143,13 @@ object ReportExport {
 
     private fun rangeJson(r: RangeReport, zone: ZoneId, indent: Int): String {
         val pad = " ".repeat(indent)
+        val bands = r.bands.joinToString(", ") { b ->
+            """{"band": ${jsonString(b.label)}, "startHour": ${b.startHour}, """ +
+                """"endHour": ${b.endHour}, "readings": ${b.readingCount}, """ +
+                """"coverage": ${jsonNumber(b.coverage)}, "meanMgdl": ${jsonNumber(b.mean)}, """ +
+                """"medianMgdl": ${jsonNumber(b.median)}, "p10Mgdl": ${jsonNumber(b.p10)}, """ +
+                """"p90Mgdl": ${jsonNumber(b.p90)}}"""
+        }
         val bins = r.bins.mapIndexed { index, count -> index to count }
             .filter { it.second > 0 }
             .joinToString(", ") { (index, count) ->
@@ -137,6 +167,7 @@ $pad  "medianMgdl": ${jsonNumber(r.median)},
 $pad  "sdMgdl": ${jsonNumber(r.standardDeviation)},
 $pad  "cvPercent": ${jsonNumber(r.coefficientOfVariation)},
 $pad  "timeInRange": ${jsonNumber(r.timeInRange)},
+$pad  "bands": [$bands],
 $pad  "histogram": [$bins]
 $pad}"""
     }
@@ -198,6 +229,30 @@ $pad}"""
                 "<p class=\"muted\">Ranges shown in amber have under " +
                     "${(GlucoseStatistics.RELIABLE_COVERAGE * 100).toInt()}% coverage. " +
                     "Their figures describe the hours recorded, not the whole range.</p>"
+            )
+        }
+
+        // The band grid: ranges down, parts of the day across. This is the table
+        // the whole feature exists for — one row per week with six figures on it
+        // says where a day goes wrong, which no single mean can.
+        if (report.spec.bandsPerDay > 0 && report.overall.bands.isNotEmpty()) {
+            appendLine("<h2>Median by time of day</h2>")
+            appendLine("<table><tr><th>Range</th>")
+            report.overall.bands.forEach { appendLine("<th>${escapeHtml(it.label)}</th>") }
+            appendLine("</tr>")
+            (report.ranges.filter { it.hasData } + report.overall).forEach { r ->
+                val thin = if (r.hasData && !r.isReliable) " class=\"thin\"" else ""
+                appendLine("<tr$thin><td>${escapeHtml(r.label)}</td>")
+                r.bands.forEach { b ->
+                    appendLine("<td>${display(b.median, report.spec.unit)}</td>")
+                }
+                appendLine("</tr>")
+            }
+            appendLine("</table>")
+            appendLine(
+                "<p class=\"muted\">Each figure is the median of that part of the " +
+                    "local day, over the days in that range. Bands follow wall-clock " +
+                    "hours, so they stay comparable across a time zone change.</p>"
             )
         }
 
