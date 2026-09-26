@@ -23,6 +23,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -53,6 +54,7 @@ import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
+import dev.cgm.core.SourceKind
 import dev.cgm.core.ThresholdBoundary
 import dev.cgm.core.get
 import kotlin.math.roundToInt
@@ -82,7 +84,11 @@ fun SettingsScreen(
         // running, and what it is obliged to tell you, comes last — important,
         // read once, and not what anyone opens this screen for.
 
-        SettingsSection(stringResource(R.string.set_alerts), first = true) {
+        SettingsSection(stringResource(R.string.set_source), first = true) {
+            SourcePicker(viewModel)
+        }
+
+        SettingsSection(stringResource(R.string.set_alerts)) {
             SettingsRow(
                 title = stringResource(R.string.set_alarms),
                 subtitle = stringResource(R.string.set_alarms_subtitle),
@@ -227,6 +233,97 @@ fun SettingsScreen(
             onConfirm = { confirmSignOut = false; viewModel.signOut() },
             onDismiss = { confirmSignOut = false },
         )
+    }
+}
+
+/**
+ * Where readings come from.
+ *
+ * Two radio rows rather than a switch, because these are alternatives and only one
+ * can be live: both running at once would interleave two sensors' readings into one
+ * history, and nothing downstream could tell them apart afterwards.
+ */
+@Composable
+private fun SourcePicker(viewModel: CgmViewModel) {
+    val selected by viewModel.sourceKind.collectAsState()
+    val state by viewModel.state.collectAsState()
+
+    SourceRow(
+        title = stringResource(R.string.set_source_llu),
+        subtitle = stringResource(R.string.set_source_llu_desc),
+        selected = selected == SourceKind.LIBRELINKUP,
+    ) { viewModel.selectSource(SourceKind.LIBRELINKUP) }
+
+    SourceRow(
+        title = stringResource(R.string.set_source_xdrip),
+        subtitle = stringResource(R.string.set_source_xdrip_desc),
+        selected = selected == SourceKind.XDRIP,
+    ) { viewModel.selectSource(SourceKind.XDRIP) }
+
+    if (selected == SourceKind.XDRIP) {
+        Spacer(Modifier.height(8.dp))
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                stringResource(R.string.set_source_xdrip_setup),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(12.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        // The only evidence available that the broadcast is actually arriving, and
+        // the only way this app can name the sensor behind a pushed reading.
+        Text(
+            PollingService.lastXdripSource?.let {
+                stringResource(R.string.set_source_xdrip_seen, it)
+            } ?: stringResource(R.string.set_source_xdrip_waiting),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    if (selected == SourceKind.LIBRELINKUP && !state.configured) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.set_not_signed_in),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+@Composable
+private fun SourceRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onSelect)
+        Column(Modifier.weight(1f).padding(start = 4.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

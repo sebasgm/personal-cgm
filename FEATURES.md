@@ -209,7 +209,23 @@ That describes the choice, not anyone else's product.
 - Must be acknowledged **every time the app opens**, and until then nothing is drawn.
 - **Never feeds an alarm and never counts as a reading.** Off by default.
 
-## 10. Privacy and ownership
+## 10. Where the readings come from
+
+- **The vendor's own follower cloud**, polled about once a minute, or **whatever a companion app
+  on the same phone is already reading**, received over a local broadcast.
+
+  **Unusual:** the second route means the app supports sensors it knows nothing about. Rather than
+  one client per vendor — each a protocol to keep up with and a set of terms to sit awkwardly
+  against — it listens to an app that has already solved that, and inherits every sensor that app
+  reads.
+
+- The broadcast route needs **no account, no password and no network**, and nothing about it leaves
+  the phone.
+- **The app says what it cannot tell you.** It has no way to know whether the broadcast is even
+  switched on in the other app, so it names the setting and reports whether anything has arrived,
+  rather than inventing a status.
+
+## 11. Privacy and ownership
 
 - **Everything runs on your device by default.** No account, no analytics, nothing uploaded
   unless you switch on the relay below.

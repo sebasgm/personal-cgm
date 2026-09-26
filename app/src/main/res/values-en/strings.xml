@@ -323,4 +323,15 @@
     <string name="report_print_unsupported">This device has no printing service.</string>
     <string name="report_open_browser">Open in browser</string>
     <string name="report_view_failed">No app on this phone can open an HTML file.</string>
+    <string name="setup_other_source">Not using LibreLinkUp?</string>
+    <string name="setup_xdrip_explain">If xDrip+ is already reading your sensor, this app can take its readings from there: any sensor xDrip+ supports, with no account and no password. It has to be switched on in xDrip+ (Settings → Inter-app settings → Broadcast locally, with Compatible Broadcast).</string>
+    <string name="setup_use_xdrip">Use xDrip+</string>
+    <string name="set_source">Data source</string>
+    <string name="set_source_llu">LibreLinkUp</string>
+    <string name="set_source_xdrip">xDrip+</string>
+    <string name="set_source_llu_desc">Abbott\'s cloud. Polled about once a minute, and it needs your follower account.</string>
+    <string name="set_source_xdrip_desc">Whatever xDrip+ is already reading, over a local broadcast. No account, no network, no added latency, and it works with any sensor xDrip+ supports.</string>
+    <string name="set_source_xdrip_setup">Switch it on inside xDrip+: Settings → Inter-app settings → "Broadcast locally", with "Compatible Broadcast". If it is off, this app receives nothing and cannot tell: readings simply never arrive.</string>
+    <string name="set_source_xdrip_seen">xDrip+ reports: %1$s</string>
+    <string name="set_source_xdrip_waiting">No reading has arrived from xDrip+ yet.</string>
 </resources>

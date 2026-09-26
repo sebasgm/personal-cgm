@@ -13,6 +13,8 @@ import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import dev.cgm.app.CgmApplication
+import dev.cgm.app.data.xdrip.XdripReceiver
+import dev.cgm.core.SourceKind
 import dev.cgm.app.Locales
 import dev.cgm.app.R
 import dev.cgm.app.alarm.AlarmNotifier
@@ -78,6 +80,7 @@ class PollingService : LifecycleService() {
      */
     private var wakeLock: PowerManager.WakeLock? = null
     private var clockReceiver: TimeChangeReceiver? = null
+    private var xdripReceiver: XdripReceiver? = null
     private val alarms = AlarmEngine()
     private var loop: Job? = null
     private lateinit var strings: Context
@@ -100,6 +103,15 @@ class PollingService : LifecycleService() {
         lifecycleScope.launch {
             settings.accessibility.collect { readingFont = it.font }
         }
+
+        // Follows the setting rather than being registered once, so switching
+        // source takes effect without restarting the service — and so a listener
+        // for an app the user is no longer using does not stay registered.
+        lifecycleScope.launch {
+            settings.sourceKind.collect { kind ->
+                if (kind == SourceKind.XDRIP) registerXdrip() else unregisterXdrip()
+            }
+        }
     }
 
     /**
@@ -118,6 +130,30 @@ class PollingService : LifecycleService() {
                 setReferenceCounted(false)
                 acquire()
             }
+    }
+
+    /**
+     * Starts listening for xDrip+ readings.
+     *
+     * Here rather than in the manifest because an implicit broadcast cannot reach
+     * a manifest-declared receiver on API 26 and above, while a receiver
+     * registered by a running process is exempt — and this service is the part of
+     * the app guaranteed to be running. See [XdripReceiver].
+     */
+    private fun registerXdrip() {
+        if (xdripReceiver != null) return
+        val receiver = XdripReceiver(
+            repository = repository,
+            scope = lifecycleScope,
+            onSourceSeen = { description -> lastXdripSource = description },
+        )
+        runCatching { XdripReceiver.register(this, receiver) }
+            .onSuccess { xdripReceiver = receiver }
+    }
+
+    private fun unregisterXdrip() {
+        xdripReceiver?.let { runCatching { unregisterReceiver(it) } }
+        xdripReceiver = null
     }
 
     /**
@@ -358,6 +394,7 @@ class PollingService : LifecycleService() {
         wakeLock = null
         clockReceiver?.let { runCatching { unregisterReceiver(it) } }
         clockReceiver = null
+        unregisterXdrip()
         _running.value = false
         super.onDestroy()
     }
@@ -366,6 +403,18 @@ class PollingService : LifecycleService() {
         private const val NOTIFICATION_ID = 1
         private const val WAKE_LOCK_TAG = "personal-cgm:polling"
         const val NOTIFICATION_GROUP = "dev.cgm.app.glucose"
+
+        /**
+         * What xDrip+ last said it was reading, e.g. "G6 Native".
+         *
+         * Shown in Settings because it is the only way this app can know which
+         * sensor is behind the numbers when they arrive over a broadcast. Static
+         * and unpersisted: it describes the running session, and a remembered
+         * value would outlive the truth of it.
+         */
+        @Volatile
+        var lastXdripSource: String? = null
+            private set
 
         private val _running = MutableStateFlow(false)
 

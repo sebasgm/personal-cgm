@@ -48,6 +48,26 @@ enum class TrendArrow(val glyph: String) {
             5 -> RISING_QUICKLY
             else -> UNKNOWN
         }
+
+        /**
+         * xDrip+'s slope name, as it broadcasts it.
+         *
+         * Five arrows against xDrip's seven: its two "double" states collapse into
+         * the quick ones. Inventing a sixth arrow to preserve the distinction would
+         * mean every screen and the watch face growing a glyph that only one source
+         * can ever produce.
+         *
+         * The unparseable strings are xDrip's own: it says so when it has too few
+         * points to fit a slope, and that is not the same as a flat trend.
+         */
+        fun fromXdripSlopeName(value: String?): TrendArrow = when (value?.trim()) {
+            "DoubleDown", "SingleDown" -> FALLING_QUICKLY
+            "FortyFiveDown" -> FALLING
+            "Flat" -> STEADY
+            "FortyFiveUp" -> RISING
+            "SingleUp", "DoubleUp" -> RISING_QUICKLY
+            else -> UNKNOWN
+        }
     }
 }
 

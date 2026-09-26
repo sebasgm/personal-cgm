@@ -3,11 +3,40 @@ package dev.cgm.core
 import kotlinx.coroutines.flow.Flow
 
 /**
+ * Which source the app is reading.
+ *
+ * A stored choice rather than a guess from what is configured: both can be set up
+ * at once, and silently preferring one would make the other look broken.
+ */
+enum class SourceKind(val id: String) {
+    /** Abbott's follower cloud. Polled, needs an account. */
+    LIBRELINKUP("librelinkup"),
+
+    /**
+     * Whatever xDrip+ is already reading, over a local broadcast.
+     *
+     * Pushed rather than polled, and there is nothing to authenticate: the
+     * readings arrive from another app on the same phone. Every sensor xDrip+
+     * supports arrives through this one path, which is the whole reason for it.
+     */
+    XDRIP("xdrip");
+
+    val isPolled: Boolean get() = this == LIBRELINKUP
+
+    companion object {
+        val Default = LIBRELINKUP
+
+        fun ofId(id: String?): SourceKind = entries.firstOrNull { it.id == id } ?: Default
+    }
+}
+
+/**
  * Where readings come from.
  *
- * LibreLinkUp is the first implementation. Nightscout and a direct-BLE source are
- * planned (docs/00-research.md sections 1B and 1C), so nothing above this
- * interface may assume a cloud, an account, or a polling model.
+ * LibreLinkUp polls a cloud; xDrip+ pushes over a local broadcast. Nightscout and
+ * a direct-BLE source are still planned (docs/09-sources.md), so nothing above
+ * this interface may assume a cloud, an account, or a polling model — and since
+ * one pushed source now exists, that is a live constraint rather than a promise.
  */
 interface GlucoseSource {
 

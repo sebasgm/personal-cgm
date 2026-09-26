@@ -360,8 +360,9 @@ accounts gates sharing, and sharing gates the sharing disclaimer.
 
   This stays reversible: if a backend is ever built (see the security RFC), sharing becomes
   worth revisiting, because a server can fan out alerts when the phone cannot.
-- **Second data source.** "Generic sensor option" needs one name to be scopeable: xDrip+,
-  Juggluco, Nightscout or LibreLinkUp.
+- ~~**Second data source.**~~ Answered: xDrip+'s local broadcast, shipped. It covers Juggluco
+  too, which broadcasts in the same format. Nightscout and Dexcom's official API remain open —
+  see docs/09-sources.md.
 - **Naming and branding**, **Play Store research**, the **security RFC**, and the **sensor
   compatibility matrix** are all written deliverables rather than code.
 - **Android Auto**, **non-Wear watches** and **direct Wi-Fi/BLE** stay where the first

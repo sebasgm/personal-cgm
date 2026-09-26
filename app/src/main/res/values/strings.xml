@@ -323,4 +323,15 @@
     <string name="report_print_unsupported">Este dispositivo no tiene servicio de impresión.</string>
     <string name="report_open_browser">Abrir en el navegador</string>
     <string name="report_view_failed">No hay ninguna app que pueda abrir un archivo HTML.</string>
+    <string name="setup_other_source">¿No usás LibreLinkUp?</string>
+    <string name="setup_xdrip_explain">Si ya tenés xDrip+ leyendo tu sensor, esta app puede tomar los valores de ahí: cualquier sensor que xDrip+ soporte, sin cuenta ni contraseña. Hay que activarlo en xDrip+ (Ajustes → Inter-app settings → Broadcast locally, con Compatible Broadcast).</string>
+    <string name="setup_use_xdrip">Usar xDrip+</string>
+    <string name="set_source">Fuente de datos</string>
+    <string name="set_source_llu">LibreLinkUp</string>
+    <string name="set_source_xdrip">xDrip+</string>
+    <string name="set_source_llu_desc">La nube de Abbott. Se consulta una vez por minuto y necesita tu cuenta de seguidor.</string>
+    <string name="set_source_xdrip_desc">Los valores que xDrip+ ya está leyendo, por difusión local. Sin cuenta, sin red, sin latencia añadida; funciona con cualquier sensor que xDrip+ soporte.</string>
+    <string name="set_source_xdrip_setup">Hay que activarlo dentro de xDrip+: Ajustes → Inter-app settings → «Broadcast locally», con «Compatible Broadcast». Si está apagado, esta app no recibe nada y no puede darse cuenta: simplemente no llegan valores.</string>
+    <string name="set_source_xdrip_seen">xDrip+ informa: %1$s</string>
+    <string name="set_source_xdrip_waiting">Todavía no llegó ningún valor de xDrip+.</string>
 </resources>

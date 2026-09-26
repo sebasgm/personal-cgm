@@ -14,6 +14,16 @@ decision and a pass over the security plan.
 
 ### Added
 
+- **A second data source: xDrip+.** Readings arrive over xDrip+'s local broadcast, which means
+  every sensor xDrip+ can read — Dexcom, Medtronic, Eversense, the Chinese sensors it supports —
+  without this app learning any of their protocols. No account, no credentials, no network,
+  nothing leaving the phone; the relay is still the only feature that sends data anywhere. It has
+  to be switched on inside xDrip+ (Settings → Inter-app settings → "Broadcast locally", with
+  "Compatible Broadcast"), and the app says so, because an xDrip+ with it off is indistinguishable
+  from one that is not running. The source is chosen in Settings, and on the setup screen too,
+  since choosing it otherwise sits behind a sign-in that a user of it does not have. See
+  docs/09-sources.md.
+
 - **A configurable number of figures per day inside each range.** Six gives a value every four
   hours, so a week's row reads as six numbers rather than one mean — which is what says *when* in
   the day it comes apart. Only divisors of 24 are offered: five bands would be 4.8 hours each,
@@ -70,6 +80,15 @@ decision and a pass over the security plan.
 
 ### Changed
 
+- **A poll and a pushed reading now share one pipeline.** The success half of the poll became
+  `accept(result)`, used by both: persistence, the rollup refresh, delta refinement, threshold
+  overrides and the emit to the watch all have to happen identically, or the status bar and the
+  chart would disagree depending on where a reading came from. A pushed source still runs the
+  loop, because the tray icon, the alarms and the freshness clock all depend on it, but its poll
+  asks nothing of anyone and reports how stale the last push is.
+- **Setup no longer gates on a LibreLinkUp password.** It gates on having a source at all — xDrip+
+  has nothing to authenticate, and waiting for a credential it will never have left the setup
+  screen up forever.
 - **The report's controls moved to sit with its exports**, at the foot of the Trends tab, and are
   no longer in Settings. Choosing a period and choosing a file format are one task — deciding what
   to send someone — and splitting them across two tabs meant changing a period, walking back, and

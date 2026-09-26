@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.cgm.core.AccessibilityPreferences
 import dev.cgm.core.ReportPreferences
+import dev.cgm.core.SourceKind
 import dev.cgm.app.service.RelayConfig
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.InsulinReminders
@@ -253,6 +254,25 @@ class SecureSettings(private val context: Context) : SessionStore {
         }
     }
 
+    // -- source ---------------------------------------------------------------
+
+    /** Which source readings come from. */
+    val sourceKind: Flow<SourceKind> = context.dataStore.data.map { prefs ->
+        SourceKind.ofId(prefs[KEY_SOURCE])
+    }
+
+    /**
+     * Read without suspending, for the polling loop.
+     *
+     * The loop asks on every pass and cannot collect a Flow mid-iteration; a
+     * blocking read of one string is cheaper than restructuring the loop around it.
+     */
+    suspend fun sourceKindOnce(): SourceKind = sourceKind.first()
+
+    suspend fun setSourceKind(kind: SourceKind) {
+        context.dataStore.edit { it[KEY_SOURCE] = kind.id }
+    }
+
     // -- report ---------------------------------------------------------------
 
     /** Period, split and range count for the report shown on the Trends tab. */
@@ -325,6 +345,7 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_REMINDERS: Preferences.Key<String> = stringPreferencesKey("insulin_reminders")
         val KEY_ACCESSIBILITY: Preferences.Key<String> = stringPreferencesKey("accessibility")
         val KEY_REPORT: Preferences.Key<String> = stringPreferencesKey("report_preferences")
+        val KEY_SOURCE: Preferences.Key<String> = stringPreferencesKey("source_kind")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
         val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")
         val KEY_ALARM_STATE: Preferences.Key<String> = stringPreferencesKey("alarm_state")

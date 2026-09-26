@@ -28,6 +28,7 @@ import dev.cgm.core.SensorInfo
 import dev.cgm.core.Report
 import dev.cgm.core.ReportBuilder
 import dev.cgm.core.ReportSpec
+import dev.cgm.core.SourceKind
 import dev.cgm.core.SourceResult
 import dev.cgm.llu.LibreLinkUpCredentials
 import dev.cgm.llu.LibreLinkUpSource
@@ -375,8 +376,45 @@ class GlucoseRepository(
         }
     }
 
-    /** One fetch. Never throws; failures come back as [PollOutcome]. */
-    suspend fun pollOnce(): PollOutcome {
+    /**
+     * One pass of the loop. Never throws; failures come back as [PollOutcome].
+     *
+     * Only one of the sources is polled. A pushed source has nothing to ask for,
+     * so this reports on what has already arrived instead — the loop still runs,
+     * because the tray icon, the alarms and the freshness clock all depend on it
+     * whether or not a reading came from the network.
+     */
+    suspend fun pollOnce(): PollOutcome = when (settings.sourceKindOnce()) {
+        SourceKind.LIBRELINKUP -> pollLibreLinkUp()
+        SourceKind.XDRIP -> reportPushed()
+    }
+
+    /**
+     * What a pushed source's "poll" amounts to: how stale the last push is.
+     *
+     * Deliberately returns [PollOutcome.Success] while readings are arriving, so
+     * the scheduler's own idle logic takes over once they stop. Calling it a
+     * failure would start an exponential backoff against a source that has no
+     * failure mode — nothing was asked of anyone.
+     */
+    private fun reportPushed(): PollOutcome {
+        val reading = _state.value.snapshot?.reading
+            ?: return PollOutcome.Transient(PUSH_IDLE_MILLIS)
+        return PollOutcome.Success(reading.ageMillis(clock()).coerceAtLeast(0))
+    }
+
+    /**
+     * Accepts a reading pushed from elsewhere — currently an xDrip+ broadcast.
+     *
+     * Runs the same pipeline a fetch does, for the same reason the pipeline is
+     * one function: persistence, rollups, delta refinement, threshold overrides
+     * and the emit to downstream sinks all have to happen identically, or the
+     * watch and the tray would disagree with the chart depending on where the
+     * reading came from.
+     */
+    suspend fun ingest(result: SourceResult): PollOutcome = accept(result)
+
+    private suspend fun pollLibreLinkUp(): PollOutcome {
         val credentials = settings.credentials()
         if (credentials == null) {
             _state.update {
@@ -391,40 +429,7 @@ class GlucoseRepository(
         val client = sourceFor(credentials)
 
         return try {
-            val fetched = client.fetch()
-            persist(fetched)
-            val refined = fetched.withRefinedDelta(refineDelta(fetched))
-
-            // The account's band arrives on every fetch, so the user's overrides
-            // have to be re-applied on every fetch or a poll would quietly undo
-            // them. Downstream sinks — including the watch bridge — get the
-            // effective thresholds, not the account's, so nothing colours a
-            // reading differently to the phone.
-            val account = refined.snapshot.thresholds
-            val overrides = currentOverrides()
-            val accountUnit = refined.snapshot.unit
-            val unitOverride = currentUnitOverride()
-            val result = refined
-                .withThresholds(overrides.applyTo(account))
-                .withUnit(unitOverride ?: accountUnit)
-
-            _state.update {
-                it.copy(
-                    configured = true,
-                    snapshot = result.snapshot,
-                    lastSuccessMillis = clock(),
-                    error = null,
-                    policy = currentPolicy(),
-                    sensor = result.sensor ?: it.sensor,
-                    accountThresholds = account,
-                    overrides = overrides,
-                    unit = unitOverride ?: accountUnit,
-                    accountUnit = accountUnit,
-                    unitOverride = unitOverride,
-                )
-            }
-            _results.emit(result)
-            PollOutcome.Success(result.snapshot.reading.ageMillis(clock()))
+            accept(client.fetch())
         } catch (e: GlucoseSourceException) {
             _state.update { it.copy(error = e.toErrorState()) }
             when (e) {
@@ -434,6 +439,43 @@ class GlucoseRepository(
                 else -> PollOutcome.Transient()
             }
         }
+    }
+
+    /** Everything that happens to a reading once we have it, wherever it came from. */
+    private suspend fun accept(fetched: SourceResult): PollOutcome {
+        persist(fetched)
+        val refined = fetched.withRefinedDelta(refineDelta(fetched))
+
+        // The account's band arrives on every fetch, so the user's overrides
+        // have to be re-applied on every fetch or a poll would quietly undo
+        // them. Downstream sinks — including the watch bridge — get the
+        // effective thresholds, not the account's, so nothing colours a
+        // reading differently to the phone.
+        val account = refined.snapshot.thresholds
+        val overrides = currentOverrides()
+        val accountUnit = refined.snapshot.unit
+        val unitOverride = currentUnitOverride()
+        val result = refined
+            .withThresholds(overrides.applyTo(account))
+            .withUnit(unitOverride ?: accountUnit)
+
+        _state.update {
+            it.copy(
+                configured = true,
+                snapshot = result.snapshot,
+                lastSuccessMillis = clock(),
+                error = null,
+                policy = currentPolicy(),
+                sensor = result.sensor ?: it.sensor,
+                accountThresholds = account,
+                overrides = overrides,
+                unit = unitOverride ?: accountUnit,
+                accountUnit = accountUnit,
+                unitOverride = unitOverride,
+            )
+        }
+        _results.emit(result)
+        return PollOutcome.Success(result.snapshot.reading.ageMillis(clock()))
     }
 
     /**
@@ -496,6 +538,13 @@ class GlucoseRepository(
     }
 
     private companion object {
+        /**
+         * How long to wait before looking again when a pushed source has sent
+         * nothing at all. Long, because there is nothing to retry: either xDrip+
+         * is running or it is not, and asking sooner changes neither.
+         */
+        const val PUSH_IDLE_MILLIS = 60_000L
+
         /**
          * Two years. Issue #6 wants a one-year plot, and retention has to exceed
          * the longest window or the chart silently truncates. At roughly one

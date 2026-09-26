@@ -11,6 +11,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,10 +24,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import dev.cgm.core.SourceKind
 import dev.cgm.app.R
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -110,5 +114,29 @@ fun SetupScreen(viewModel: CgmViewModel, onSignedIn: () -> Unit) {
             stringResource(R.string.setup_key_note),
             style = MaterialTheme.typography.bodySmall,
         )
+
+        HorizontalDivider()
+
+        // The way in for anyone who is not using LibreLinkUp at all. It has to be
+        // on this screen: choosing the source lives in Settings, and Settings is
+        // behind this screen, so without it the only route to xDrip+ would be
+        // through a sign-in the user does not have.
+        Text(
+            stringResource(R.string.setup_other_source),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            stringResource(R.string.setup_xdrip_explain),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(
+            onClick = {
+                viewModel.selectSource(SourceKind.XDRIP)
+                onSignedIn()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.setup_use_xdrip)) }
     }
 }

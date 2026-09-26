@@ -100,8 +100,8 @@ class MainActivity : ComponentActivity() {
                 typography = cgmTypography(accessibility),
             ) {
               CompositionLocalProvider(LocalColorVision provides accessibility.colorVision) {
-                val state by vm.state.collectAsState()
                 val accepted by vm.disclaimerAccepted.collectAsState()
+                val hasSource by vm.hasSource.collectAsState()
 
                 // Ahead of sign-in on purpose: it governs how every number in the
                 // app should be read, so it is not something to meet afterwards.
@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
                 } else if (accepted == null) {
                     // Still reading the stored acceptance. Blank rather than a flash
                     // of the disclaimer at someone who accepted it months ago.
-                } else if (state.configured) {
+                } else if (hasSource) {
                     // Nothing else brings the poller back. It started on sign-in and
                     // on boot, so installing a new build — which kills the service
                     // without a reboot — left it dead until someone pressed Start by

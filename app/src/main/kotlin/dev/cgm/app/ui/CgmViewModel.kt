@@ -34,6 +34,7 @@ import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.InsulinDose
 import dev.cgm.core.InsulinKind
+import dev.cgm.core.SourceKind
 import dev.cgm.core.StatisticsCalculator
 import dev.cgm.core.TimeOfDayProfile
 import dev.cgm.core.ThresholdBoundary
@@ -330,6 +331,27 @@ class CgmViewModel(
                 repository.timeOfDayProfile(now - _period.value.millis, now)
             }
         }
+    }
+
+    // -- source ------------------------------------------------------------------
+
+    val sourceKind: StateFlow<SourceKind> = settings.sourceKind
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SourceKind.Default)
+
+    /**
+     * Whether the app has a source at all, which is what setup is gating on.
+     *
+     * Not the same question as `configured`. That one means "LibreLinkUp has
+     * accepted a password", and xDrip+ has no password to accept — readings simply
+     * arrive from another app on the phone. Gating the whole app on a credential
+     * that a pushed source will never have would leave the setup screen up forever.
+     */
+    val hasSource: StateFlow<Boolean> = combine(state, sourceKind) { state, kind ->
+        state.configured || kind == SourceKind.XDRIP
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun selectSource(kind: SourceKind) {
+        viewModelScope.launch { settings.setSourceKind(kind) }
     }
 
     // -- report ------------------------------------------------------------------
