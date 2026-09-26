@@ -14,6 +14,16 @@ decision and a pass over the security plan.
 
 ### Added
 
+- **A "Now" button on the main chart**, shown while browsing history, returning the window to
+  the live edge in one tap.
+
+### Changed
+
+- **Reopening the app always returns the chart to the present.** The window state outlives the
+  screen, so a chart left on last Tuesday used to still be there on reopening — and a stale
+  window is the one thing this app must never present as the current value. The "Now" button
+  moved out of the browse bar and onto the chart, where the hand already is after dragging.
+
 - **A report over a chosen period, cut into ranges.** Pick a window from a week to a year and
   split it by day, week, month, or into a chosen number of equal parts; each range gets its
   distribution, its mean and its median side by side, its time in range and its coverage, with

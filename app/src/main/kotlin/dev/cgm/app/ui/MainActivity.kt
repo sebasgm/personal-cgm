@@ -165,6 +165,12 @@ private fun MainScaffold(
                     if (leftAtMillis != 0L && away >= RETURN_TO_HOME_AFTER_MILLIS) {
                         stack = listOf(Destination.Home)
                     }
+                    // The chart always comes back to the present, however brief
+                    // the absence. The ViewModel outlives the screen, so a window
+                    // left on last Tuesday would still be there on reopening —
+                    // and a stale window is the one thing this app must never
+                    // present as the current value.
+                    viewModel.goLive()
                 }
                 else -> Unit
             }
@@ -208,6 +214,7 @@ private fun MainScaffold(
                 Destination.Accessibility -> AccessibilityScreen(viewModel)
                 Destination.Reminders -> RemindersScreen(viewModel)
                 Destination.Relay -> RelayScreen(viewModel)
+                Destination.Report -> ReportScreen(viewModel)
                 Destination.ReleaseNotes -> ReleaseNotesScreen()
                 Destination.Disclaimer -> DisclaimerReadOnlyScreen()
                 is Destination.AlarmDetail -> AlarmDetailScreen(viewModel, current.kind)

@@ -2,6 +2,7 @@ package dev.cgm.app.ui
 
 import android.content.Context
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,8 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -111,7 +114,6 @@ fun HomeScreen(viewModel: CgmViewModel) {
             BrowseBar(
                 windowEnd = windowEnd,
                 onStepDays = viewModel::stepDays,
-                onGoLive = viewModel::goLive,
             )
         }
 
@@ -122,24 +124,54 @@ fun HomeScreen(viewModel: CgmViewModel) {
             ForecastWarning(onAccept = viewModel::acceptForecastWarning)
         }
 
-        GlucoseChart(
-            readings = history,
-            thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
-            unit = snapshot?.unit ?: GlucoseUnit.MGDL,
-            // Staleness is a fact about the live feed, so it only colours the trace
-            // while the trace is the live feed. A window from yesterday is not stale;
-            // it is simply history, and history is not in doubt.
-            stale = isLive && freshness == Freshness.STALE,
-            isLive = isLive,
-            forecast = forecast,
-            alarmLevels = alarmLevels,
+        // The chart and its one overlay. The button sits on top of the chart
+        // rather than in the bar above it because that is where the hand already
+        // is after dragging, and it is laid over the drawing rather than passed
+        // into it so the chart's gesture handling is left exactly as it is.
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .padding(vertical = 12.dp),
-            onZoom = viewModel::zoomBy,
-            onPan = viewModel::panByFraction,
-        )
+                .weight(1f),
+        ) {
+            GlucoseChart(
+                readings = history,
+                thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
+                unit = snapshot?.unit ?: GlucoseUnit.MGDL,
+                // Staleness is a fact about the live feed, so it only colours the trace
+                // while the trace is the live feed. A window from yesterday is not stale;
+                // it is simply history, and history is not in doubt.
+                stale = isLive && freshness == Freshness.STALE,
+                isLive = isLive,
+                forecast = forecast,
+                alarmLevels = alarmLevels,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 12.dp),
+                onZoom = viewModel::zoomBy,
+                onPan = viewModel::panByFraction,
+            )
+
+            // Only while browsing: on the live edge it would do nothing, and a
+            // button that does nothing teaches you to stop looking at it.
+            if (!isLive) {
+                ElevatedButton(
+                    onClick = viewModel::goLive,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.elevatedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 16.dp, end = 8.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.home_now_button),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
 
         WindowChips(
             selected = preset,
@@ -172,11 +204,11 @@ fun HomeScreen(viewModel: CgmViewModel) {
  * Where the chart is, once it has left the live edge.
  *
  * Arrows step whole days, which is how someone thinks about "what happened
- * yesterday"; the drag handles everything finer. "Now" exists because at a week's
- * span dragging back to the present would take a while.
+ * yesterday"; the drag handles everything finer. Getting back to the present is
+ * the button on the chart — at a week's span dragging there would take a while.
  */
 @Composable
-private fun BrowseBar(windowEnd: Long, onStepDays: (Int) -> Unit, onGoLive: () -> Unit) {
+private fun BrowseBar(windowEnd: Long, onStepDays: (Int) -> Unit) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -196,7 +228,6 @@ private fun BrowseBar(windowEnd: Long, onStepDays: (Int) -> Unit, onGoLive: () -
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = { onStepDays(1) }) { Text("›") }
-            TextButton(onClick = onGoLive) { Text(stringResource(R.string.home_now_button)) }
         }
     }
 }
