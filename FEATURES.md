@@ -173,6 +173,19 @@ That describes the choice, not anyone else's product.
 - **A forecast benchmark** scoring prediction models against your own history, including a
   clinical error grid so a dangerous error is not averaged in with a harmless one.
 
+- **A report over any window, cut into ranges you choose** — by day, week, month, or into a
+  set number of equal parts — with the distribution, mean, median, time in range and coverage
+  for each, exportable as CSV, JSON or HTML and printable to PDF.
+
+  **Unusual:** mean and median are shown together rather than one standing in for the summary.
+  Glucose has far more room above target than below it, so the two separate whenever a stretch
+  runs high, and the distance between them says something neither number says alone.
+
+  **Unusual:** coverage travels with the figures into the exported file, along with the
+  thresholds they were computed against and the disclaimer. A file gets mailed, printed and
+  read months later by someone who was not there, so nothing that is implicit on screen is
+  left implicit in the export.
+
 ## 9. Projection
 
 - An **optional forecast**, drawn as a dashed line inside a confidence band, separated from

@@ -25,6 +25,9 @@ import dev.cgm.core.Zone
 import dev.cgm.core.GlucoseSourceException
 import dev.cgm.core.PollOutcome
 import dev.cgm.core.SensorInfo
+import dev.cgm.core.Report
+import dev.cgm.core.ReportBuilder
+import dev.cgm.core.ReportSpec
 import dev.cgm.core.SourceResult
 import dev.cgm.llu.LibreLinkUpCredentials
 import dev.cgm.llu.LibreLinkUpSource
@@ -213,6 +216,41 @@ class GlucoseRepository(
                     zoneId = it.zoneId,
                 )
             }
+        )
+    }
+
+    /**
+     * A report over [spec], assembled from the hourly rollups.
+     *
+     * The rollups already hold the distribution each range needs, so a year-long
+     * report reads a few thousand summarised rows rather than the hundreds of
+     * thousands of readings behind them.
+     */
+    suspend fun buildReport(spec: ReportSpec, nowMillis: Long = clock()): Report {
+        val dao = rollupDao
+            ?: return ReportBuilder.build(spec, emptyList(), { 0 }, nowMillis)
+
+        val rows = dao.between(spec.startMillis, spec.endMillis)
+        val starts = rows.associateBy(
+            { it.hourStartMillis },
+            {
+                HourlyBin(
+                    localDate = it.localDate,
+                    localHour = it.localHour,
+                    bins = it.bins(),
+                    readingCount = it.count,
+                    coverageBuckets = it.buckets,
+                    zoneId = it.zoneId,
+                )
+            },
+        )
+        val byBin = starts.entries.associate { (start, bin) -> bin to start }
+
+        return ReportBuilder.build(
+            spec = spec,
+            hours = byBin.keys.toList(),
+            hourStartMillis = { byBin.getValue(it) },
+            generatedAtMillis = nowMillis,
         )
     }
 

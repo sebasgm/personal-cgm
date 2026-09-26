@@ -24,6 +24,29 @@ enum class TrendPeriod(val label: String, val duration: Duration) {
 }
 
 /**
+ * Report windows.
+ *
+ * Longer than the trend windows and coarser at the top end, because a report is
+ * read once and kept, not watched. The longest options will read as mostly empty
+ * until the history behind them exists — nothing backfills, so a period only
+ * covers what was recorded while the app was running.
+ */
+enum class ReportPeriod(val label: String, val duration: Duration) {
+    D7("7d", 7.days),
+    D14("14d", 14.days),
+    D30("30d", 30.days),
+    D90("90d", 90.days),
+    D180("6m", 180.days),
+    D365("1y", 365.days);
+
+    val millis: Long get() = duration.inWholeMilliseconds
+
+    companion object {
+        val Default = D30
+    }
+}
+
+/**
  * Where the user is.
  *
  * A hand-rolled stack rather than navigation-compose: four tabs and two detail
@@ -48,6 +71,7 @@ sealed interface Destination {
     data object Accessibility : Destination
     data object Reminders : Destination
     data object Relay : Destination
+    data object Report : Destination
     data object ReleaseNotes : Destination
     data object Disclaimer : Destination
 }
@@ -87,6 +111,7 @@ enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
             Destination.Accessibility,
             Destination.Reminders,
             Destination.Relay,
+            Destination.Report,
             Destination.ReleaseNotes,
             Destination.Disclaimer,
             is Destination.AlarmDetail -> SETTINGS

@@ -52,20 +52,6 @@ data class RangeReport(
     val p75: Double? get() = GlucoseHistogram.percentile(bins, 0.75)
     val p90: Double? get() = GlucoseHistogram.percentile(bins, 0.90)
 
-    /**
-     * The busiest bin's midpoint.
-     *
-     * Included because it was asked for, with the caveat that a mode over
-     * continuous data is mostly a fact about the bin width: widen the bins and it
-     * moves. The median says what the mode is reaching for, and says it stably.
-     */
-    val mode: Double?
-        get() {
-            if (!hasData) return null
-            val best = bins.indices.maxByOrNull { bins[it] } ?: return null
-            return if (bins[best] == 0) null else GlucoseHistogram.midpointOf(best)
-        }
-
     val timeInRange: Double? get() = zoneFractions[Zone.IN_RANGE]
 
     val isReliable: Boolean get() = coverage >= GlucoseStatistics.RELIABLE_COVERAGE

@@ -53,6 +53,17 @@
           the phone is the closest honest fit. Requires Android Auto's developer
           mode with unknown sources allowed, since this is sideloaded.
         -->
+        <!-- Hands exported reports to other apps without exposing app storage. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.reports"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/report_paths" />
+        </provider>
+
         <service
             android:name=".car.CgmCarAppService"
             android:exported="true">

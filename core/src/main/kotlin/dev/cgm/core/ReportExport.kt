@@ -7,7 +7,6 @@ import java.time.format.DateTimeFormatter
 enum class ReportFormat(val extension: String, val mimeType: String) {
     CSV("csv", "text/csv"),
     JSON("json", "application/json"),
-    XML("xml", "application/xml"),
     HTML("html", "text/html"),
 }
 
@@ -32,7 +31,6 @@ object ReportExport {
         when (format) {
             ReportFormat.CSV -> csv(report, zone)
             ReportFormat.JSON -> json(report, zone)
-            ReportFormat.XML -> xml(report, zone)
             ReportFormat.HTML -> html(report, zone)
         }
 
@@ -62,7 +60,7 @@ object ReportExport {
         appendLine()
 
         appendLine(
-            "section,range,start,end,readings,coverage,mean_mgdl,median_mgdl,mode_mgdl," +
+            "section,range,start,end,readings,coverage,mean_mgdl,median_mgdl," +
                 "sd_mgdl,cv_percent,p10_mgdl,p25_mgdl,p75_mgdl,p90_mgdl," +
                 "time_in_range,time_low,time_high"
         )
@@ -75,7 +73,7 @@ object ReportExport {
                     iso(r.endMillis, zone),
                     r.readingCount,
                     fmt(r.coverage),
-                    fmt(r.mean), fmt(r.median), fmt(r.mode),
+                    fmt(r.mean), fmt(r.median),
                     fmt(r.standardDeviation), fmt(r.coefficientOfVariation),
                     fmt(r.p10), fmt(r.p25), fmt(r.p75), fmt(r.p90),
                     fmt(r.timeInRange),
@@ -135,49 +133,11 @@ $pad  "coverage": ${fmt(r.coverage)},
 $pad  "reliable": ${r.isReliable},
 $pad  "meanMgdl": ${fmt(r.mean)},
 $pad  "medianMgdl": ${fmt(r.median)},
-$pad  "modeMgdl": ${fmt(r.mode)},
 $pad  "sdMgdl": ${fmt(r.standardDeviation)},
 $pad  "cvPercent": ${fmt(r.coefficientOfVariation)},
 $pad  "timeInRange": ${fmt(r.timeInRange)},
 $pad  "histogram": [$bins]
 $pad}"""
-    }
-
-    // -- XML ------------------------------------------------------------------
-
-    private fun xml(report: Report, zone: ZoneId): String = buildString {
-        appendLine("""<?xml version="1.0" encoding="UTF-8"?>""")
-        appendLine("<cgmReport>")
-        appendLine("  <disclaimer>${escapeXml(DISCLAIMER)}</disclaimer>")
-        appendLine("  <generated>${iso(report.generatedAtMillis, zone)}</generated>")
-        appendLine("  <unit>${escapeXml(report.spec.unit.suffix)}</unit>")
-        appendLine(
-            "  <thresholdsMgdl urgentLow=\"${report.spec.thresholds.urgentLowMgdl}\" " +
-                "low=\"${report.spec.thresholds.lowMgdl}\" " +
-                "high=\"${report.spec.thresholds.highMgdl}\" " +
-                "veryHigh=\"${report.spec.thresholds.veryHighMgdl}\"/>"
-        )
-        appendLine("  <ranges>")
-        (report.ranges + report.overall).forEach { r ->
-            appendLine("    <range label=\"${escapeXml(r.label)}\" overall=\"${r === report.overall}\">")
-            appendLine("      <start>${iso(r.startMillis, zone)}</start>")
-            appendLine("      <end>${iso(r.endMillis, zone)}</end>")
-            appendLine("      <readings>${r.readingCount}</readings>")
-            appendLine("      <coverage>${fmt(r.coverage)}</coverage>")
-            appendLine("      <statistics mean=\"${fmt(r.mean)}\" median=\"${fmt(r.median)}\" " +
-                "mode=\"${fmt(r.mode)}\" sd=\"${fmt(r.standardDeviation)}\" " +
-                "cv=\"${fmt(r.coefficientOfVariation)}\"/>")
-            appendLine("      <histogram>")
-            r.bins.forEachIndexed { index, count ->
-                if (count == 0) return@forEachIndexed
-                val low = GlucoseHistogram.MIN_MGDL + index * GlucoseHistogram.BIN_WIDTH
-                appendLine("        <bin lowMgdl=\"$low\" count=\"$count\"/>")
-            }
-            appendLine("      </histogram>")
-            appendLine("    </range>")
-        }
-        appendLine("  </ranges>")
-        append("</cgmReport>")
     }
 
     // -- HTML -----------------------------------------------------------------
@@ -210,22 +170,21 @@ $pad}"""
 
         appendLine("<h1>Glucose report</h1>")
         appendLine("<p class=\"muted\">Generated ${iso(report.generatedAtMillis, zone)} · ")
-        appendLine("values in ${escapeXml(report.spec.unit.suffix)} · ")
+        appendLine("values in ${escapeHtml(report.spec.unit.suffix)} · ")
         appendLine("in range ${report.spec.thresholds.lowMgdl.toInt()}–${report.spec.thresholds.highMgdl.toInt()} mg/dL</p>")
-        appendLine("<div class=\"warn\">${escapeXml(DISCLAIMER)}</div>")
+        appendLine("<div class=\"warn\">${escapeHtml(DISCLAIMER)}</div>")
 
         appendLine("<h2>Summary</h2><table>")
         appendLine(
             "<tr><th>Range</th><th>Readings</th><th>Coverage</th><th>Mean</th>" +
-                "<th>Median</th><th>Mode</th><th>SD</th><th>CV</th><th>In range</th></tr>"
+                "<th>Median</th><th>SD</th><th>CV</th><th>In range</th></tr>"
         )
         (report.ranges + report.overall).forEach { r ->
             val thin = if (r.hasData && !r.isReliable) " class=\"thin\"" else ""
             appendLine(
-                "<tr$thin><td>${escapeXml(r.label)}</td><td>${r.readingCount}</td>" +
+                "<tr$thin><td>${escapeHtml(r.label)}</td><td>${r.readingCount}</td>" +
                     "<td>${pct(r.coverage)}</td><td>${display(r.mean, report.spec.unit)}</td>" +
                     "<td>${display(r.median, report.spec.unit)}</td>" +
-                    "<td>${display(r.mode, report.spec.unit)}</td>" +
                     "<td>${display(r.standardDeviation, report.spec.unit)}</td>" +
                     "<td>${pct(r.coefficientOfVariation?.div(100))}</td>" +
                     "<td>${pct(r.timeInRange)}</td></tr>"
@@ -242,7 +201,7 @@ $pad}"""
         }
 
         report.ranges.filter { it.hasData }.forEach { r ->
-            appendLine("<div class=\"page\"><h2>${escapeXml(r.label)}</h2>")
+            appendLine("<div class=\"page\"><h2>${escapeHtml(r.label)}</h2>")
             appendLine("<p class=\"muted\">${r.readingCount} readings · ${pct(r.coverage)} coverage</p>")
             appendLine(histogramSvg(r, report.spec))
             appendLine("</div>")
@@ -303,7 +262,7 @@ $pad}"""
     private fun jsonString(value: String): String =
         "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""
 
-    private fun escapeXml(value: String): String = value
+    private fun escapeHtml(value: String): String = value
         .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         .replace("\"", "&quot;").replace("'", "&apos;")
 }

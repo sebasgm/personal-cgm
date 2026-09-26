@@ -14,6 +14,20 @@ decision and a pass over the security plan.
 
 ### Added
 
+- **A report over a chosen period, cut into ranges.** Pick a window from a week to a year and
+  split it by day, week, month, or into a chosen number of equal parts; each range gets its
+  distribution, its mean and its median side by side, its time in range and its coverage, with
+  a line for the whole period above them. Mean and median are both shown rather than one being
+  chosen: glucose is right-skewed, so they part company whenever a stretch runs high, and that
+  parting is the finding. Built from the hourly rollups, so a year costs a few thousand rows
+  rather than hundreds of thousands of readings.
+- **Exporting that report as CSV, JSON or HTML, and printing it — which is also how it becomes
+  a PDF.** The HTML is self-contained, with the histograms as inline SVG, no scripts and no
+  network; the system print pipeline turns it into a PDF rather than a second renderer that
+  would have to be kept in agreement with the first. Every format carries the thresholds the
+  zones were computed against, the coverage behind each range, and the disclaimer — a file
+  outlives the screen it came from. Files are written to the cache and the previous export is
+  cleared each time, so glucose history is not left lying around in app storage.
 - A clock along the bottom of the main chart, on round wall-clock times with a faint line at
   each, so the moment a point belongs to can be read without tapping it. The tick that crosses
   local midnight carries its date rather than "00:00": a window browsed back three days would

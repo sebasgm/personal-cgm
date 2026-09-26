@@ -290,4 +290,22 @@
     <string name="diary_recent">Últimas anotaciones</string>
     <string name="diary_empty">Todavía no anotaste nada.</string>
     <string name="diary_note">Registra insulina y comida. Es lo que anotás vos; el Registro es lo que midió el sensor.</string>
+    <string name="set_report">Informe</string>
+    <string name="set_report_subtitle">Resumen por períodos, para exportar o imprimir</string>
+    <string name="report_period">Período</string>
+    <string name="report_split">Dividir en</string>
+    <string name="report_split_day">Días</string>
+    <string name="report_split_week">Semanas</string>
+    <string name="report_split_month">Meses</string>
+    <string name="report_split_equal">Partes iguales</string>
+    <string name="report_ranges">Cantidad de partes: %1$d</string>
+    <string name="report_empty">Todavía no hay datos suficientes para este período. El historial se acumula desde que instalaste la app; no se puede recuperar lo anterior.</string>
+    <string name="report_thin_ranges">Algunos tramos tienen poca cobertura. Sus cifras figuran igual, marcadas, porque ocultarlas sería peor que mostrarlas con la advertencia.</string>
+    <string name="report_export">Exportar</string>
+    <string name="report_pdf">PDF</string>
+    <string name="report_mean">Media</string>
+    <string name="report_median">Mediana</string>
+    <string name="report_in_range">En rango</string>
+    <string name="report_coverage">Cobertura</string>
+    <string name="report_share_failed">No hay ninguna app que pueda recibir este archivo.</string>
 </resources>

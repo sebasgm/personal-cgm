@@ -153,18 +153,8 @@ class ReportBuilderTest {
         assertTrue(!empty.hasData)
         assertNull(empty.mean)
         assertNull(empty.median)
-        assertNull(empty.mode)
     }
 
-    @Test
-    fun `mode is the busiest bin`() {
-        val hours = listOf(
-            hour(at("2026-09-01T08:00"), 140.0, count = 30),
-            hour(at("2026-09-01T09:00"), 200.0, count = 5),
-        )
-        val report = build(span("2026-09-01T00:00", "2026-09-02T00:00", ReportSplit.DAY), hours)
-        assertEquals(142.5, report.ranges.single().mode!!, 2.6)
-    }
 }
 
 class ReportExportTest {
@@ -234,15 +224,6 @@ class ReportExportTest {
         kotlinx.serialization.json.Json.parseToJsonElement(json)
         assertTrue(json.contains("\"histogram\""))
         assertTrue(json.contains("\"medianMgdl\""))
-    }
-
-    @Test
-    fun `xml is well formed and escapes its content`() {
-        val xml = export(ReportFormat.XML)
-        javax.xml.parsers.DocumentBuilderFactory.newInstance()
-            .newDocumentBuilder()
-            .parse(xml.byteInputStream())
-        assertTrue(xml.startsWith("<?xml"))
     }
 
     @Test

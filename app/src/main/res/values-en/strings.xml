@@ -290,4 +290,22 @@
     <string name="diary_recent">Recent entries</string>
     <string name="diary_empty">Nothing logged yet.</string>
     <string name="diary_note">Insulin and food, as you record them. The Logbook is what the sensor measured.</string>
+    <string name="set_report">Report</string>
+    <string name="set_report_subtitle">A summary by period, to export or print</string>
+    <string name="report_period">Period</string>
+    <string name="report_split">Split into</string>
+    <string name="report_split_day">Days</string>
+    <string name="report_split_week">Weeks</string>
+    <string name="report_split_month">Months</string>
+    <string name="report_split_equal">Equal parts</string>
+    <string name="report_ranges">Number of parts: %1$d</string>
+    <string name="report_empty">Not enough data for this period yet. History accumulates from the day you installed the app; nothing earlier can be recovered.</string>
+    <string name="report_thin_ranges">Some ranges have thin coverage. Their figures are still shown, and marked, because hiding them would mislead more than showing them with the warning.</string>
+    <string name="report_export">Export</string>
+    <string name="report_pdf">PDF</string>
+    <string name="report_mean">Mean</string>
+    <string name="report_median">Median</string>
+    <string name="report_in_range">In range</string>
+    <string name="report_coverage">Coverage</string>
+    <string name="report_share_failed">No app on this phone can receive that file.</string>
 </resources>
