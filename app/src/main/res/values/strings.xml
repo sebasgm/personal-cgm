@@ -58,10 +58,10 @@
     <string name="trends_what_are_these">¿Qué son estos valores?</string>
     <string name="trends_formula_explanation">GMI = 3,31 + 0,02392 × glucosa media (mg/dL). A1C estimada = (glucosa media + 46,7) / 28,7. Ambas son estimaciones calculadas a partir de las lecturas del sensor, no mediciones de laboratorio, y es normal que no coincidan entre sí ni con un análisis de sangre.</string>
     <string name="trends_readings">Lecturas</string>
-    <string name="set_alerts">Alertas</string>
+    <string name="set_alerts">Alertas y rangos</string>
     <string name="set_alarms">Alarmas</string>
     <string name="set_alarms_subtitle">Bajo, alto y pérdida de señal</string>
-    <string name="set_display">Pantalla</string>
+    <string name="set_display">Pantalla y lectura</string>
     <string name="set_units">Unidades</string>
     <string name="set_units_account">Cuenta (%1$s)</string>
     <string name="set_units_account_plain">Cuenta</string>
@@ -72,10 +72,8 @@
     <string name="set_ranges_subtitle_default">Banda objetivo y límites de zona</string>
     <string name="set_system_notifications">Ajustes de notificación del sistema</string>
     <string name="set_system_notifications_subtitle">Sonidos, importancia, distintivos</string>
-    <string name="set_safety">Seguridad</string>
     <string name="set_disclaimer">Aviso médico</string>
     <string name="set_disclaimer_subtitle">Qué no es esta app, y cuándo confiar en la app oficial en su lugar</string>
-    <string name="set_service">Servicio</string>
     <string name="set_polling">Consultando</string>
     <string name="set_stopped">Detenido</string>
     <string name="set_polling_note">El valor de la barra de estado es la notificación de este servicio, así que está ahí mientras esto diga Consultando.</string>
@@ -239,7 +237,7 @@
     <string name="trends_daily_pattern_empty">Todavía no hay suficientes horas registradas para dibujar el patrón del día.</string>
     <string name="trends_slices">El día en franjas</string>
     <string name="trends_slices_note">Cada franja de 3 horas, reunida a lo largo del periodo. La caja es el 50% central de las lecturas y la línea de dentro, la mediana; las guías llegan del percentil 10 al 90. Lo que se lee aquí no es solo dónde está esa parte del día, sino cuánto varía.</string>
-    <string name="trends_inspect_hint">Tocá cualquiera de los dos gráficos para ver los números de una franja. Tocá otra vez para cerrarlos.</string>
+    <string name="trends_inspect_hint">Deslizá el dedo sobre cualquiera de los dos gráficos para ver los números de una franja. Tocá para abrirlo en pantalla completa.</string>
     <string name="trends_inspect_median">Mediana %1$s</string>
     <string name="trends_inspect_middle">50%% central %1$s–%2$s</string>
     <string name="trends_inspect_spread">Percentil 10–90 %1$s–%2$s</string>
@@ -313,4 +311,11 @@
     <string name="report_shape">%1$s, por %2$s · se configura en Ajustes</string>
     <string name="report_days">%1$d días</string>
     <string name="report_split_equal_n">%1$d partes iguales</string>
+    <string name="report_print_failed">No se pudo abrir la impresión. Probá exportar el HTML y abrirlo desde ahí.</string>
+    <string name="trends_expand">Abrir en pantalla completa</string>
+    <string name="trends_close">Cerrar</string>
+    <string name="trends_fullscreen_hint">Deslizá para leer una franja. Girá el teléfono para tener más ancho.</string>
+    <string name="set_section_report">Informe</string>
+    <string name="set_section_sharing">Compartir</string>
+    <string name="set_section_system">Servicio y seguridad</string>
 </resources>

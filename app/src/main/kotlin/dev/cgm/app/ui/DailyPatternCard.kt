@@ -2,13 +2,18 @@ package dev.cgm.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -36,6 +42,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.cgm.app.R
@@ -85,6 +93,22 @@ fun DailyPatternCard(
     val ribbonColour = ChartColors.trace
     val vision = LocalColorVision.current
 
+    /** Which chart is open full screen, or null. */
+    var expanded by remember { mutableStateOf<PatternPlot?>(null) }
+
+    // Named rather than passed inline, because the full-screen view draws exactly
+    // the same series. Two copies would be two charts that could drift apart.
+    val ribbonSeries = rememberPatternSeries { slices, x, y ->
+        slices.runsWithData().forEach { run ->
+            drawRibbon(run, ribbonColour, vision, thresholds, x, y)
+        }
+    }
+    val sliceSeries = rememberPatternSeries { slices, x, y ->
+        slices.forEach { slice ->
+            if (slice.hasData) drawSlice(slice, vision, thresholds, x, y)
+        }
+    }
+
     Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(
@@ -123,11 +147,9 @@ fun DailyPatternCard(
                 thresholds = thresholds,
                 unit = unit,
                 modifier = Modifier.fillMaxWidth().height(190.dp),
-            ) { slices, x, y ->
-                slices.runsWithData().forEach { run ->
-                    drawRibbon(run, ribbonColour, vision, thresholds, x, y)
-                }
-            }
+                onExpand = { expanded = PatternPlot.RIBBON },
+                drawSeries = ribbonSeries,
+            )
             Text(
                 stringResource(R.string.trends_daily_pattern_note),
                 style = MaterialTheme.typography.bodySmall,
@@ -150,11 +172,9 @@ fun DailyPatternCard(
                 thresholds = thresholds,
                 unit = unit,
                 modifier = Modifier.fillMaxWidth().height(180.dp),
-            ) { slices, x, y ->
-                slices.forEach { slice ->
-                    if (slice.hasData) drawSlice(slice, vision, thresholds, x, y)
-                }
-            }
+                onExpand = { expanded = PatternPlot.SLICES },
+                drawSeries = sliceSeries,
+            )
             Text(
                 stringResource(R.string.trends_slices_note),
                 style = MaterialTheme.typography.bodySmall,
@@ -200,6 +220,99 @@ fun DailyPatternCard(
             }
         }
     }
+
+    expanded?.let { plot ->
+        FullScreenPattern(
+            titleRes = plot.titleRes,
+            slices = when (plot) {
+                PatternPlot.RIBBON -> profile.hours.ifEmpty { profile.buckets }
+                PatternPlot.SLICES -> profile.buckets
+            },
+            range = profile.valueRange(),
+            thresholds = thresholds,
+            unit = unit,
+            drawSeries = when (plot) {
+                PatternPlot.RIBBON -> ribbonSeries
+                PatternPlot.SLICES -> sliceSeries
+            },
+            onDismiss = { expanded = null },
+        )
+    }
+}
+
+/** Which of the two charts a full-screen request refers to. */
+private enum class PatternPlot(val titleRes: Int) {
+    RIBBON(R.string.trends_daily_pattern),
+    SLICES(R.string.trends_slices),
+}
+
+/**
+ * A series, remembered so it is one object rather than a new lambda each frame.
+ *
+ * Only here to give the type a name. Written inline at both call sites and again
+ * in the dialog, the signature would be spelled out three times.
+ */
+@Composable
+private fun rememberPatternSeries(
+    series: DrawScope.(List<TimeOfDayBucket>, (Double) -> Float, (Double) -> Float) -> Unit,
+): DrawScope.(List<TimeOfDayBucket>, (Double) -> Float, (Double) -> Float) -> Unit = series
+
+/**
+ * One chart, given the whole screen.
+ *
+ * The card shows both charts stacked, which leaves each about a fifth of a phone
+ * — enough to see the shape, not enough to put a finger on one hour of it. Here
+ * the same chart gets the full width, and turning the phone sideways gives it
+ * considerably more: a day is 24 hours wide however tall the display is.
+ */
+@Composable
+private fun FullScreenPattern(
+    titleRes: Int,
+    slices: List<TimeOfDayBucket>,
+    range: ClosedFloatingPointRange<Double>?,
+    thresholds: GlucoseThresholds,
+    unit: GlucoseUnit,
+    drawSeries: DrawScope.(List<TimeOfDayBucket>, (Double) -> Float, (Double) -> Float) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        // Not the default dialog width: the point of this view is the width.
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Box(Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(titleRes),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.align(Alignment.CenterStart),
+                    )
+                    TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterEnd)) {
+                        Text(stringResource(R.string.trends_close))
+                    }
+                }
+
+                PatternChart(
+                    slices = slices,
+                    range = range,
+                    thresholds = thresholds,
+                    unit = unit,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    // No expand: this is already it. A tap closes the callout.
+                    onExpand = null,
+                    drawSeries = drawSeries,
+                )
+
+                Text(
+                    stringResource(R.string.trends_fullscreen_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -217,6 +330,8 @@ private fun PatternChart(
     thresholds: GlucoseThresholds,
     unit: GlucoseUnit,
     modifier: Modifier = Modifier,
+    /** What a tap does, or null in the full-screen view where a tap has nowhere to go. */
+    onExpand: (() -> Unit)? = null,
     drawSeries: DrawScope.(
         slices: List<TimeOfDayBucket>,
         x: (Double) -> Float,
@@ -259,15 +374,36 @@ private fun PatternChart(
         ?.takeIf { it.hasData }
     val callout = selected?.let { calloutLines(it, unit) }
 
+    // Two detectors, each in its own pointerInput, both keyed on Unit. Keying
+    // them on the slices instead tears them down and rebuilds them every time the
+    // period changes — including mid-gesture, which is what made the main chart
+    // feel broken the first time this was attempted.
     Canvas(
         modifier
             .onSizeChanged { widthPx = it.width }
-            // Tap only, as on the main chart. A second tap on the same slice closes
-            // it, so nothing has to be dismissed from somewhere else.
+            // Sliding reads. The callout follows the finger across the day and
+            // stays where it was left, so a figure can still be read after lifting.
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { offset -> selectedHour = hitTest(offset.x) },
+                ) { change, _ ->
+                    selectedHour = hitTest(change.position.x)
+                    // Claimed so the vertical scroller underneath does not take
+                    // the gesture halfway across the chart.
+                    change.consume()
+                }
+            }
+            // Tapping opens it full screen, where the same slide has room to
+            // work. Inside that view there is nothing further to open, so a tap
+            // closes the callout instead.
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
-                    val hit = hitTest(offset.x)
-                    selectedHour = if (hit == selectedHour) null else hit
+                    if (onExpand != null) {
+                        onExpand()
+                    } else {
+                        val hit = hitTest(offset.x)
+                        selectedHour = if (hit == selectedHour) null else hit
+                    }
                 }
             }
     ) {

@@ -58,10 +58,10 @@
     <string name="trends_what_are_these">What are these?</string>
     <string name="trends_formula_explanation">GMI = 3.31 + 0.02392 × mean glucose (mg/dL). Estimated A1C = (mean glucose + 46.7) / 28.7. Both are estimates calculated from sensor readings, not laboratory measurements, and they legitimately disagree with each other and with a blood test.</string>
     <string name="trends_readings">Readings</string>
-    <string name="set_alerts">Alerts</string>
+    <string name="set_alerts">Alerts and ranges</string>
     <string name="set_alarms">Alarms</string>
     <string name="set_alarms_subtitle">Low, high and signal loss</string>
-    <string name="set_display">Display</string>
+    <string name="set_display">Display and reading</string>
     <string name="set_units">Units</string>
     <string name="set_units_account">Account (%1$s)</string>
     <string name="set_units_account_plain">Account</string>
@@ -72,10 +72,8 @@
     <string name="set_ranges_subtitle_default">Target band and zone boundaries</string>
     <string name="set_system_notifications">System notification settings</string>
     <string name="set_system_notifications_subtitle">Sounds, importance, badges</string>
-    <string name="set_safety">Safety</string>
     <string name="set_disclaimer">Medical disclaimer</string>
     <string name="set_disclaimer_subtitle">What this app is not, and when to trust the official app instead</string>
-    <string name="set_service">Service</string>
     <string name="set_polling">Polling</string>
     <string name="set_stopped">Stopped</string>
     <string name="set_polling_note">The value in the status bar is this service\'s notification, so it is there while this says Polling.</string>
@@ -239,7 +237,7 @@
     <string name="trends_daily_pattern_empty">Not enough hours recorded yet to draw the daily pattern.</string>
     <string name="trends_slices">The day in slices</string>
     <string name="trends_slices_note">Each 3-hour slice, gathered across the period. The box is the middle 50% of readings with the median inside it; the whiskers reach from the 10th to the 90th percentile. What this shows is not only where that part of the day sits, but how much it varies.</string>
-    <string name="trends_inspect_hint">Tap either chart for a slice\'s numbers. Tap again to close them.</string>
+    <string name="trends_inspect_hint">Slide across either chart to read a slice\'s numbers. Tap to open it full screen.</string>
     <string name="trends_inspect_median">Median %1$s</string>
     <string name="trends_inspect_middle">Middle 50%% %1$s–%2$s</string>
     <string name="trends_inspect_spread">10th–90th %1$s–%2$s</string>
@@ -313,4 +311,11 @@
     <string name="report_shape">%1$s, by %2$s · configured in Settings</string>
     <string name="report_days">%1$d days</string>
     <string name="report_split_equal_n">%1$d equal parts</string>
+    <string name="report_print_failed">Printing could not be opened. Export the HTML and print it from there instead.</string>
+    <string name="trends_expand">Open full screen</string>
+    <string name="trends_close">Close</string>
+    <string name="trends_fullscreen_hint">Slide to read a slice. Rotate the phone for more width.</string>
+    <string name="set_section_report">Report</string>
+    <string name="set_section_sharing">Sharing</string>
+    <string name="set_section_system">Service and safety</string>
 </resources>

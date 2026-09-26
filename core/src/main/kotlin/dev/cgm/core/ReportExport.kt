@@ -3,6 +3,7 @@ package dev.cgm.core
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 enum class ReportFormat(val extension: String, val mimeType: String) {
     CSV("csv", "text/csv"),
@@ -129,13 +130,13 @@ $pad  "label": ${jsonString(r.label)},
 $pad  "start": ${jsonString(iso(r.startMillis, zone))},
 $pad  "end": ${jsonString(iso(r.endMillis, zone))},
 $pad  "readings": ${r.readingCount},
-$pad  "coverage": ${fmt(r.coverage)},
+$pad  "coverage": ${jsonNumber(r.coverage)},
 $pad  "reliable": ${r.isReliable},
-$pad  "meanMgdl": ${fmt(r.mean)},
-$pad  "medianMgdl": ${fmt(r.median)},
-$pad  "sdMgdl": ${fmt(r.standardDeviation)},
-$pad  "cvPercent": ${fmt(r.coefficientOfVariation)},
-$pad  "timeInRange": ${fmt(r.timeInRange)},
+$pad  "meanMgdl": ${jsonNumber(r.mean)},
+$pad  "medianMgdl": ${jsonNumber(r.median)},
+$pad  "sdMgdl": ${jsonNumber(r.standardDeviation)},
+$pad  "cvPercent": ${jsonNumber(r.coefficientOfVariation)},
+$pad  "timeInRange": ${jsonNumber(r.timeInRange)},
 $pad  "histogram": [$bins]
 $pad}"""
     }
@@ -210,6 +211,15 @@ $pad}"""
         append("</body></html>")
     }
 
+    /**
+     * An SVG coordinate. Always a dot, whatever the phone's locale says.
+     *
+     * `x="12,3"` is not a length, so on a device that writes decimals with a
+     * comma every bar of every histogram silently failed to draw — and took the
+     * printed report with it.
+     */
+    private fun svg(value: Double): String = String.format(Locale.ROOT, "%.1f", value)
+
     /** A bar per occupied bin, drawn as plain SVG so it survives any renderer. */
     private fun histogramSvg(r: RangeReport, spec: ReportSpec): String {
         val width = 860
@@ -228,13 +238,13 @@ $pad}"""
                 Zone.HIGH -> "#f9a825"
                 Zone.VERY_HIGH -> "#ef6c00"
             }
-            """<rect x="${"%.1f".format(x)}" y="${"%.1f".format(height - 20 - h)}" """ +
-                """width="${"%.1f".format(barWidth - 1)}" height="${"%.1f".format(h)}" fill="$colour"/>"""
+            """<rect x="${svg(x)}" y="${svg(height - 20 - h)}" """ +
+                """width="${svg(barWidth - 1)}" height="${svg(h)}" fill="$colour"/>"""
         }.joinToString("")
 
         val axis = listOf(54, 100, 150, 200, 250, 300, 350).joinToString("") { mgdl ->
             val x = ((mgdl - GlucoseHistogram.MIN_MGDL).toDouble() / GlucoseHistogram.BIN_WIDTH) * barWidth
-            """<text x="${"%.1f".format(x)}" y="$height" font-size="10" fill="#5b6763">$mgdl</text>"""
+            """<text x="${svg(x)}" y="$height" font-size="10" fill="#5b6763">$mgdl</text>"""
         }
 
         return """<svg viewBox="0 0 $width $height" width="100%" height="$height" role="img">$bars$axis</svg>"""
@@ -248,8 +258,28 @@ $pad}"""
     private fun iso(millis: Long, zone: ZoneId): String =
         Instant.ofEpochMilli(millis).atZone(zone).format(ISO)
 
-    private fun fmt(value: Double?): String =
-        value?.let { "%.2f".format(it).trimEnd('0').trimEnd('.') } ?: ""
+    /**
+     * A number a machine will read back, so never in the reader's locale.
+     *
+     * Half of Europe writes 0,95 for this, which is not a number in JSON and is
+     * a second column in CSV. The phone's locale decides how figures are written
+     * on screen; it has no business deciding how they are written into a file
+     * that something else has to parse.
+     */
+    private fun number(value: Double): String =
+        String.format(Locale.ROOT, "%.2f", value).trimEnd('0').trimEnd('.')
+
+    /** An absent figure is an empty cell in CSV, which is how a spreadsheet says so. */
+    private fun fmt(value: Double?): String = value?.let { number(it) } ?: ""
+
+    /**
+     * An absent figure in JSON is `null`, not nothing.
+     *
+     * A range with no readings has no mean, and writing the key with an empty
+     * value produced `"meanMgdl": ,` — a file that no parser will open, from the
+     * one case most worth exporting.
+     */
+    private fun jsonNumber(value: Double?): String = value?.let { number(it) } ?: "null"
 
     private fun pct(fraction: Double?): String =
         fraction?.let { "${Math.round(it * 100)}%" } ?: "—"

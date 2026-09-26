@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import android.app.Activity
 import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
@@ -66,59 +68,113 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsState()
     val languageTag by viewModel.languageTag.collectAsState()
 
+    var confirmStop by remember { mutableStateOf(false) }
+    var confirmSignOut by remember { mutableStateOf(false) }
+
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
-        SectionHeader(stringResource(R.string.set_alerts))
-        SettingsRow(stringResource(R.string.set_alarms), stringResource(R.string.set_alarms_subtitle)) { onOpen(Destination.Alarms) }
+        // Ordered by who the setting belongs to and how often it is touched.
+        // What you adjust about your own care comes first; what keeps the app
+        // running, and what it is obliged to tell you, comes last — important,
+        // read once, and not what anyone opens this screen for.
 
-        Spacer(Modifier.height(12.dp))
-        SectionHeader(stringResource(R.string.set_display))
-        UnitPicker(
-            selected = state.unitOverride,
-            accountUnit = state.accountUnit,
-            onSelect = viewModel::setUnit,
-        )
-        HorizontalDivider()
-        LanguagePicker(
-            selected = languageTag,
-            onSelect = { tag ->
-                viewModel.setLanguage(tag) { (context as? Activity)?.recreate() }
-            },
-        )
-        HorizontalDivider()
-        SettingsRow(
-            title = stringResource(R.string.set_ranges),
-            subtitle = state.snapshot?.thresholds?.let {
-                stringResource(
-                    R.string.set_ranges_subtitle_values,
-                    state.unit.format(it.lowMgdl),
-                    state.unit.format(it.highMgdl),
-                    state.unit.suffix,
-                )
-            } ?: stringResource(R.string.set_ranges_subtitle_default),
-        ) { onOpen(Destination.Ranges) }
-        SettingsRow(stringResource(R.string.set_system_notifications), stringResource(R.string.set_system_notifications_subtitle)) {
-            context.safeStart(AlarmNotifier.appNotificationSettingsIntent(context))
+        SettingsSection(stringResource(R.string.set_alerts), first = true) {
+            SettingsRow(
+                title = stringResource(R.string.set_alarms),
+                subtitle = stringResource(R.string.set_alarms_subtitle),
+            ) { onOpen(Destination.Alarms) }
+
+            SettingsRow(
+                title = stringResource(R.string.set_ranges),
+                subtitle = state.snapshot?.thresholds?.let {
+                    stringResource(
+                        R.string.set_ranges_subtitle_values,
+                        state.unit.format(it.lowMgdl),
+                        state.unit.format(it.highMgdl),
+                        state.unit.suffix,
+                    )
+                } ?: stringResource(R.string.set_ranges_subtitle_default),
+            ) { onOpen(Destination.Ranges) }
+
+            // Beside the alarms rather than off on its own: both are the app
+            // deciding to interrupt you, and someone turning one down is usually
+            // about to look at the other.
+            SettingsRow(
+                title = stringResource(R.string.set_reminders),
+                subtitle = stringResource(R.string.set_reminders_subtitle),
+            ) { onOpen(Destination.Reminders) }
+
+            SettingsRow(
+                title = stringResource(R.string.set_system_notifications),
+                subtitle = stringResource(R.string.set_system_notifications_subtitle),
+            ) {
+                context.safeStart(AlarmNotifier.appNotificationSettingsIntent(context))
+            }
         }
 
-        Spacer(Modifier.height(12.dp))
-        SectionHeader(stringResource(R.string.set_safety))
-        SettingsRow(
-            title = stringResource(R.string.set_disclaimer),
-            subtitle = stringResource(R.string.set_disclaimer_subtitle),
-        ) { onOpen(Destination.Disclaimer) }
+        SettingsSection(stringResource(R.string.set_section_report)) {
+            SettingsRow(
+                title = stringResource(R.string.set_report),
+                subtitle = stringResource(R.string.set_report_subtitle),
+            ) { onOpen(Destination.ReportSettings) }
+        }
 
-        Spacer(Modifier.height(12.dp))
-        SectionHeader(stringResource(R.string.set_service))
-        val polling by PollingService.running.collectAsState()
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        SettingsSection(stringResource(R.string.set_display)) {
+            UnitPicker(
+                selected = state.unitOverride,
+                accountUnit = state.accountUnit,
+                onSelect = viewModel::setUnit,
+            )
+            LanguagePicker(
+                selected = languageTag,
+                onSelect = { tag ->
+                    viewModel.setLanguage(tag) { (context as? Activity)?.recreate() }
+                },
+            )
+            SettingsRow(
+                title = stringResource(R.string.set_accessibility),
+                subtitle = stringResource(R.string.set_accessibility_desc),
+            ) { onOpen(Destination.Accessibility) }
+            ForecastSetting(viewModel)
+        }
+
+        SettingsSection(stringResource(R.string.set_section_sharing)) {
+            SettingsRow(
+                title = stringResource(R.string.set_relay),
+                subtitle = stringResource(R.string.set_relay_subtitle),
+            ) { onOpen(Destination.Relay) }
+        }
+
+        SettingsSection(stringResource(R.string.set_account)) {
+            SettingsRow(
+                title = stringResource(R.string.set_librelinkup),
+                subtitle = if (state.configured) {
+                    stringResource(R.string.set_signed_in)
+                } else {
+                    stringResource(R.string.set_not_signed_in)
+                },
+            ) {}
+            SettingsRow(
+                title = stringResource(R.string.set_release_notes),
+                subtitle = stringResource(R.string.set_release_notes_desc),
+            ) { onOpen(Destination.ReleaseNotes) }
+            TextButton(onClick = { confirmSignOut = true }) {
+                Text(stringResource(R.string.set_sign_out))
+            }
+        }
+
+        SettingsSection(stringResource(R.string.set_section_system)) {
+            val polling by PollingService.running.collectAsState()
             Text(
-                if (polling) stringResource(R.string.set_polling) else stringResource(R.string.set_stopped),
+                if (polling) {
+                    stringResource(R.string.set_polling)
+                } else {
+                    stringResource(R.string.set_stopped)
+                },
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = if (polling) {
@@ -127,86 +183,81 @@ fun SettingsScreen(
                     ChartColors.signalLoss
                 },
             )
-        }
-        Text(
-            stringResource(
-                if (polling) R.string.set_polling_note else R.string.set_stopped_note
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        var confirmStop by remember { mutableStateOf(false) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onStartService) { Text(stringResource(R.string.set_start)) }
-            OutlinedButton(onClick = { confirmStop = true }) {
-                Text(stringResource(R.string.set_stop))
+            Text(
+                stringResource(
+                    if (polling) R.string.set_polling_note else R.string.set_stopped_note
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onStartService) {
+                    Text(stringResource(R.string.set_start))
+                }
+                OutlinedButton(onClick = { confirmStop = true }) {
+                    Text(stringResource(R.string.set_stop))
+                }
+                OutlinedButton(onClick = viewModel::refreshNow) {
+                    Text(stringResource(R.string.set_refresh))
+                }
             }
-            OutlinedButton(onClick = viewModel::refreshNow) { Text(stringResource(R.string.set_refresh)) }
+
+            Spacer(Modifier.height(4.dp))
+            SettingsRow(
+                title = stringResource(R.string.set_disclaimer),
+                subtitle = stringResource(R.string.set_disclaimer_subtitle),
+            ) { onOpen(Destination.Disclaimer) }
         }
 
-        // Stopping is confirmed because the cost is invisible and permanent: no
-        // readings are recorded while it is off, and that hole cannot be filled in
-        // afterwards from an API that only serves twelve hours of coarse history.
-        if (confirmStop) {
-            ConfirmDialog(
-                title = stringResource(R.string.confirm_stop_title),
-                body = stringResource(R.string.confirm_stop_body),
-                confirmLabel = stringResource(R.string.confirm_stop_action),
-                onConfirm = { confirmStop = false; onStopService() },
-                onDismiss = { confirmStop = false },
-            )
-        }
-
-        SettingsRow(
-            title = stringResource(R.string.set_report),
-            subtitle = stringResource(R.string.set_report_subtitle),
-        ) { onOpen(Destination.ReportSettings) }
-
-        SettingsRow(
-            title = stringResource(R.string.set_relay),
-            subtitle = stringResource(R.string.set_relay_subtitle),
-        ) { onOpen(Destination.Relay) }
-
-        SettingsRow(
-            title = stringResource(R.string.set_reminders),
-            subtitle = stringResource(R.string.set_reminders_subtitle),
-        ) { onOpen(Destination.Reminders) }
-
-        SettingsRow(
-            title = stringResource(R.string.set_accessibility),
-            subtitle = stringResource(R.string.set_accessibility_desc),
-        ) { onOpen(Destination.Accessibility) }
-
-        Spacer(Modifier.height(12.dp))
-        ForecastSetting(viewModel)
-
-        Spacer(Modifier.height(12.dp))
-        SectionHeader(stringResource(R.string.set_account))
-        SettingsRow(
-            title = stringResource(R.string.set_librelinkup),
-            subtitle = if (state.configured) stringResource(R.string.set_signed_in) else stringResource(R.string.set_not_signed_in),
-        ) {}
-        Spacer(Modifier.height(12.dp))
-        SettingsRow(
-            title = stringResource(R.string.set_release_notes),
-            subtitle = stringResource(R.string.set_release_notes_desc),
-        ) { onOpen(Destination.ReleaseNotes) }
-
-        Spacer(Modifier.height(12.dp))
-        var confirmSignOut by remember { mutableStateOf(false) }
-        TextButton(onClick = { confirmSignOut = true }) {
-            Text(stringResource(R.string.set_sign_out))
-        }
-        if (confirmSignOut) {
-            ConfirmDialog(
-                title = stringResource(R.string.confirm_signout_title),
-                body = stringResource(R.string.confirm_signout_body),
-                confirmLabel = stringResource(R.string.confirm_signout_action),
-                onConfirm = { confirmSignOut = false; viewModel.signOut() },
-                onDismiss = { confirmSignOut = false },
-            )
-        }
+        Spacer(Modifier.height(24.dp))
     }
+
+    // Stopping is confirmed because the cost is invisible and permanent: no
+    // readings are recorded while it is off, and that hole cannot be filled in
+    // afterwards from an API that only serves twelve hours of coarse history.
+    if (confirmStop) {
+        ConfirmDialog(
+            title = stringResource(R.string.confirm_stop_title),
+            body = stringResource(R.string.confirm_stop_body),
+            confirmLabel = stringResource(R.string.confirm_stop_action),
+            onConfirm = { confirmStop = false; onStopService() },
+            onDismiss = { confirmStop = false },
+        )
+    }
+
+    if (confirmSignOut) {
+        ConfirmDialog(
+            title = stringResource(R.string.confirm_signout_title),
+            body = stringResource(R.string.confirm_signout_body),
+            confirmLabel = stringResource(R.string.confirm_signout_action),
+            onConfirm = { confirmSignOut = false; viewModel.signOut() },
+            onDismiss = { confirmSignOut = false },
+        )
+    }
+}
+
+/**
+ * One area of Settings: a rule, a heading, then its rows.
+ *
+ * The line comes before the heading rather than after it, so the break reads as
+ * the end of what was above. Sections were previously separated by a gap alone,
+ * which at this length made one long list with words occasionally in bold.
+ */
+@Composable
+private fun SettingsSection(
+    title: String,
+    first: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    if (!first) {
+        Spacer(Modifier.height(20.dp))
+        HorizontalDivider()
+    }
+    Spacer(Modifier.height(if (first) 8.dp else 16.dp))
+    SectionHeader(title)
+    Spacer(Modifier.height(2.dp))
+    Column(content = content)
 }
 
 /**
@@ -662,10 +713,16 @@ private fun ConfirmDialog(
 
 @Composable
 private fun SectionHeader(text: String) {
+    // A category, not an item. Small, spaced and in the accent colour so it reads
+    // as a label over the rows rather than as the first and most important of
+    // them — which is how a heading in the same size and weight as a row title
+    // reads, however much bolder it is.
     Text(
-        text,
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(vertical = 8.dp),
+        text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        letterSpacing = 0.9.sp,
+        modifier = Modifier.padding(vertical = 4.dp),
     )
 }
 
@@ -675,14 +732,22 @@ private fun SettingsRow(title: String, subtitle: String?, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(vertical = 11.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
+        // The row's own two levels: what it is, then what it currently says. The
+        // subtitle is often a live value — the ranges in use, whether the relay is
+        // on — so it has to be clearly subordinate and still legible.
+        Text(
+            title,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+        )
         subtitle?.let {
             Text(
                 it,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 1.dp),
             )
         }
     }
@@ -816,7 +881,11 @@ private fun AlarmKind.summary(setting: AlarmSetting, unit: GlucoseUnit): String 
 @Composable
 private fun LanguagePicker(selected: String?, onSelect: (String?) -> Unit) {
     Column(Modifier.padding(vertical = 8.dp)) {
-        Text(stringResource(R.string.set_language), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.set_language),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+        )
         Row(
             modifier = Modifier.padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -852,7 +921,11 @@ private fun UnitPicker(
     onSelect: (GlucoseUnit?) -> Unit,
 ) {
     Column(Modifier.padding(vertical = 8.dp)) {
-        Text(stringResource(R.string.set_units), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            stringResource(R.string.set_units),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+        )
         Row(
             modifier = Modifier.padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),

@@ -14,15 +14,14 @@ decision and a pass over the security plan.
 
 ### Added
 
+- **Sliding across either daily-pattern chart reads its slices**, with the figures following the
+  finger instead of arriving one tap at a time, and **tapping opens that chart full screen**,
+  where turning the phone sideways gives a 24-hour axis the width it wants. The card stacks both
+  charts, which leaves each about a fifth of a phone — enough to see the shape, not enough to put
+  a finger on one hour of it.
+
 - **A "Now" button on the main chart**, shown while browsing history, returning the window to
   the live edge in one tap.
-
-### Changed
-
-- **Reopening the app always returns the chart to the present.** The window state outlives the
-  screen, so a chart left on last Tuesday used to still be there on reopening — and a stale
-  window is the one thing this app must never present as the current value. The "Now" button
-  moved out of the browse bar and onto the chart, where the hand already is after dragging.
 
 - **A report over a chosen period, cut into ranges**, at the foot of the Trends tab. The period
   — a week to a year — and the split — by day, week, month, or into a chosen number of equal
@@ -62,6 +61,20 @@ decision and a pass over the security plan.
 
 ### Changed
 
+- **Reopening the app always returns the chart to the present.** The window state outlives the
+  screen, so a chart left on last Tuesday used to still be there on reopening — and a stale
+  window is the one thing this app must never present as the current value. The "Now" button
+  moved out of the browse bar and onto the chart, where the hand already is after dragging.
+
+- **Settings is grouped by whose setting it is.** What you adjust about your own care comes
+  first — alarms, ranges, and the insulin reminders now beside them, since all three are the app
+  deciding to interrupt you — then the report, then display and reading, then sharing, then the
+  account. What keeps the app running and what it is obliged to tell you sit at the bottom:
+  important, read once, and not what anyone opens the screen for. Areas are separated by a rule
+  above their heading rather than by a gap, and headings are small, spaced and in the accent
+  colour rather than the size and weight of a row title — at this length the screen had become
+  one long list with words occasionally in bold.
+
 - The Doses tab is now the **Diary**, and holds insulin and food. "Log" was not available: the
   Logbook is already the record of what the sensor measured, and this is the record of what a
   person did — the distinction between an immutable measurement and a correctable entry is the
@@ -76,6 +89,23 @@ decision and a pass over the security plan.
 - GMI and estimated A1C are the first card on Trends, under the coverage notice. They were below
   two charts and a scroll, which made the figure anyone opened the screen for read as a footnote
   to the charts rather than as the summary they support.
+
+### Fixed
+
+- **Exports were unparseable on any phone that writes decimals with a comma.** `String.format`
+  follows the device locale, so coverage came out as `0,95`: not a number in JSON, and a second
+  column in CSV. The same bug put `x="12,3"` into the histogram SVG, which is not a length — so
+  every bar of every chart silently failed to draw, and took the printed report with it. Figures
+  written for a machine now always use a dot; how they are written on screen still follows the
+  phone. Tested under a Spanish locale, because a laptop set to English cannot see any of this.
+- **A range with no readings produced a JSON file nothing could open**, writing `"meanMgdl": ,`
+  where there was no mean. An absent figure is `null` now — and a range with nothing in it is
+  one of the cases most worth exporting.
+- **Printing could abort before the dialog appeared.** The WebView that renders the report is
+  never attached to the view tree, so nothing held a reference to it and it could be collected
+  between loading the page and the print service asking for it. It is now kept alive for the
+  life of the job and released when the job ends. Printing also needs an Activity, which is
+  looked up rather than assumed, and a failure now says so instead of appearing to do nothing.
 
 ## [3.0.0] - 2026-09-24
 

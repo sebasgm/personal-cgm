@@ -2,6 +2,7 @@ package dev.cgm.core
 
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.Locale
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -242,6 +243,75 @@ class ReportExportTest {
             ReportExport.fileName(report, ReportFormat.CSV, madrid),
         )
         assertTrue(ReportExport.fileName(report, ReportFormat.HTML, madrid).endsWith(".html"))
+    }
+
+    // -- locale ---------------------------------------------------------------
+
+    /**
+     * Runs [block] as a phone set to Spanish would run it.
+     *
+     * Half of Europe writes decimals with a comma, and `String.format` follows the
+     * default locale unless told otherwise. Every export here passed on a machine
+     * set to English while producing unparseable files on the phone it was written
+     * for, so the test has to do the switching the laptop will not.
+     */
+    private fun <T> asSpanishPhone(block: () -> T): T {
+        val original = Locale.getDefault()
+        Locale.setDefault(Locale.forLanguageTag("es-ES"))
+        try {
+            return block()
+        } finally {
+            Locale.setDefault(original)
+        }
+    }
+
+    @Test
+    fun `json parses on a device that writes decimals with a comma`() {
+        val json = asSpanishPhone { export(ReportFormat.JSON) }
+        kotlinx.serialization.json.Json.parseToJsonElement(json)
+        assertTrue(
+            !Regex(""": -?\d+,\d""").containsMatchIn(json),
+            "a comma decimal is not a number in JSON",
+        )
+    }
+
+    @Test
+    fun `csv keeps one figure per column on a comma-decimal device`() {
+        // The fixture covers one hour of a day, so coverage is 1/24. Written the
+        // Spanish way that is "0,04" — which a spreadsheet reads as two columns,
+        // shifting every figure after it one place left for the rest of the row.
+        val csv = asSpanishPhone { export(ReportFormat.CSV) }
+        assertTrue(csv.contains("0.04"), "coverage should be written with a dot")
+        assertTrue(!csv.contains("0,04"), "a comma decimal splits a figure in two")
+    }
+
+    @Test
+    fun `svg coordinates stay lengths on a comma-decimal device`() {
+        // `x="12,3"` is not a length, so every bar of every histogram silently
+        // fails to draw — and takes the printed report with it.
+        val html = asSpanishPhone { export(ReportFormat.HTML) }
+        assertTrue(
+            !Regex("""="-?\d+,\d""").containsMatchIn(html),
+            "SVG attributes must not carry comma decimals",
+        )
+        assertTrue(html.contains("<rect"), "the histogram should have bars at all")
+    }
+
+    @Test
+    fun `a range with nothing in it still exports as valid json`() {
+        // The overall row always has data. An empty range is what used to emit
+        // `"meanMgdl": ,` and take the whole file down with it.
+        val start = LocalDateTime.parse("2026-09-01T00:00").atZone(madrid).toInstant().toEpochMilli()
+        val empty = ReportBuilder.build(
+            spec = ReportSpec(start, start + 2 * 86_400_000L, ReportSplit.DAY),
+            hours = emptyList(),
+            hourStartMillis = { 0 },
+            generatedAtMillis = now,
+            zone = madrid,
+        )
+        val json = ReportExport.export(empty, ReportFormat.JSON, madrid)
+        kotlinx.serialization.json.Json.parseToJsonElement(json)
+        assertTrue(json.contains("\"meanMgdl\": null"))
     }
 
     // -- preferences ----------------------------------------------------------

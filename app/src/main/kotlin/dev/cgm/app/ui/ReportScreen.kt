@@ -1,8 +1,15 @@
 package dev.cgm.app.ui
 
 import android.content.ActivityNotFoundException
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.os.Bundle
+import android.os.CancellationSignal
+import android.os.ParcelFileDescriptor
+import android.print.PageRange
+import android.print.PrintDocumentAdapter
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
@@ -31,6 +38,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -158,6 +168,16 @@ fun ReportSection(viewModel: CgmViewModel) {
     val report by viewModel.report.collectAsState()
     val building by viewModel.reportBuilding.collectAsState()
 
+    /**
+     * The WebView doing the printing, held for as long as the job runs.
+     *
+     * Nothing else references it — it is never attached to the view tree — so
+     * without this it can be collected between loading the page and the print
+     * service asking for it, which is what made printing abort. Cleared when the
+     * job ends, because it holds the Activity.
+     */
+    var printJob by remember { mutableStateOf<WebView?>(null) }
+
     // Rebuilds on arrival and whenever the stored choices change, which is the
     // only thing that can alter the shape of it.
     LaunchedEffect(preferences) { viewModel.refreshReport(preferences) }
@@ -202,7 +222,18 @@ fun ReportSection(viewModel: CgmViewModel) {
                 // It paginates and embeds fonts better than a hand-drawn page
                 // renderer would, and it leaves one document to keep correct
                 // instead of two that have to agree.
-                OutlinedButton(onClick = { printReport(context, ready) }) {
+                val printFailed = stringResource(R.string.report_print_failed)
+                OutlinedButton(onClick = {
+                    printJob = printReport(
+                        context = context,
+                        report = ready,
+                        onFinished = { printJob = null },
+                        onFailure = {
+                            printJob = null
+                            Toast.makeText(context, printFailed, Toast.LENGTH_LONG).show()
+                        },
+                    )
+                }) {
                     Text(stringResource(R.string.report_pdf))
                 }
             }
@@ -314,22 +345,84 @@ private fun share(context: Context, report: Report, format: ReportFormat, onFail
 /**
  * Prints the HTML report, which is also how it becomes a PDF.
  *
- * The WebView is never attached to the view tree: the print adapter holds it for
- * the life of the job, which is all it is for.
+ * Returns the WebView so the caller can keep it alive. The print framework does
+ * not take ownership of it, and an off-tree WebView with no other reference can
+ * be collected mid-job — which shows up as a print that simply gives up.
  */
-private fun printReport(context: Context, report: Report) {
-    val html = ReportExport.export(report, ReportFormat.HTML)
+private fun printReport(
+    context: Context,
+    report: Report,
+    onFinished: () -> Unit,
+    onFailure: () -> Unit,
+): WebView? {
+    // Printing opens a system UI, which needs an Activity rather than whatever
+    // context happens to be in scope.
+    val activity = context.activity() ?: run { onFailure(); return null }
+    val printManager = activity.getSystemService(PrintManager::class.java)
+        ?: run { onFailure(); return null }
+
+    val html = runCatching { ReportExport.export(report, ReportFormat.HTML) }
+        .getOrElse { onFailure(); return null }
     val name = ReportExport.fileName(report, ReportFormat.HTML).removeSuffix(".html")
 
-    val webView = WebView(context)
+    val webView = WebView(activity)
     webView.webViewClient = object : WebViewClient() {
         override fun onPageFinished(view: WebView, url: String?) {
-            context.getSystemService(PrintManager::class.java).print(
-                name,
-                view.createPrintDocumentAdapter(name),
-                PrintAttributes.Builder().build(),
-            )
+            val adapter = ReleasingAdapter(view.createPrintDocumentAdapter(name), onFinished)
+            runCatching {
+                printManager.print(
+                    name,
+                    adapter,
+                    PrintAttributes.Builder()
+                        .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                        .build(),
+                )
+            }.onFailure { onFailure() }
         }
     }
     webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+    return webView
+}
+
+/** Walks out of whatever context wrappers Compose was handed, to the Activity. */
+private tailrec fun Context.activity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.activity()
+    else -> null
+}
+
+/**
+ * The WebView's own adapter, plus a signal when the job is over.
+ *
+ * Every call is forwarded untouched; the only addition is telling the caller it
+ * can stop holding the WebView. `onFinish` is the framework's own guarantee that
+ * nothing further will be asked of the adapter, whether the job printed, failed
+ * or was cancelled.
+ */
+private class ReleasingAdapter(
+    private val delegate: PrintDocumentAdapter,
+    private val onFinished: () -> Unit,
+) : PrintDocumentAdapter() {
+
+    override fun onStart() = delegate.onStart()
+
+    override fun onLayout(
+        oldAttributes: PrintAttributes?,
+        newAttributes: PrintAttributes?,
+        cancellationSignal: CancellationSignal?,
+        callback: LayoutResultCallback?,
+        extras: Bundle?,
+    ) = delegate.onLayout(oldAttributes, newAttributes, cancellationSignal, callback, extras)
+
+    override fun onWrite(
+        pages: Array<out PageRange>?,
+        destination: ParcelFileDescriptor?,
+        cancellationSignal: CancellationSignal?,
+        callback: WriteResultCallback?,
+    ) = delegate.onWrite(pages, destination, cancellationSignal, callback)
+
+    override fun onFinish() {
+        delegate.onFinish()
+        onFinished()
+    }
 }
