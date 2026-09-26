@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.cgm.core.AccessibilityPreferences
+import dev.cgm.core.ReportPreferences
 import dev.cgm.app.service.RelayConfig
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.InsulinReminders
@@ -252,6 +253,22 @@ class SecureSettings(private val context: Context) : SessionStore {
         }
     }
 
+    // -- report ---------------------------------------------------------------
+
+    /** Period, split and range count for the report shown on the Trends tab. */
+    val reportPreferences: Flow<ReportPreferences> = context.dataStore.data.map { prefs ->
+        prefs[KEY_REPORT]
+            ?.let { runCatching { json.decodeFromString<ReportPreferences>(it) }.getOrNull() }
+            ?.sanitised()
+            ?: ReportPreferences.Default
+    }
+
+    suspend fun saveReportPreferences(preferences: ReportPreferences) {
+        context.dataStore.edit {
+            it[KEY_REPORT] = json.encodeToString(preferences.sanitised())
+        }
+    }
+
     // -- forecast -----------------------------------------------------------
 
     /**
@@ -307,6 +324,7 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_RELAY_SECRET: Preferences.Key<String> = stringPreferencesKey("relay_secret_enc")
         val KEY_REMINDERS: Preferences.Key<String> = stringPreferencesKey("insulin_reminders")
         val KEY_ACCESSIBILITY: Preferences.Key<String> = stringPreferencesKey("accessibility")
+        val KEY_REPORT: Preferences.Key<String> = stringPreferencesKey("report_preferences")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
         val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")
         val KEY_ALARM_STATE: Preferences.Key<String> = stringPreferencesKey("alarm_state")

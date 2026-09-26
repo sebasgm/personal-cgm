@@ -27,6 +27,7 @@ import dev.cgm.core.ForecastModel
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.Report
+import dev.cgm.core.ReportPreferences
 import dev.cgm.core.ReportSpec
 import dev.cgm.core.ReportSplit
 import dev.cgm.core.GlucoseThresholds
@@ -333,14 +334,14 @@ class CgmViewModel(
 
     // -- report ------------------------------------------------------------------
 
-    private val _reportPeriod = MutableStateFlow(ReportPeriod.Default)
-    val reportPeriod: StateFlow<ReportPeriod> = _reportPeriod.asStateFlow()
-
-    private val _reportSplit = MutableStateFlow(ReportSplit.WEEK)
-    val reportSplit: StateFlow<ReportSplit> = _reportSplit.asStateFlow()
-
-    private val _reportRangeCount = MutableStateFlow(DEFAULT_REPORT_RANGES)
-    val reportRangeCount: StateFlow<Int> = _reportRangeCount.asStateFlow()
+    /**
+     * How the report is cut, as chosen in Settings.
+     *
+     * Persisted rather than held on the screen: the report is configured in one
+     * tab and read in another, so the choice has to outlive both.
+     */
+    val reportPreferences: StateFlow<ReportPreferences> = settings.reportPreferences
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ReportPreferences.Default)
 
     private val _report = MutableStateFlow<Report?>(null)
     val report: StateFlow<Report?> = _report.asStateFlow()
@@ -348,44 +349,36 @@ class CgmViewModel(
     private val _reportBuilding = MutableStateFlow(false)
     val reportBuilding: StateFlow<Boolean> = _reportBuilding.asStateFlow()
 
-    fun selectReportPeriod(period: ReportPeriod) {
-        _reportPeriod.value = period
-        refreshReport()
-    }
-
-    fun selectReportSplit(split: ReportSplit) {
-        _reportSplit.value = split
-        refreshReport()
-    }
-
-    fun selectReportRangeCount(count: Int) {
-        _reportRangeCount.value = count.coerceIn(2, MAX_REPORT_RANGES)
-        if (_reportSplit.value == ReportSplit.EQUAL) refreshReport()
+    fun saveReportPreferences(preferences: ReportPreferences) {
+        viewModelScope.launch { settings.saveReportPreferences(preferences) }
     }
 
     /**
-     * Rebuild the report for the current choices.
+     * Rebuild the report for the stored choices.
      *
      * Thresholds and unit come from the live snapshot so the exported file says
      * what the screen says. A report built against defaults while the account
      * runs on different targets would disagree with every other view in the app,
      * and the file is the copy that gets shown to someone else.
      */
-    fun refreshReport() {
+    fun refreshReport(preferences: ReportPreferences = reportPreferences.value) {
         viewModelScope.launch {
             _reportBuilding.value = true
-            val now = clock()
-            val snapshot = state.value.snapshot
-            val spec = ReportSpec(
-                startMillis = now - _reportPeriod.value.millis,
-                endMillis = now,
-                split = _reportSplit.value,
-                rangeCount = _reportRangeCount.value,
-                thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
-                unit = snapshot?.unit ?: GlucoseUnit.MGDL,
-            )
-            _report.value = withContext(Dispatchers.IO) { repository.buildReport(spec, now) }
-            _reportBuilding.value = false
+            try {
+                val now = clock()
+                val snapshot = state.value.snapshot
+                val spec = ReportSpec(
+                    startMillis = now - preferences.periodMillis,
+                    endMillis = now,
+                    split = preferences.split,
+                    rangeCount = preferences.rangeCount,
+                    thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
+                    unit = snapshot?.unit ?: GlucoseUnit.MGDL,
+                )
+                _report.value = withContext(Dispatchers.IO) { repository.buildReport(spec, now) }
+            } finally {
+                _reportBuilding.value = false
+            }
         }
     }
 
@@ -678,12 +671,6 @@ class CgmViewModel(
 
         /** Meals outnumber doses only slightly; the same few weeks either way. */
         const val CARB_LIMIT = 300
-
-        /** Four ranges reads at a glance; more of them becomes a table to study. */
-        const val DEFAULT_REPORT_RANGES = 4
-
-        /** Past this the ranges are thinner than the gaps in the data. */
-        const val MAX_REPORT_RANGES = 24
 
         fun factory(
                 repository: GlucoseRepository,

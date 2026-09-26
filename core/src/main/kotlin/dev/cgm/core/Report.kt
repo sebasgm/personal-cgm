@@ -9,6 +9,46 @@ import java.time.temporal.ChronoUnit
 /** How a period is cut into ranges. */
 enum class ReportSplit { DAY, WEEK, MONTH, EQUAL }
 
+/**
+ * What the report is built from, chosen once and kept.
+ *
+ * Stored rather than held on the screen because the report is now configured in
+ * one place and read in another. A choice that survives leaving Settings but not
+ * the process is not a setting, it is a mood.
+ *
+ * The period is days rather than a named window so this stays independent of
+ * whatever presets the UI happens to offer, and an old value keeps meaning the
+ * same length of time after that list changes.
+ */
+@Serializable
+data class ReportPreferences(
+    val periodDays: Int = 30,
+    val split: ReportSplit = ReportSplit.WEEK,
+    val rangeCount: Int = 4,
+) {
+    fun sanitised(): ReportPreferences = copy(
+        periodDays = periodDays.coerceIn(1, MAX_PERIOD_DAYS),
+        rangeCount = rangeCount.coerceIn(MIN_RANGES, MAX_EQUAL_RANGES),
+    )
+
+    val periodMillis: Long get() = periodDays * DAY_MILLIS
+
+    companion object {
+        val Default = ReportPreferences()
+
+        /** Two ranges is the fewest that can be compared with each other. */
+        const val MIN_RANGES = 2
+
+        /** Past this the ranges are thinner than the gaps in the data. */
+        const val MAX_EQUAL_RANGES = 24
+
+        /** A couple of years, well beyond what any install will have recorded. */
+        const val MAX_PERIOD_DAYS = 730
+
+        private const val DAY_MILLIS = 24L * 60 * 60 * 1000
+    }
+}
+
 @Serializable
 data class ReportSpec(
     val startMillis: Long,

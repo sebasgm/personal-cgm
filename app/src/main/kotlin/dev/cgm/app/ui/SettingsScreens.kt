@@ -160,7 +160,7 @@ fun SettingsScreen(
         SettingsRow(
             title = stringResource(R.string.set_report),
             subtitle = stringResource(R.string.set_report_subtitle),
-        ) { onOpen(Destination.Report) }
+        ) { onOpen(Destination.ReportSettings) }
 
         SettingsRow(
             title = stringResource(R.string.set_relay),

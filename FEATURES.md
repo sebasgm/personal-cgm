@@ -175,7 +175,8 @@ That describes the choice, not anyone else's product.
 
 - **A report over any window, cut into ranges you choose** — by day, week, month, or into a
   set number of equal parts — with the distribution, mean, median, time in range and coverage
-  for each, exportable as CSV, JSON or HTML and printable to PDF.
+  for each, exportable as CSV, JSON or HTML and printable to PDF. The shape is chosen once and
+  kept; the report is read wherever the other trends are.
 
   **Unusual:** mean and median are shown together rather than one standing in for the summary.
   Glucose has far more room above target than below it, so the two separate whenever a stretch

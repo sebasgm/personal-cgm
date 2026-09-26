@@ -308,4 +308,9 @@
     <string name="report_in_range">En rango</string>
     <string name="report_coverage">Cobertura</string>
     <string name="report_share_failed">No hay ninguna app que pueda recibir este archivo.</string>
+    <string name="report_settings_explain">Elegí el período y en cuántos tramos se divide. El informe se arma en la pestaña de Tendencias, al final.</string>
+    <string name="report_no_backfill">El historial se acumula desde que instalaste la app. Un período más largo que eso figura con poca cobertura, y así se exporta.</string>
+    <string name="report_shape">%1$s, por %2$s · se configura en Ajustes</string>
+    <string name="report_days">%1$d días</string>
+    <string name="report_split_equal_n">%1$d partes iguales</string>
 </resources>

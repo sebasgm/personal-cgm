@@ -44,27 +44,21 @@ import dev.cgm.core.RangeReport
 import dev.cgm.core.Report
 import dev.cgm.core.ReportExport
 import dev.cgm.core.ReportFormat
+import dev.cgm.core.ReportPreferences
 import dev.cgm.core.ReportSplit
 import kotlin.math.roundToInt
 
 /**
- * A report over a chosen period, cut into ranges, and the ways out of the app.
+ * How the report is cut. Lives in Settings; the report itself lives in Trends.
  *
- * Mean and median sit side by side rather than one being chosen for you. Glucose
- * is right-skewed — there is far more room above target than below it — so the
- * two part company whenever a stretch runs high, and that parting is itself the
- * finding. Either number on its own hides it.
+ * Split apart because the two are used at different moments. Choosing a period
+ * and a split is something done once and rarely revisited, while the report is
+ * read whenever there is a reason to look — and putting the knobs above it every
+ * time would make a configuration screen out of a reading one.
  */
 @Composable
-fun ReportScreen(viewModel: CgmViewModel) {
-    val context = LocalContext.current
-    val report by viewModel.report.collectAsState()
-    val building by viewModel.reportBuilding.collectAsState()
-    val period by viewModel.reportPeriod.collectAsState()
-    val split by viewModel.reportSplit.collectAsState()
-    val rangeCount by viewModel.reportRangeCount.collectAsState()
-
-    LaunchedEffect(Unit) { viewModel.refreshReport() }
+fun ReportSettingsScreen(viewModel: CgmViewModel) {
+    val preferences by viewModel.reportPreferences.collectAsState()
 
     Column(
         Modifier
@@ -73,10 +67,17 @@ fun ReportScreen(viewModel: CgmViewModel) {
             .padding(20.dp),
     ) {
         Text(stringResource(R.string.set_report), style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.report_settings_explain),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
         Text(stringResource(R.string.report_period), style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(6.dp))
+        val period = ReportPeriod.ofDays(preferences.periodDays)
         Row(
             Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -84,13 +85,17 @@ fun ReportScreen(viewModel: CgmViewModel) {
             ReportPeriod.entries.forEach { option ->
                 FilterChip(
                     selected = option == period,
-                    onClick = { viewModel.selectReportPeriod(option) },
+                    onClick = {
+                        viewModel.saveReportPreferences(
+                            preferences.copy(periodDays = option.days)
+                        )
+                    },
                     label = { Text(option.label) },
                 )
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
         Text(stringResource(R.string.report_split), style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(6.dp))
         Row(
@@ -99,30 +104,74 @@ fun ReportScreen(viewModel: CgmViewModel) {
         ) {
             ReportSplit.entries.forEach { option ->
                 FilterChip(
-                    selected = option == split,
-                    onClick = { viewModel.selectReportSplit(option) },
+                    selected = option == preferences.split,
+                    onClick = {
+                        viewModel.saveReportPreferences(preferences.copy(split = option))
+                    },
                     label = { Text(stringResource(option.labelRes)) },
                 )
             }
         }
 
-        // The count only means anything for an equal split; the calendar splits
+        // The count only means anything for an equal split: the calendar splits
         // get however many days, weeks or months the period actually contains.
-        if (split == ReportSplit.EQUAL) {
-            Spacer(Modifier.height(12.dp))
+        if (preferences.split == ReportSplit.EQUAL) {
+            Spacer(Modifier.height(16.dp))
             Text(
-                stringResource(R.string.report_ranges, rangeCount),
+                stringResource(R.string.report_ranges, preferences.rangeCount),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Slider(
-                value = rangeCount.toFloat(),
-                onValueChange = { viewModel.selectReportRangeCount(it.roundToInt()) },
-                valueRange = 2f..CgmViewModel.MAX_REPORT_RANGES.toFloat(),
-                steps = CgmViewModel.MAX_REPORT_RANGES - 3,
+                value = preferences.rangeCount.toFloat(),
+                onValueChange = {
+                    viewModel.saveReportPreferences(
+                        preferences.copy(rangeCount = it.roundToInt())
+                    )
+                },
+                valueRange = ReportPreferences.MIN_RANGES.toFloat()..
+                    ReportPreferences.MAX_EQUAL_RANGES.toFloat(),
+                steps = ReportPreferences.MAX_EQUAL_RANGES - ReportPreferences.MIN_RANGES - 1,
             )
         }
 
         Spacer(Modifier.height(20.dp))
+        Text(
+            stringResource(R.string.report_no_backfill),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * The report itself, at the foot of the Trends tab.
+ *
+ * Mean and median sit side by side rather than one being chosen for you. Glucose
+ * is right-skewed — there is far more room above target than below it — so the
+ * two part company whenever a stretch runs high, and that parting is itself the
+ * finding. Either number on its own hides it.
+ */
+@Composable
+fun ReportSection(viewModel: CgmViewModel) {
+    val context = LocalContext.current
+    val preferences by viewModel.reportPreferences.collectAsState()
+    val report by viewModel.report.collectAsState()
+    val building by viewModel.reportBuilding.collectAsState()
+
+    // Rebuilds on arrival and whenever the stored choices change, which is the
+    // only thing that can alter the shape of it.
+    LaunchedEffect(preferences) { viewModel.refreshReport(preferences) }
+
+    Column(Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.set_report), style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(R.string.report_shape, periodLabel(preferences), splitLabel(preferences)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(12.dp))
         val ready = report?.takeIf { it.hasData }
         when {
             building && report == null -> CircularProgressIndicator()
@@ -135,7 +184,7 @@ fun ReportScreen(viewModel: CgmViewModel) {
         }
 
         if (ready != null) {
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
             Text(stringResource(R.string.report_export), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
             val noReceiver = stringResource(R.string.report_share_failed)
@@ -227,6 +276,19 @@ private fun RangeRow(range: RangeReport, unitSuffix: String, header: Boolean) {
         )
     }
 }
+
+@Composable
+private fun periodLabel(preferences: ReportPreferences): String =
+    ReportPeriod.ofDays(preferences.periodDays)?.label
+        ?: stringResource(R.string.report_days, preferences.periodDays)
+
+@Composable
+private fun splitLabel(preferences: ReportPreferences): String =
+    if (preferences.split == ReportSplit.EQUAL) {
+        stringResource(R.string.report_split_equal_n, preferences.rangeCount)
+    } else {
+        stringResource(preferences.split.labelRes)
+    }
 
 private val ReportSplit.labelRes: Int
     get() = when (this) {

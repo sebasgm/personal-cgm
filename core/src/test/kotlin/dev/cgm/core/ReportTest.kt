@@ -243,4 +243,25 @@ class ReportExportTest {
         )
         assertTrue(ReportExport.fileName(report, ReportFormat.HTML, madrid).endsWith(".html"))
     }
+
+    // -- preferences ----------------------------------------------------------
+
+    @Test
+    fun `stored preferences are clamped rather than trusted`() {
+        // These come back off disk, where an older build or a hand edit can have
+        // left anything. A zero range count divides by zero downstream; a
+        // negative period asks for a window that ends before it starts.
+        val absurd = ReportPreferences(periodDays = -5, rangeCount = 0)
+        assertEquals(1, absurd.sanitised().periodDays)
+        assertEquals(ReportPreferences.MIN_RANGES, absurd.sanitised().rangeCount)
+
+        val greedy = ReportPreferences(periodDays = 100_000, rangeCount = 5_000)
+        assertEquals(ReportPreferences.MAX_PERIOD_DAYS, greedy.sanitised().periodDays)
+        assertEquals(ReportPreferences.MAX_EQUAL_RANGES, greedy.sanitised().rangeCount)
+    }
+
+    @Test
+    fun `the period converts to the span the report is built over`() {
+        assertEquals(30L * 24 * 60 * 60 * 1000, ReportPreferences(periodDays = 30).periodMillis)
+    }
 }

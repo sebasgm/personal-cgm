@@ -24,10 +24,13 @@ decision and a pass over the security plan.
   window is the one thing this app must never present as the current value. The "Now" button
   moved out of the browse bar and onto the chart, where the hand already is after dragging.
 
-- **A report over a chosen period, cut into ranges.** Pick a window from a week to a year and
-  split it by day, week, month, or into a chosen number of equal parts; each range gets its
+- **A report over a chosen period, cut into ranges**, at the foot of the Trends tab. The period
+  — a week to a year — and the split — by day, week, month, or into a chosen number of equal
+  parts — are set once in Settings and stored, because the report is configured in one place
+  and read in another. Each range gets its
   distribution, its mean and its median side by side, its time in range and its coverage, with
-  a line for the whole period above them. Mean and median are both shown rather than one being
+  a line for the whole period above them, on its own period rather than the chips at the top of
+  the tab. Mean and median are both shown rather than one being
   chosen: glucose is right-skewed, so they part company whenever a stretch runs high, and that
   parting is the finding. Built from the hourly rollups, so a year costs a few thousand rows
   rather than hundreds of thousands of readings.

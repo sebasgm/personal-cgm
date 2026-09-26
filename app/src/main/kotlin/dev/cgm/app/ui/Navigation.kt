@@ -40,9 +40,19 @@ enum class ReportPeriod(val label: String, val duration: Duration) {
     D365("1y", 365.days);
 
     val millis: Long get() = duration.inWholeMilliseconds
+    val days: Int get() = duration.inWholeDays.toInt()
 
     companion object {
         val Default = D30
+
+        /**
+         * The preset matching a stored length, or null for anything else.
+         *
+         * Null rather than a nearest match: the chips say what they say, and one
+         * of them looking selected while the report covers a different span is
+         * the kind of small lie that makes the rest untrustworthy.
+         */
+        fun ofDays(days: Int): ReportPeriod? = entries.firstOrNull { it.days == days }
     }
 }
 
@@ -71,7 +81,7 @@ sealed interface Destination {
     data object Accessibility : Destination
     data object Reminders : Destination
     data object Relay : Destination
-    data object Report : Destination
+    data object ReportSettings : Destination
     data object ReleaseNotes : Destination
     data object Disclaimer : Destination
 }
@@ -111,7 +121,7 @@ enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
             Destination.Accessibility,
             Destination.Reminders,
             Destination.Relay,
-            Destination.Report,
+            Destination.ReportSettings,
             Destination.ReleaseNotes,
             Destination.Disclaimer,
             is Destination.AlarmDetail -> SETTINGS

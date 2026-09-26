@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -80,28 +81,37 @@ fun TrendsScreen(viewModel: CgmViewModel) {
 
         CoverageNotice(stats, period)
 
+        // An empty window used to end the screen here. It no longer can: the
+        // report below spans its own period, which may be a year when this chip
+        // is on a day, so an empty day must not hide a report that has data.
         if (stats.readingCount == 0) {
             Text(
                 stringResource(R.string.trends_empty),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            return@Column
+        } else {
+            // A1C first. It is the single figure anyone opening this screen came for,
+            // and it was previously below two charts and a scroll — a number you have
+            // to go looking for reads as a footnote to the charts rather than as the
+            // summary they support. The coverage notice stays above it, because how much
+            // of the window this rests on governs how the figure should be read.
+            A1cCard(stats, period)
+            TimeInRangeCard(stats)
+            DailyPatternCard(
+                profile = timeOfDay,
+                thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
+                unit = state.unit,
+            )
+            ForecastReliabilityCard(viewModel)
+            SummaryCard(stats)
         }
 
-        // A1C first. It is the single figure anyone opening this screen came for,
-        // and it was previously below two charts and a scroll — a number you have
-        // to go looking for reads as a footnote to the charts rather than as the
-        // summary they support. The coverage notice stays above it, because how much
-        // of the window this rests on governs how the figure should be read.
-        A1cCard(stats, period)
-        TimeInRangeCard(stats)
-        DailyPatternCard(
-            profile = timeOfDay,
-            thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
-            unit = state.unit,
-        )
-        ForecastReliabilityCard(viewModel)
-        SummaryCard(stats)
+        // The report last, and on its own period rather than the chips above.
+        // Everything over it answers "how is it going"; this answers "write that
+        // down so someone else can read it", which is a different errand and
+        // belongs at the end of the screen rather than competing at the top.
+        HorizontalDivider()
+        ReportSection(viewModel)
     }
 }
 

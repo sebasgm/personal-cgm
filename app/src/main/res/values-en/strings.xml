@@ -308,4 +308,9 @@
     <string name="report_in_range">In range</string>
     <string name="report_coverage">Coverage</string>
     <string name="report_share_failed">No app on this phone can receive that file.</string>
+    <string name="report_settings_explain">Choose the period and how many ranges it is cut into. The report itself is built at the foot of the Trends tab.</string>
+    <string name="report_no_backfill">History accumulates from the day you installed the app. A period longer than that reads as thin coverage, and exports saying so.</string>
+    <string name="report_shape">%1$s, by %2$s · configured in Settings</string>
+    <string name="report_days">%1$d days</string>
+    <string name="report_split_equal_n">%1$d equal parts</string>
 </resources>
