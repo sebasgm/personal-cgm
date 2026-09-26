@@ -74,9 +74,13 @@ decision and a pass over the security plan.
   no longer in Settings. Choosing a period and choosing a file format are one task — deciding what
   to send someone — and splitting them across two tabs meant changing a period, walking back, and
   checking whether what you exported was what you meant.
-- **Asking for a PDF now writes the HTML file too**, and prints that file rather than a string held
-  in memory. The printed page and the exported file are the same bytes, so what came off the
-  printer can be checked against something that exists.
+- **Asking for a PDF opens the report on screen, with Print on it**, instead of handing an unseen
+  page to the printer. The page has to be laid out in a real window before it can be printed —
+  an unattached WebView has no window, is never laid out, and is held by nothing the framework
+  keeps, which are three separate ways for a print job to come to nothing. Showing the page
+  removes all three, and also says whether a failure is the document or the printer. The HTML
+  file is written on the way in, so the printed page and the exported file are the same bytes.
+  A page that fails to load says so and leaves Print disabled, rather than printing blank.
 - **Reopening the app always returns the chart to the present.** The window state outlives the
   screen, so a chart left on last Tuesday used to still be there on reopening — and a stale
   window is the one thing this app must never present as the current value. The "Now" button

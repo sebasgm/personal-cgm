@@ -6,13 +6,10 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
-import android.os.CancellationSignal
-import android.os.ParcelFileDescriptor
-import android.print.PageRange
-import android.print.PrintDocumentAdapter
 import android.print.PrintAttributes
 import android.print.PrintManager
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -36,6 +33,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,11 +43,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import dev.cgm.app.R
 import dev.cgm.app.data.ReportFiles
 import dev.cgm.core.RangeReport
@@ -81,19 +84,15 @@ fun ReportSection(viewModel: CgmViewModel) {
     val report by viewModel.report.collectAsState()
     val building by viewModel.reportBuilding.collectAsState()
 
-    /**
-     * The WebView doing the printing, held for as long as the job runs.
-     *
-     * Nothing else references it — it is never attached to the view tree — so
-     * without this it can be collected between loading the page and the print
-     * service asking for it, which is what made printing abort. Cleared when the
-     * job ends, because it holds the Activity.
-     */
-    var printJob by remember { mutableStateOf<WebView?>(null) }
+    /** True while the printable report is open. */
+    var previewing by remember { mutableStateOf(false) }
 
     // Rebuilds on arrival and whenever the choices change, which is the only
     // thing that can alter the shape of it.
     LaunchedEffect(preferences) { viewModel.refreshReport(preferences) }
+
+    /** The report once it has something in it, which is when it can be exported. */
+    val ready = report?.takeIf { it.hasData }
 
     Column(Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.set_report), style = MaterialTheme.typography.titleMedium)
@@ -155,7 +154,6 @@ fun ReportSection(viewModel: CgmViewModel) {
         )
 
         Spacer(Modifier.height(18.dp))
-        val ready = report?.takeIf { it.hasData }
         when {
             building && report == null -> CircularProgressIndicator()
             ready == null -> Text(
@@ -171,7 +169,6 @@ fun ReportSection(viewModel: CgmViewModel) {
             Text(stringResource(R.string.report_export), style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
             val noReceiver = stringResource(R.string.report_share_failed)
-            val printFailed = stringResource(R.string.report_print_failed)
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -182,23 +179,138 @@ fun ReportSection(viewModel: CgmViewModel) {
                     }) { Text(format.extension.uppercase()) }
                 }
 
-                // PDF comes out of the HTML through the system print pipeline.
-                // It paginates and embeds fonts better than a hand-drawn page
-                // renderer would, and it leaves one document to keep correct
-                // instead of two that have to agree.
-                OutlinedButton(onClick = {
-                    printJob = printReport(
-                        context = context,
-                        report = ready,
-                        onFinished = { printJob = null },
-                        onFailure = {
-                            printJob = null
-                            Toast.makeText(context, printFailed, Toast.LENGTH_LONG).show()
-                        },
-                    )
-                }) {
+                // PDF comes out of the HTML through the system print pipeline,
+                // which paginates and embeds fonts better than a hand-drawn page
+                // renderer would and leaves one document to keep correct rather
+                // than two that have to agree. It goes through the preview rather
+                // than straight to the printer: the page has to be laid out in a
+                // real window before it can be printed, and seeing it first also
+                // tells you whether a failure is the document or the printer.
+                OutlinedButton(onClick = { previewing = true }) {
                     Text(stringResource(R.string.report_pdf))
                 }
+            }
+        }
+    }
+
+    if (previewing && ready != null) {
+        ReportDocument(report = ready, onDismiss = { previewing = false })
+    }
+}
+
+/**
+ * The printable report, on screen, with the print action on it.
+ *
+ * The WebView is inside the composition rather than built off to one side. An
+ * unattached WebView has no window, is never laid out, and is referenced by
+ * nothing the framework keeps — three separate ways for a print job to come to
+ * nothing, all of which this avoids by simply showing the page. It is also the
+ * honest version of the feature: what gets printed is what is on the screen.
+ */
+@Composable
+private fun ReportDocument(report: Report, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+
+    /**
+     * The HTML written out, or null if writing it failed.
+     *
+     * Written here rather than at print time so asking for a PDF leaves the HTML
+     * beside it, and so the page printed is read from the same bytes that were
+     * exported.
+     */
+    val file = remember(report) {
+        runCatching { ReportFiles.write(context, report, ReportFormat.HTML) }.getOrNull()
+    }
+    val name = file?.name?.removeSuffix(".html") ?: "report"
+
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf(file == null) }
+    val printFailed = stringResource(R.string.report_print_failed)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.report_document),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    )
+                    TextButton(
+                        enabled = loaded && !error,
+                        onClick = {
+                            val view = webView
+                            val printManager = context.activity()
+                                ?.getSystemService(PrintManager::class.java)
+                            if (view == null || printManager == null) {
+                                Toast.makeText(context, printFailed, Toast.LENGTH_LONG).show()
+                                return@TextButton
+                            }
+                            runCatching {
+                                printManager.print(
+                                    name,
+                                    view.createPrintDocumentAdapter(name),
+                                    PrintAttributes.Builder()
+                                        .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                        .build(),
+                                )
+                            }.onFailure {
+                                Toast.makeText(context, printFailed, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                    ) { Text(stringResource(R.string.report_print)) }
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.trends_close))
+                    }
+                }
+
+                if (error) {
+                    Text(
+                        stringResource(R.string.report_document_failed),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            // The page has no scripts and fetches nothing. This is
+                            // only so it can read the file just written into the
+                            // app's own cache.
+                            settings.allowFileAccess = true
+                            settings.javaScriptEnabled = false
+                            webViewClient = object : WebViewClient() {
+                                override fun onPageFinished(view: WebView, url: String?) {
+                                    loaded = true
+                                }
+
+                                // A failure to load must not look like an empty
+                                // report: the print button stays off and says why.
+                                override fun onReceivedError(
+                                    view: WebView,
+                                    request: WebResourceRequest,
+                                    err: WebResourceError,
+                                ) {
+                                    if (request.isForMainFrame) error = true
+                                }
+                            }
+                            webView = this
+                            file?.let { loadUrl(Uri.fromFile(it).toString()) }
+                        }
+                    },
+                )
             }
         }
     }
@@ -336,94 +448,9 @@ private fun share(context: Context, report: Report, format: ReportFormat, onFail
     }
 }
 
-/**
- * Prints the HTML report, which is also how it becomes a PDF.
- *
- * Returns the WebView so the caller can keep it alive. The print framework does
- * not take ownership of it, and an off-tree WebView with no other reference can
- * be collected mid-job — which shows up as a print that simply gives up.
- */
-private fun printReport(
-    context: Context,
-    report: Report,
-    onFinished: () -> Unit,
-    onFailure: () -> Unit,
-): WebView? {
-    // Printing opens a system UI, which needs an Activity rather than whatever
-    // context happens to be in scope.
-    val activity = context.activity() ?: run { onFailure(); return null }
-    val printManager = activity.getSystemService(PrintManager::class.java)
-        ?: run { onFailure(); return null }
-
-    // The HTML is written out on the way past, and printed from the file rather
-    // than from a string. Asking for a PDF leaves the HTML beside it — the same
-    // bytes, so what came off the printer can be checked against a file that
-    // exists — and there is one document rather than two that have to agree.
-    val file = runCatching { ReportFiles.write(activity, report, ReportFormat.HTML) }
-        .getOrElse { onFailure(); return null }
-    val name = file.name.removeSuffix(".html")
-
-    val webView = WebView(activity)
-    // The page has no scripts and fetches nothing; this is only so it can read
-    // the file just written into the app's own cache.
-    webView.settings.allowFileAccess = true
-    webView.webViewClient = object : WebViewClient() {
-        override fun onPageFinished(view: WebView, url: String?) {
-            val adapter = ReleasingAdapter(view.createPrintDocumentAdapter(name), onFinished)
-            runCatching {
-                printManager.print(
-                    name,
-                    adapter,
-                    PrintAttributes.Builder()
-                        .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                        .build(),
-                )
-            }.onFailure { onFailure() }
-        }
-    }
-    webView.loadUrl(Uri.fromFile(file).toString())
-    return webView
-}
-
 /** Walks out of whatever context wrappers Compose was handed, to the Activity. */
 private tailrec fun Context.activity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.activity()
     else -> null
-}
-
-/**
- * The WebView's own adapter, plus a signal when the job is over.
- *
- * Every call is forwarded untouched; the only addition is telling the caller it
- * can stop holding the WebView. `onFinish` is the framework's own guarantee that
- * nothing further will be asked of the adapter, whether the job printed, failed
- * or was cancelled.
- */
-private class ReleasingAdapter(
-    private val delegate: PrintDocumentAdapter,
-    private val onFinished: () -> Unit,
-) : PrintDocumentAdapter() {
-
-    override fun onStart() = delegate.onStart()
-
-    override fun onLayout(
-        oldAttributes: PrintAttributes?,
-        newAttributes: PrintAttributes?,
-        cancellationSignal: CancellationSignal?,
-        callback: LayoutResultCallback?,
-        extras: Bundle?,
-    ) = delegate.onLayout(oldAttributes, newAttributes, cancellationSignal, callback, extras)
-
-    override fun onWrite(
-        pages: Array<out PageRange>?,
-        destination: ParcelFileDescriptor?,
-        cancellationSignal: CancellationSignal?,
-        callback: WriteResultCallback?,
-    ) = delegate.onWrite(pages, destination, cancellationSignal, callback)
-
-    override fun onFinish() {
-        delegate.onFinish()
-        onFinished()
-    }
 }

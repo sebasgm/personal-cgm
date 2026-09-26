@@ -316,4 +316,7 @@
     <string name="report_bands">Valores por día</string>
     <string name="report_bands_none">Ninguno</string>
     <string name="report_bands_hint">Divide cada tramo en partes iguales del día. Con 6, una cifra cada cuatro horas: sirve para ver en qué momento del día se desarma, algo que un solo promedio no dice.</string>
+    <string name="report_document">Informe para imprimir</string>
+    <string name="report_print">Imprimir</string>
+    <string name="report_document_failed">No se pudo preparar el documento. El resto de los formatos sigue funcionando.</string>
 </resources>

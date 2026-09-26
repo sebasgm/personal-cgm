@@ -316,4 +316,7 @@
     <string name="report_bands">Figures per day</string>
     <string name="report_bands_none">None</string>
     <string name="report_bands_hint">Divides each range into equal parts of the day. Six gives a figure every four hours, which shows when in the day it comes apart — something a single mean cannot say.</string>
+    <string name="report_document">Printable report</string>
+    <string name="report_print">Print</string>
+    <string name="report_document_failed">The document could not be prepared. The other formats still work.</string>
 </resources>
