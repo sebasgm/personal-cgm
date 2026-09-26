@@ -57,9 +57,22 @@ class MainActivity : ComponentActivity() {
      *
      * Safe to read [Locales.current] synchronously here: Application.onCreate has
      * already primed it, and it runs before any activity is created.
+     *
+     * The configuration is applied rather than the base context replaced. Handing
+     * `createConfigurationContext` to `attachBaseContext` gives the Activity a
+     * base whose outer context is itself, so every system service fetched from
+     * this Activity stops believing it came from one — which is why printing
+     * failed outright whenever a language override was set.
      */
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(Locales.wrap(newBase))
+        // Before the base is attached: applying an override configuration throws
+        // once any resource has been resolved through this wrapper. Caught rather
+        // than allowed to propagate, because falling back to the device's language
+        // is survivable and crashing on launch is not.
+        runCatching {
+            Locales.overrideConfiguration(newBase)?.let { applyOverrideConfiguration(it) }
+        }
+        super.attachBaseContext(newBase)
     }
 
     private val requestNotifications =

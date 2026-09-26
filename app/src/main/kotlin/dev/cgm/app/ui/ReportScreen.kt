@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -226,7 +227,17 @@ private fun ReportDocument(report: Report, onDismiss: () -> Unit) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(file == null) }
-    val printFailed = stringResource(R.string.report_print_failed)
+
+    /**
+     * Why printing failed, shown verbatim.
+     *
+     * "Printing could not be opened" is true and useless. Whatever the print
+     * framework refused with is the one piece of information that identifies the
+     * problem, and it is not worth making someone attach a cable to read it.
+     */
+    var failure by remember { mutableStateOf<String?>(null) }
+    val noPrintService = stringResource(R.string.report_print_unsupported)
+    val noViewer = stringResource(R.string.report_view_failed)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -245,26 +256,44 @@ private fun ReportDocument(report: Report, onDismiss: () -> Unit) {
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
+                    // A second way out, which does not touch the print
+                    // framework: every browser can print what it is showing, so
+                    // this works even where the system printer refuses.
+                    if (file != null) {
+                        TextButton(onClick = {
+                            try {
+                                context.startActivity(
+                                    ReportFiles.viewIntent(context, file, ReportFormat.HTML)
+                                )
+                            } catch (_: ActivityNotFoundException) {
+                                failure = noViewer
+                            }
+                        }) { Text(stringResource(R.string.report_open_browser)) }
+                    }
+
                     TextButton(
                         enabled = loaded && !error,
                         onClick = {
                             val view = webView
-                            val printManager = context.activity()
+                            val activity = context.activity()
+                            val printManager = activity
                                 ?.getSystemService(PrintManager::class.java)
-                            if (view == null || printManager == null) {
-                                Toast.makeText(context, printFailed, Toast.LENGTH_LONG).show()
-                                return@TextButton
-                            }
-                            runCatching {
-                                printManager.print(
-                                    name,
-                                    view.createPrintDocumentAdapter(name),
-                                    PrintAttributes.Builder()
-                                        .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                                        .build(),
-                                )
-                            }.onFailure {
-                                Toast.makeText(context, printFailed, Toast.LENGTH_LONG).show()
+                            when {
+                                view == null -> failure = "WebView unavailable"
+                                activity == null ->
+                                    failure = "No Activity: ${context.javaClass.name}"
+                                printManager == null -> failure = noPrintService
+                                else -> runCatching {
+                                    printManager.print(
+                                        name,
+                                        view.createPrintDocumentAdapter(name),
+                                        PrintAttributes.Builder()
+                                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                            .build(),
+                                    )
+                                }.onFailure {
+                                    failure = "${it.javaClass.simpleName}: ${it.message}"
+                                }
                             }
                         },
                     ) { Text(stringResource(R.string.report_print)) }
@@ -279,6 +308,29 @@ private fun ReportDocument(report: Report, onDismiss: () -> Unit) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(16.dp),
+                    )
+                }
+
+                failure?.let { reason ->
+                    AlertDialog(
+                        onDismissRequest = { failure = null },
+                        title = { Text(stringResource(R.string.report_print_failed_title)) },
+                        text = {
+                            Column {
+                                Text(stringResource(R.string.report_print_failed))
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    reason,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { failure = null }) {
+                                Text(stringResource(R.string.trends_close))
+                            }
+                        },
                     )
                 }
 

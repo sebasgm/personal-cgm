@@ -32,12 +32,27 @@ object ReportFiles {
     }
 
     fun shareIntent(context: Context, file: File, format: ReportFormat): Intent {
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.reports", file)
         return Intent(Intent.ACTION_SEND).apply {
             type = format.mimeType
-            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_STREAM, uriFor(context, file))
             putExtra(Intent.EXTRA_SUBJECT, file.name)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     }
+
+    /**
+     * Opens the file in whatever handles its type — for HTML, a browser.
+     *
+     * A route to a PDF that does not go through the system print framework at
+     * all: every browser can print the page it is showing, and if this app's
+     * print path is refused by the device, that one still works.
+     */
+    fun viewIntent(context: Context, file: File, format: ReportFormat): Intent =
+        Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uriFor(context, file), format.mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+    private fun uriFor(context: Context, file: File) =
+        FileProvider.getUriForFile(context, "${context.packageName}.reports", file)
 }

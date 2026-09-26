@@ -112,6 +112,18 @@ decision and a pass over the security plan.
 
 ### Fixed
 
+- **Printing could never work while a language override was set**, which is the whole reason the
+  PDF button failed. The Activity applied the chosen language by replacing its base context with
+  `createConfigurationContext`, and a configuration context is a new context whose *outer context
+  is itself* — so every system service fetched from the Activity stopped believing it came from
+  one, and `PrintManager.print` refuses outright in that case ("Can print only from an activity").
+  The configuration is applied with `applyOverrideConfiguration` now, which keeps the real
+  Activity context underneath while resources still resolve in the chosen language. Any other
+  system service that cares who asked was equally affected; printing is simply where it showed.
+- **A print failure now says what went wrong**, in a dialog carrying the actual reason rather than
+  a message that only restated the symptom. There is also an **Open in browser** action beside
+  Print, which reaches a PDF through the browser's own print and touches none of this.
+
 - **Exports were unparseable on any phone that writes decimals with a comma.** `String.format`
   follows the device locale, so coverage came out as `0,95`: not a number in JSON, and a second
   column in CSV. The same bug put `x="12,3"` into the histogram SVG, which is not a length — so

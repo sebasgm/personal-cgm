@@ -31,18 +31,39 @@ object Locales {
     /**
      * A context whose resources resolve in [current].
      *
+     * For anything that only needs strings: the application, the notifier, the
+     * polling service. **Not** for an Activity's base context — see
+     * [overrideConfiguration] for why.
+     *
      * Also sets the JVM default locale, because number and date formatting reach
      * for that rather than for a Context — a Spanish UI printing dates in English
      * would give the override away immediately.
      */
     fun wrap(context: Context): Context {
-        val tag = current ?: return context
-        val locale = runCatching { Locale.forLanguageTag(tag) }.getOrNull() ?: return context
+        val configuration = overrideConfiguration(context) ?: return context
+        return context.createConfigurationContext(configuration)
+    }
+
+    /**
+     * The configuration [current] asks for, or null when there is no override.
+     *
+     * An Activity applies this through `applyOverrideConfiguration` rather than
+     * replacing its base context with `createConfigurationContext`. The two look
+     * equivalent and are not: a configuration context is a new context whose
+     * *outer context is itself*, so an Activity whose base was replaced by one no
+     * longer looks like an Activity to any system service fetched through it.
+     *
+     * That is not academic. `PrintManager.print` refuses outright — "Can print
+     * only from an activity" — so with a language override set, printing could
+     * never work. Applying the configuration instead keeps the real Activity
+     * context underneath while resources still resolve in the chosen language.
+     */
+    fun overrideConfiguration(context: Context): Configuration? {
+        val tag = current ?: return null
+        val locale = runCatching { Locale.forLanguageTag(tag) }.getOrNull() ?: return null
 
         Locale.setDefault(locale)
-        val configuration = Configuration(context.resources.configuration)
-        configuration.setLocale(locale)
-        return context.createConfigurationContext(configuration)
+        return Configuration(context.resources.configuration).apply { setLocale(locale) }
     }
 
     /** How a tag should read in a language picker, in its own language. */

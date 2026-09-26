@@ -319,4 +319,8 @@
     <string name="report_document">Informe para imprimir</string>
     <string name="report_print">Imprimir</string>
     <string name="report_document_failed">No se pudo preparar el documento. El resto de los formatos sigue funcionando.</string>
+    <string name="report_print_failed_title">No se pudo imprimir</string>
+    <string name="report_print_unsupported">Este dispositivo no tiene servicio de impresión.</string>
+    <string name="report_open_browser">Abrir en el navegador</string>
+    <string name="report_view_failed">No hay ninguna app que pueda abrir un archivo HTML.</string>
 </resources>

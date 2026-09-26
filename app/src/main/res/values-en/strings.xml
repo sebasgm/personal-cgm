@@ -319,4 +319,8 @@
     <string name="report_document">Printable report</string>
     <string name="report_print">Print</string>
     <string name="report_document_failed">The document could not be prepared. The other formats still work.</string>
+    <string name="report_print_failed_title">Printing failed</string>
+    <string name="report_print_unsupported">This device has no printing service.</string>
+    <string name="report_open_browser">Open in browser</string>
+    <string name="report_view_failed">No app on this phone can open an HTML file.</string>
 </resources>
