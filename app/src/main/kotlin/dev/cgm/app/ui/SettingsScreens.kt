@@ -158,6 +158,13 @@ fun SettingsScreen(
                 },
             ) {}
             SettingsRow(
+                title = stringResource(R.string.set_tour),
+                subtitle = stringResource(R.string.set_tour_desc),
+            ) {
+                viewModel.restartTour()
+                onOpen(Destination.Tour)
+            }
+            SettingsRow(
                 title = stringResource(R.string.set_release_notes),
                 subtitle = stringResource(R.string.set_release_notes_desc),
             ) { onOpen(Destination.ReleaseNotes) }

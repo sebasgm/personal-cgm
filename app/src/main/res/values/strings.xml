@@ -334,4 +334,52 @@
     <string name="set_source_xdrip_setup">Hay que activarlo dentro de xDrip+: Ajustes → Inter-app settings → «Broadcast locally», con «Compatible Broadcast». Si está apagado, esta app no recibe nada y no puede darse cuenta: simplemente no llegan valores.</string>
     <string name="set_source_xdrip_seen">xDrip+ informa: %1$s</string>
     <string name="set_source_xdrip_waiting">Todavía no llegó ningún valor de xDrip+.</string>
+    <string name="set_tour">Recorrido guiado</string>
+    <string name="set_tour_desc">Un paseo por cada pantalla, y por lo que cada una no te va a decir</string>
+    <string name="tour_step">Paso %1$d de %2$d</string>
+    <string name="tour_skip">Saltar</string>
+    <string name="tour_back">Atrás</string>
+    <string name="tour_next">Siguiente</string>
+    <string name="tour_done">Terminar</string>
+    <string name="tour_go">Mostrame</string>
+    <string name="tour_go_hint">Abre la pantalla. Con el botón atrás volvés directo acá.</string>
+
+    <string name="tour_welcome_title">Un paseo rápido</string>
+    <string name="tour_welcome_body">Trece pasos cortos por lo que hace cada pantalla y, muchas veces, por lo que deliberadamente no hace.\n\nPrimero una cosa, porque todo lo demás se apoya en ella: esta app describe lo que pasó. Nunca sugiere qué hacer. No es un dispositivo médico, ningún organismo la evaluó, y los valores vienen de un sensor de consumo a través de una interfaz que su fabricante no soporta. Tomá cada número de acá como una descripción, no como una indicación.\n\nPodés salir cuando quieras, y volver a abrir esto desde Ajustes.</string>
+
+    <string name="tour_source_title">De dónde vienen los valores</string>
+    <string name="tour_source_body">Dos opciones, y son alternativas: solo una está activa a la vez.\n\n**LibreLinkUp** lee la nube de seguidores del propio fabricante. Necesita tu cuenta y le suma a cada valor la demora de esa nube.\n\n**xDrip+** toma lo que esa app ya está leyendo, por difusión local en este teléfono. Sin cuenta, sin contraseña, sin red; y funciona con cualquier sensor que xDrip+ soporte, que son casi todos. Primero hay que activarlo dentro de xDrip+: la pantalla de Ajustes dice exactamente dónde.\n\nEsta es la primera parada porque cada número de las pantallas siguientes depende de ella.</string>
+
+    <string name="tour_home_title">El número, y cuántos minutos tiene</string>
+    <string name="tour_home_body">El valor actual, grande, con una flecha de hacia dónde va y el cambio desde el anterior, siempre con el intervalo que abarca: subir 14 no significa lo mismo en cinco minutos que en veinte.\n\nDebajo, lo que la mayoría de las apps omite: **qué tan viejo es el valor**. El color se apaga a medida que envejece y lo dice sin vueltas cuando ya quedó desactualizado. Un número sin su edad es un número con el que no podés hacer nada, y toda la cadena —sensor, teléfono, nube— lleva tiempo.\n\nLa misma cifra está en la barra de estado, así casi nunca hace falta abrir la app.</string>
+
+    <string name="tour_chart_title">El gráfico</string>
+    <string name="tour_chart_body">Pinzá para pasar de una hora a una semana. Arrastrá de costado para ir hacia atrás: el reloj de abajo acompaña, y la marca que cruza la medianoche lleva su fecha, así ayer nunca se confunde con esta mañana.\n\nTocá cualquier punto para ver su valor y su hora exactos. Mientras navegás aparece un botón **Ahora** sobre el gráfico para volver al presente de un toque; y al reabrir la app siempre vuelve sola.\n\nLa línea se corta donde no se registró nada. Sería fácil dibujar un tramo que cruce el hueco, y ese tramo sería inventado.</string>
+
+    <string name="tour_alarms_title">Alarmas</string>
+    <string name="tour_alarms_body">Alta, baja, baja urgente, y una de **pérdida de señal**, porque un flujo que se cortó en silencio es la falla que más importa y la que menos vas a notar.\n\nCada alarma tiene su propio umbral, se puede apagar por separado, y por separado se puede configurar para que suene a través de No molestar. Una baja a las tres de la mañana y una alta después de almorzar no son lo mismo, así que no tienen que comportarse igual.\n\nNada pronosticado dispara una alarma. Solo un valor medido.</string>
+
+    <string name="tour_ranges_title">Tus rangos</string>
+    <string name="tour_ranges_body">La franja que la app toma como en rango, y los límites más allá.\n\nArranca de los objetivos de tu propia cuenta, así los colores coinciden con la app que ya usás. Si los cambiás acá, el cambio se vuelve a aplicar a cada valor que llega, incluidos los ya dibujados: el gráfico, las estadísticas, el informe exportado y el reloj nunca pueden discrepar sobre qué cuenta como alto.</string>
+
+    <string name="tour_diary_title">El Diario</string>
+    <string name="tour_diary_body">Insulina y comida, como las anotás vos. Dosis a la media unidad, carbohidratos en gramos, con las cantidades habituales a un toque.\n\nLa hora que se guarda es cuando te **aplicaste** la dosis, no cuando la escribiste, porque anotar una inyección olvidada de ayer es algo normal y ponerla en la línea de hoy haría que el gráfico mienta.\n\nLo de acá se puede editar. Una dosis mal tipeada tiene que poder corregirse.</string>
+
+    <string name="tour_logbook_title">El Registro</string>
+    <string name="tour_logbook_body">Todos los valores que produjo el sensor, en orden, agrupados por día.\n\nEs la contracara del Diario, y la distinción es lo único que vale saber de las dos pantallas: el Registro es lo que se **midió**, y nada ahí se puede editar. Un valor «corregido» sería un registro falsificado.</string>
+
+    <string name="tour_trends_title">Tendencias</string>
+    <string name="tour_trends_body">Elegí una ventana de un día a tres meses. Primero GMI y A1C estimada, después el tiempo en rango como una sola barra que se lee de un vistazo.\n\nArriba de todo está la **cobertura**: cuánto de esa ventana se registró realmente. Una cifra de 90 días que parece sólida pero se apoya en seis días de datos es justo la manera en que estas pantallas engañan, así que el dato que gobierna cómo leer todo lo demás va primero.\n\nMás abajo, la forma de un día típico, dos veces: una cinta a lo largo de las 24 horas y los mismos percentiles como cajas. Deslizá el dedo sobre cualquiera de los dos para leer una franja, o tocá para abrirlo en pantalla completa; girá el teléfono ahí y el día tiene el ancho que merece.</string>
+
+    <string name="tour_report_title">El informe</string>
+    <string name="tour_report_body">Al final de la pestaña Tendencias. Elegí un período de una semana a un año, dividilo por día, semana o mes, y cada tramo te da media y mediana lado a lado.\n\nLas dos, no una: la glucosa tiene mucho más espacio arriba del objetivo que abajo, así que se separan cada vez que un tramo corre alto, y esa distancia es en sí misma el hallazgo.\n\nPedí varios **valores por día** y cada tramo informa cada pocas horas en lugar de una sola vez, que es lo que muestra en qué momento del día se desarma. Exportá en CSV, JSON o HTML, o imprimilo a PDF. Todos los formatos llevan los umbrales, la cobertura y el descargo, porque un archivo lo lee meses después alguien que no estaba ahí.</string>
+
+    <string name="tour_access_title">Poder leerlo</string>
+    <string name="tour_access_body">Una tipografía amigable para la dislexia o una de alta legibilidad, texto y espaciado que podés agrandar, y paletas para los tipos más comunes de daltonismo.\n\nLa tipografía sigue hasta el número de la barra de estado y la pantalla del auto: los lugares donde realmente lo lees, no solo la pantalla donde lo elegiste.\n\nAcá el color nunca es lo único que transmite algo. Cada zona tiene además una posición y una cifra.</string>
+
+    <string name="tour_reminders_title">Recordatorios</string>
+    <string name="tour_reminders_body">Avisos diarios a una hora fija para una dosis que es fácil de olvidar, que llegan al teléfono y al reloj.\n\nUsan alarmas exactas, y si Android no dio ese permiso la app te lo dice, en lugar de que lo descubras por un recordatorio que llegó cuarenta minutos tarde.</string>
+
+    <string name="tour_limits_title">Lo que no va a hacer</string>
+    <string name="tour_limits_body">Cada una de estas cosas es una decisión, no algo que falta.\n\n**No se puede recuperar el pasado.** El servicio de origen entrega apenas medio día de historial grueso, así que toda ventana larga se llena desde el día que instalaste esto y no antes. Por eso la cobertura aparece en cada pantalla que muestra una cifra.\n\n**Nunca sugiere una dosis**, y ningún pronóstico puede disparar ni silenciar una alarma.\n\n**Nada sale del teléfono** salvo que activés el relé web, que guarda un solo valor en memoria en un servidor tuyo y lo olvida al reiniciarse.\n\nEl pronóstico está apagado. Va a volver cuando pueda decir con qué frecuencia acertó.\n\nEso es todo. Está en Ajustes cuando lo quieras de nuevo.</string>
 </resources>

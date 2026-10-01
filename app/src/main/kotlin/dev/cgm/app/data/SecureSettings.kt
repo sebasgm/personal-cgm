@@ -254,6 +254,21 @@ class SecureSettings(private val context: Context) : SessionStore {
         }
     }
 
+    // -- tour -----------------------------------------------------------------
+
+    /**
+     * Whether the guided tour has been finished or skipped.
+     *
+     * Stored so it is offered once rather than on every launch, and kept as a
+     * boolean rather than a version: a tour is not something to re-run at people
+     * because a feature was added. It stays reachable from Settings instead.
+     */
+    val tourSeen: Flow<Boolean> = context.dataStore.data.map { it[KEY_TOUR_SEEN] == true }
+
+    suspend fun markTourSeen() {
+        context.dataStore.edit { it[KEY_TOUR_SEEN] = true }
+    }
+
     // -- source ---------------------------------------------------------------
 
     /** Which source readings come from. */
@@ -346,6 +361,7 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_ACCESSIBILITY: Preferences.Key<String> = stringPreferencesKey("accessibility")
         val KEY_REPORT: Preferences.Key<String> = stringPreferencesKey("report_preferences")
         val KEY_SOURCE: Preferences.Key<String> = stringPreferencesKey("source_kind")
+        val KEY_TOUR_SEEN: Preferences.Key<Boolean> = booleanPreferencesKey("tour_seen")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
         val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")
         val KEY_ALARM_STATE: Preferences.Key<String> = stringPreferencesKey("alarm_state")

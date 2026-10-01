@@ -114,4 +114,26 @@ class StringResourceTest {
             }
         }
     }
+
+    /**
+     * The tour's `**emphasis**` markers come in pairs.
+     *
+     * An unpaired one is left as typed by the renderer rather than guessed at, so
+     * the failure is a pair of asterisks sitting in the middle of a sentence on a
+     * screen that is mostly prose. Nothing else would catch it: it compiles, it
+     * runs, and it only appears on whichever step carries the typo.
+     */
+    @Test
+    fun `emphasis markers are balanced in every locale`() {
+        locales.forEach { locale ->
+            locale.strings.forEach { (name, body) ->
+                val markers = Regex("\\*\\*").findAll(body).count()
+                assertEquals(
+                    0,
+                    markers % 2,
+                    "${locale.name}/$name has $markers emphasis markers, which is odd",
+                )
+            }
+        }
+    }
 }

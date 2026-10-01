@@ -334,4 +334,52 @@
     <string name="set_source_xdrip_setup">Switch it on inside xDrip+: Settings → Inter-app settings → "Broadcast locally", with "Compatible Broadcast". If it is off, this app receives nothing and cannot tell: readings simply never arrive.</string>
     <string name="set_source_xdrip_seen">xDrip+ reports: %1$s</string>
     <string name="set_source_xdrip_waiting">No reading has arrived from xDrip+ yet.</string>
+    <string name="set_tour">Guided tour</string>
+    <string name="set_tour_desc">A walk through every screen, and what each one will not tell you</string>
+    <string name="tour_step">Step %1$d of %2$d</string>
+    <string name="tour_skip">Skip</string>
+    <string name="tour_back">Back</string>
+    <string name="tour_next">Next</string>
+    <string name="tour_done">Finish</string>
+    <string name="tour_go">Show me</string>
+    <string name="tour_go_hint">Opens the screen. Press back to come straight back here.</string>
+
+    <string name="tour_welcome_title">A quick walk round</string>
+    <string name="tour_welcome_body">Thirteen short steps through what each screen does — and, as often, what it deliberately does not do.\n\nOne thing first, because everything else rests on it: this app describes what happened. It never suggests what to do. It is not a medical device, it has been assessed by no regulator, and the readings come from a consumer sensor through an interface its maker does not support. Treat every number here as a description, not an instruction.\n\nYou can leave at any time, and reopen this from Settings.</string>
+
+    <string name="tour_source_title">Where the readings come from</string>
+    <string name="tour_source_body">Two choices, and they are alternatives — only one is live at a time.\n\n**LibreLinkUp** reads the sensor maker\'s own follower cloud. It needs your account, and it adds the cloud\'s own delay to each reading.\n\n**xDrip+** takes whatever that app is already reading, over a local broadcast on this phone. No account, no password, no network — and it works with any sensor xDrip+ supports, which is most of them. It has to be switched on inside xDrip+ first; the Settings screen says exactly where.\n\nThis is the first stop because every number on every later screen depends on it.</string>
+
+    <string name="tour_home_title">The number, and how old it is</string>
+    <string name="tour_home_body">The current reading, large, with an arrow for where it is heading and the change since the last one — shown over the span it covers, because a rise of 14 means something different over five minutes than over twenty.\n\nUnderneath it, the thing most apps leave out: **how old the reading is**. The colour fades as it ages and says so plainly when it has gone stale. A number with no age on it is a number you cannot act on, and the whole chain here — sensor, phone, cloud — takes time.\n\nThe same figure sits in the status bar, so you rarely have to open the app at all.</string>
+
+    <string name="tour_chart_title">The chart</string>
+    <string name="tour_chart_body">Pinch to zoom from an hour out to a week. Drag sideways to go back through history — the clock along the bottom follows, and the tick crossing midnight carries its date, so yesterday never looks like this morning.\n\nTap any point for its exact value and time. While you are browsing, a **Now** button appears on the chart to bring you back to the present in one tap; reopening the app always returns there by itself.\n\nThe trace breaks wherever nothing was recorded. It would be easy to draw a line across the gap, and that line would be invented.</string>
+
+    <string name="tour_alarms_title">Alarms</string>
+    <string name="tour_alarms_body">High, low, urgent low, and one for **signal loss** — because a feed that has quietly stopped is the failure that matters most and the one you are least likely to notice.\n\nEach alarm has its own threshold, each can be switched off, and each can be set to sound through Do Not Disturb independently. A low at three in the morning and a high after lunch are not the same kind of event, so they do not have to behave the same way.\n\nNothing predicted ever triggers an alarm. Only a measured reading does.</string>
+
+    <string name="tour_ranges_title">Your ranges</string>
+    <string name="tour_ranges_body">The band the app treats as in range, and the edges beyond it.\n\nIt starts from your account\'s own targets so the colours agree with the app you already use. Override them here and the override is re-applied to every reading that arrives, including the ones already drawn — so the chart, the statistics, the exported report and the watch can never disagree about what counts as high.</string>
+
+    <string name="tour_diary_title">The Diary</string>
+    <string name="tour_diary_body">Insulin and food, as you record them. Doses to the half unit, carbohydrates in grams, with the usual amounts one tap away.\n\nThe time recorded is when the dose was **given**, not when you typed it, because entering a forgotten injection from yesterday is an ordinary thing to do and putting it on today\'s timeline would make the chart lie.\n\nEntries here are editable. A mistyped dose has to be correctable.</string>
+
+    <string name="tour_logbook_title">The Logbook</string>
+    <string name="tour_logbook_body">Every reading the sensor produced, in order, grouped by day.\n\nThis is the counterpart to the Diary and the distinction is the only thing worth knowing about the two screens: the Logbook is what was **measured**, and nothing in it can be edited. A corrected reading would be a falsified record.</string>
+
+    <string name="tour_trends_title">Trends</string>
+    <string name="tour_trends_body">Pick a window from a day to three months. GMI and estimated A1C first, then time in range as one bar you can read at a glance.\n\nAbove all of it sits **coverage** — how much of that window was actually recorded. A confident-looking 90-day figure resting on six days of data is the exact way these screens mislead, so the figure that governs how to read everything else comes first.\n\nBelow, the shape of a typical day, twice: a ribbon across the 24 hours and the same percentiles as box plots. Slide a finger across either to read a slice, or tap to open it full screen — turn the phone sideways there and a day gets the width it deserves.</string>
+
+    <string name="tour_report_title">The report</string>
+    <string name="tour_report_body">At the foot of the Trends tab. Choose a period from a week to a year, cut it by day, week or month, and get mean and median side by side for each range.\n\nBoth, not one: glucose has far more room above target than below it, so the two part company whenever a stretch runs high — and that gap is itself the finding.\n\nAsk for several **figures per day** and each range reports every few hours instead of once, which is what shows *when* in the day it comes apart. Export as CSV, JSON or HTML, or print it to a PDF. Every format carries the thresholds, the coverage and the disclaimer, because a file gets read months later by someone who was not there.</string>
+
+    <string name="tour_access_title">Reading it at all</string>
+    <string name="tour_access_body">A dyslexia-friendly typeface or a high-legibility one, text and spacing you can enlarge, and palettes for the common kinds of colour blindness.\n\nThe typeface follows through to the number in the status bar and the car display — the places you actually read it from, rather than only the screen where you chose it.\n\nColour is never the only carrier of meaning here. Every zone has a position and a figure as well as a hue.</string>
+
+    <string name="tour_reminders_title">Reminders</string>
+    <string name="tour_reminders_body">Daily reminders at a fixed time for a dose that is easy to forget, delivered to the phone and to the watch.\n\nThey use exact alarms, and if Android has not granted that permission the app says so rather than letting you discover it from a reminder that arrived forty minutes late.</string>
+
+    <string name="tour_limits_title">What it will not do</string>
+    <string name="tour_limits_body">Each of these is a decision, not something missing.\n\n**Nothing backfills.** The upstream service serves about half a day of coarse history, so every long window fills up from the day you installed this and not before. That is why coverage is on every screen that shows a figure.\n\n**It never suggests a dose**, and no prediction can trigger or silence an alarm.\n\n**Nothing leaves the phone** unless you switch on the web relay, which holds one value in memory on a server you run and forgets it on restart.\n\nThe forecast is switched off. It will come back when it can state how often it was right.\n\nThat is the tour. It is in Settings whenever you want it again.</string>
 </resources>

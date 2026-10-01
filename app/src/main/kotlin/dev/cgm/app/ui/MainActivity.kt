@@ -120,10 +120,15 @@ class MainActivity : ComponentActivity() {
                     // guard makes a second start a no-op.
                     LaunchedEffect(Unit) { startService() }
 
+                    val tourSeen by vm.tourSeen.collectAsState()
                     MainScaffold(
                         viewModel = vm,
                         onStartService = startService,
                         onStopService = stopService,
+                        // Null means the stored flag has not been read yet, and
+                        // false would flash the tour at someone who finished it
+                        // months ago.
+                        startOnTour = tourSeen == false,
                     )
                 } else {
                     SetupScreen(viewModel = vm, onSignedIn = startService)
@@ -152,9 +157,25 @@ private fun MainScaffold(
     viewModel: CgmViewModel,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
+    startOnTour: Boolean = false,
 ) {
     // A plain stack. Switching tabs resets to that tab's root; back pops.
     var stack by remember { mutableStateOf(listOf<Destination>(Destination.Home)) }
+
+    // Pushed when the flag resolves, not in the initialiser above.
+    //
+    // The stored flag reads as null for the first frames, so an initialiser would
+    // decide "already seen" before anything had been read and the tour would never
+    // appear at all. Guarded by its own flag rather than keyed on the value, so
+    // finishing the tour — which flips it the other way — does not reset the stack
+    // and throw away wherever the user has navigated to since.
+    var tourOffered by remember { mutableStateOf(false) }
+    LaunchedEffect(startOnTour) {
+        if (startOnTour && !tourOffered) {
+            tourOffered = true
+            stack = stack + Destination.Tour
+        }
+    }
     val current = stack.last()
     val tab = Tab.of(current)
 
@@ -227,6 +248,12 @@ private fun MainScaffold(
                 Destination.Accessibility -> AccessibilityScreen(viewModel)
                 Destination.Reminders -> RemindersScreen(viewModel)
                 Destination.Relay -> RelayScreen(viewModel)
+                Destination.Tour -> TourScreen(
+                    viewModel = viewModel,
+                    // Pushed on top, so Back comes back to the same stop.
+                    onOpen = { stack = stack + it },
+                    onFinish = { stack = listOf(Destination.Home) },
+                )
                 Destination.ReleaseNotes -> ReleaseNotesScreen()
                 Destination.Disclaimer -> DisclaimerReadOnlyScreen()
                 is Destination.AlarmDetail -> AlarmDetailScreen(viewModel, current.kind)

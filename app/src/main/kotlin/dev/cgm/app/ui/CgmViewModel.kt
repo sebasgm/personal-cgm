@@ -333,6 +333,37 @@ class CgmViewModel(
         }
     }
 
+    // -- tour --------------------------------------------------------------------
+
+    /**
+     * Which stop the tour is on.
+     *
+     * Here rather than in the screen because "show me" pushes the screen being
+     * described on top of the tour, which takes the tour out of composition —
+     * anything remembered there would be gone when Back brings it back, and
+     * landing on stop one again after every detour would make the tour unusable.
+     */
+    private val _tourStop = MutableStateFlow(0)
+    val tourStop: StateFlow<Int> = _tourStop.asStateFlow()
+
+    /** Null until the stored flag has been read, so nothing flashes on launch. */
+    val tourSeen: StateFlow<Boolean?> = settings.tourSeen
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun moveTour(by: Int) {
+        _tourStop.value = (_tourStop.value + by).coerceIn(0, TOUR_LENGTH - 1)
+    }
+
+    fun finishTour() {
+        _tourStop.value = 0
+        viewModelScope.launch { settings.markTourSeen() }
+    }
+
+    /** Opens it again from Settings, from the beginning. */
+    fun restartTour() {
+        _tourStop.value = 0
+    }
+
     // -- source ------------------------------------------------------------------
 
     val sourceKind: StateFlow<SourceKind> = settings.sourceKind

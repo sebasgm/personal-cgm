@@ -14,6 +14,14 @@ decision and a pass over the security plan.
 
 ### Added
 
+- **A guided tour.** Thirteen steps through every screen, each with a "Show me" that opens the
+  screen it describes and comes straight back on Back. Offered once after setup, and in Settings
+  for good. It is as much about what the app will not do as what it will — the last step is the
+  caveats, by which point there is enough context for "nothing backfills" to mean something.
+  Pages of prose rather than spotlights drawn over the real screens: an overlay has to know where
+  things are and breaks whenever they move, and a screen reader makes nothing at all of a hole cut
+  in a dimmed layer, which matters more here than the animation would.
+
 - **A second data source: xDrip+.** Readings arrive over xDrip+'s local broadcast, which means
   every sensor xDrip+ can read — Dexcom, Medtronic, Eversense, the Chinese sensors it supports —
   without this app learning any of their protocols. No account, no credentials, no network,

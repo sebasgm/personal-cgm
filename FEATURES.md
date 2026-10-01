@@ -209,6 +209,12 @@ That describes the choice, not anyone else's product.
 - Must be acknowledged **every time the app opens**, and until then nothing is drawn.
 - **Never feeds an alarm and never counts as a reading.** Off by default.
 
+- **A guided tour** of every screen, which can be reopened at any time, and which spends its last
+  step on what the app deliberately will not do.
+
+  **Unusual:** it is prose and buttons rather than highlights drawn over the live screen, so it
+  works read aloud and does not break when a layout moves.
+
 ## 10. Where the readings come from
 
 - **The vendor's own follower cloud**, polled about once a minute, or **whatever a companion app
