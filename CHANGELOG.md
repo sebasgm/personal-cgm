@@ -14,6 +14,14 @@ decision and a pass over the security plan.
 
 ### Added
 
+- **The time-in-range bands now say where their edges are.** Each row carries its boundary beside
+  its name — "high" is a word, "180–240" is the thing being counted — and the stacked bar, which
+  previously did nothing when tapped, opens the bands in full: boundary, percentage, and how much
+  of an average recorded day was spent in each. The figures follow the account's own targets or
+  your override, so the card can never name a band the chart was not measured against. Time is per
+  *recorded* day, and the caption says so: the fractions describe the readings that exist, and
+  multiplying them by 24 hours would describe a day nobody fully measured.
+
 - **A guided tour.** Thirteen steps through every screen, each with a "Show me" that opens the
   screen it describes and comes straight back on Back. Offered once after setup, and in Settings
   for good. It is as much about what the app will not do as what it will — the last step is the
@@ -87,6 +95,15 @@ decision and a pass over the security plan.
   behind it, and three days and thirty days draw the same picture.
 
 ### Changed
+
+- **The report leaves out ranges with no readings in them.** Nothing backfills, so asking for a
+  year by day on a three-month-old install produced a page that was mostly dashes, with the part
+  worth reading buried in it. They are dropped once in the builder rather than in each of the four
+  things that render a report, and dropped rather than merged into their neighbours — a week with
+  two days recorded is not the same measurement as a week with seven, and closing the gap would
+  present it as though it were. The count of omitted ranges travels into all three formats and onto
+  the screen, because without it the rows that remain would read as the whole period. The summary
+  row still spans the period entire, which is what its coverage figure is for.
 
 - **A poll and a pushed reading now share one pipeline.** The success half of the poll became
   `accept(result)`, used by both: persistence, the rollup refresh, delta refinement, threshold

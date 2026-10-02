@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +29,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -37,13 +40,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import dev.cgm.app.Features
 import dev.cgm.app.R
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
+import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.Zone
 import kotlin.math.roundToInt
 
@@ -96,7 +104,15 @@ fun TrendsScreen(viewModel: CgmViewModel) {
             // summary they support. The coverage notice stays above it, because how much
             // of the window this rests on governs how the figure should be read.
             A1cCard(stats, period)
-            TimeInRangeCard(stats)
+            TimeInRangeCard(
+                stats = stats,
+                // The effective thresholds, not the defaults: the figures were
+                // computed against these, and a card naming different ones would
+                // be describing a different measurement.
+                thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
+                unit = state.unit,
+                period = period,
+            )
             DailyPatternCard(
                 profile = timeOfDay,
                 thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
@@ -153,7 +169,14 @@ private fun CoverageNotice(stats: GlucoseStatistics, period: TrendPeriod) {
 }
 
 @Composable
-private fun TimeInRangeCard(stats: GlucoseStatistics) {
+private fun TimeInRangeCard(
+    stats: GlucoseStatistics,
+    thresholds: GlucoseThresholds,
+    unit: GlucoseUnit,
+    period: TrendPeriod,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
     Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(
@@ -161,19 +184,206 @@ private fun TimeInRangeCard(stats: GlucoseStatistics) {
                 style = MaterialTheme.typography.titleSmall,
             )
             Spacer(Modifier.height(12.dp))
-            StackedZoneBar(stats, muted = !stats.isReliable)
-            Spacer(Modifier.height(14.dp))
-            listOf(
-                Zone.VERY_HIGH to R.string.zone_very_high,
-                Zone.HIGH to R.string.zone_high,
-                Zone.IN_RANGE to R.string.zone_in_range,
-                Zone.LOW to R.string.zone_low,
-                Zone.URGENT_LOW to R.string.zone_urgent_low,
-            ).forEach { (zone, labelRes) ->
+            // The bar had no behaviour at all. A tap now opens the figures behind
+            // it, which is where the boundaries live: the colours mean nothing
+            // until you know what "high" was measured against, and those numbers
+            // follow the account or an override rather than being fixed.
+            StackedZoneBar(
+                stats = stats,
+                muted = !stats.isReliable,
+                onClick = { expanded = true },
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.trends_tir_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            ZONE_ORDER.forEach { (zone, labelRes) ->
                 val fraction = stats.zoneFractions[zone] ?: 0.0
-                ZoneBar(stringResource(labelRes), fraction, zone, muted = !stats.isReliable)
+                ZoneBar(
+                    label = stringResource(labelRes),
+                    range = thresholds.rangeLabel(zone, unit),
+                    fraction = fraction,
+                    zone = zone,
+                    muted = !stats.isReliable,
+                )
             }
         }
+    }
+
+    if (expanded) {
+        TimeInRangeDetail(
+            stats = stats,
+            thresholds = thresholds,
+            unit = unit,
+            period = period,
+            onDismiss = { expanded = false },
+        )
+    }
+}
+
+/** Worst at the top, so the bands read down the way a chart reads up. */
+private val ZONE_ORDER = listOf(
+    Zone.VERY_HIGH to R.string.zone_very_high,
+    Zone.HIGH to R.string.zone_high,
+    Zone.IN_RANGE to R.string.zone_in_range,
+    Zone.LOW to R.string.zone_low,
+    Zone.URGENT_LOW to R.string.zone_urgent_low,
+)
+
+/**
+ * The bands in full: what each one is, where its edges are, and how long was
+ * spent in it.
+ *
+ * The edges are the point of this screen. Five colours and five percentages say
+ * nothing until you know that "high" meant above 180 rather than above 140 — and
+ * since those numbers come from the account or from an override, they are not
+ * something a user can be assumed to know.
+ *
+ * Time is given per recorded day rather than per calendar day. The fractions are
+ * of readings that exist, so multiplying them by 24 hours would describe a day
+ * that was never fully measured.
+ */
+@Composable
+private fun TimeInRangeDetail(
+    stats: GlucoseStatistics,
+    thresholds: GlucoseThresholds,
+    unit: GlucoseUnit,
+    period: TrendPeriod,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(Modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.trends_time_in_range),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.trends_close))
+                    }
+                }
+
+                Text(
+                    stringResource(
+                        R.string.trends_tir_window,
+                        period.label,
+                        (stats.coverage * 100).roundToInt(),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(16.dp))
+                StackedZoneBar(stats, muted = !stats.isReliable, height = 40.dp)
+
+                Spacer(Modifier.height(20.dp))
+                ZONE_ORDER.forEach { (zone, labelRes) ->
+                    val fraction = stats.zoneFractions[zone] ?: 0.0
+                    ZoneDetailRow(
+                        label = stringResource(labelRes),
+                        range = thresholds.rangeLabel(zone, unit),
+                        unitSuffix = unit.suffix,
+                        fraction = fraction,
+                        zone = zone,
+                        muted = !stats.isReliable,
+                    )
+                    HorizontalDivider()
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    stringResource(R.string.trends_tir_explain),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!stats.isReliable) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.trends_coverage_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoneDetailRow(
+    label: String,
+    range: String,
+    unitSuffix: String,
+    fraction: Double,
+    zone: Zone,
+    muted: Boolean,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .width(14.dp)
+                .height(34.dp)
+                .background(ZoneColors.of(zone, reliable = !muted), RoundedCornerShape(3.dp))
+        )
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                "$range $unitSuffix",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                "${(fraction * 100).roundToInt()}%",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                perRecordedDay(fraction),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * How much of an average recorded day was spent in a band.
+ *
+ * Of a *recorded* day, which is why the caption below the list says so: the
+ * fractions describe the readings that exist, and a window only half covered has
+ * no claim on the hours nobody measured.
+ */
+@Composable
+private fun perRecordedDay(fraction: Double): String {
+    val minutes = (fraction * 24 * 60).roundToInt()
+    return if (minutes >= 60) {
+        stringResource(R.string.trends_tir_hm, minutes / 60, minutes % 60)
+    } else {
+        stringResource(R.string.trends_tir_m, minutes)
     }
 }
 
@@ -189,7 +399,12 @@ private fun TimeInRangeCard(stats: GlucoseStatistics) {
  * entered should be absent, not a sliver that invites squinting at it.
  */
 @Composable
-private fun StackedZoneBar(stats: GlucoseStatistics, muted: Boolean) {
+private fun StackedZoneBar(
+    stats: GlucoseStatistics,
+    muted: Boolean,
+    height: Dp = 22.dp,
+    onClick: (() -> Unit)? = null,
+) {
     val order = listOf(
         Zone.URGENT_LOW,
         Zone.LOW,
@@ -205,11 +420,13 @@ private fun StackedZoneBar(stats: GlucoseStatistics, muted: Boolean) {
     Box(
         Modifier
             .fillMaxWidth()
-            .height(22.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(5.dp))
+            .height(height)
+            .clip(RoundedCornerShape(5.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
     ) {
         if (present.isEmpty()) return@Box
-        Row(Modifier.fillMaxWidth().height(22.dp)) {
+        Row(Modifier.fillMaxWidth().height(height)) {
             present.forEach { (zone, fraction) ->
                 Box(
                     Modifier
@@ -223,16 +440,27 @@ private fun StackedZoneBar(stats: GlucoseStatistics, muted: Boolean) {
 }
 
 @Composable
-private fun ZoneBar(label: String, fraction: Double, zone: Zone, muted: Boolean) {
+private fun ZoneBar(
+    label: String,
+    range: String,
+    fraction: Double,
+    zone: Zone,
+    muted: Boolean,
+) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.fillMaxWidth(0.3f),
-        )
+        // Name and boundary together, because the name alone is the ambiguous
+        // half: "high" is a word, "180–240" is the thing being counted.
+        Column(Modifier.fillMaxWidth(0.34f)) {
+            Text(label, style = MaterialTheme.typography.bodySmall)
+            Text(
+                range,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Box(
             Modifier
                 .weight(1f)

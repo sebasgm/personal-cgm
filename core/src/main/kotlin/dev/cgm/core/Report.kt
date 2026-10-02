@@ -164,9 +164,19 @@ data class RangeReport(
 data class Report(
     val generatedAtMillis: Long,
     val spec: ReportSpec,
+    /** Only the ranges with readings in them. See [skippedRanges]. */
     val ranges: List<RangeReport>,
     /** Every range together, so the whole period has a line of its own. */
     val overall: RangeReport,
+    /**
+     * How many ranges were dropped for having nothing in them.
+     *
+     * Kept as a number rather than discarded silently. Nothing backfills here, so
+     * asking for a year by day on a three-month-old install leaves most of the
+     * rows empty — dropping them is what makes the report readable, and saying how
+     * many went is what stops the remainder looking like the whole period.
+     */
+    val skippedRanges: Int = 0,
 ) {
     val hasData: Boolean get() = overall.hasData
 
@@ -193,16 +203,27 @@ object ReportBuilder {
     ): Report {
         val bounds = boundaries(spec, zone)
 
-        val ranges = bounds.zipWithNext { from, to ->
+        val all = bounds.zipWithNext { from, to ->
             val inRange = hours.filter { hourStartMillis(it) in from until to }
             summarise(labelFor(from, to, spec.split, zone), from, to, inRange, spec)
         }
 
+        // A range with no readings in it is a row of dashes. On a window longer
+        // than the history behind it that is most of the report, and it buries the
+        // part worth reading — so they are dropped here, once, rather than in each
+        // of the four things that render a report and risk disagreeing.
+        //
+        // Dropped rather than merged into their neighbours: a week with two days
+        // recorded is not the same measurement as a week with seven, and silently
+        // closing the gap would present it as though it were.
+        val populated = all.filter { it.hasData }
+
         return Report(
             generatedAtMillis = generatedAtMillis,
             spec = spec,
-            ranges = ranges,
+            ranges = populated,
             overall = summarise("All", spec.startMillis, spec.endMillis, hours, spec),
+            skippedRanges = all.size - populated.size,
         )
     }
 

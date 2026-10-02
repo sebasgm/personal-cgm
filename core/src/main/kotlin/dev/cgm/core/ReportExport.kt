@@ -52,6 +52,7 @@ object ReportExport {
         appendLine("# $DISCLAIMER")
         appendLine("# generated,${iso(report.generatedAtMillis, zone)}")
         appendLine("# unit,${report.spec.unit.suffix}")
+        appendLine("# ranges_omitted_no_data,${report.skippedRanges}")
         appendLine(
             "# thresholds_mgdl,urgent_low,${report.spec.thresholds.urgentLowMgdl}," +
                 "low,${report.spec.thresholds.lowMgdl}," +
@@ -131,6 +132,7 @@ object ReportExport {
         appendLine("""    "veryHigh": ${report.spec.thresholds.veryHighMgdl}""")
         appendLine("""  },""")
         appendLine("""  "bandsPerDay": ${report.spec.bandsPerDay},""")
+        appendLine("""  "rangesOmittedNoData": ${report.skippedRanges},""")
         appendLine("""  "overall": ${rangeJson(report.overall, zone, indent = 2)},""")
         appendLine("""  "ranges": [""")
         report.ranges.forEachIndexed { index, r ->
@@ -206,6 +208,14 @@ $pad}"""
         appendLine("in range ${report.spec.thresholds.lowMgdl.toInt()}–${report.spec.thresholds.highMgdl.toInt()} mg/dL</p>")
         appendLine("<div class=\"warn\">${escapeHtml(DISCLAIMER)}</div>")
 
+        if (report.skippedRanges > 0) {
+            appendLine(
+                "<p class=\"muted\">${report.skippedRanges} range(s) in this period had no " +
+                    "readings at all and are not listed. The summary row below still covers " +
+                    "the whole period, gaps included — see its coverage figure.</p>"
+            )
+        }
+
         appendLine("<h2>Summary</h2><table>")
         appendLine(
             "<tr><th>Range</th><th>Readings</th><th>Coverage</th><th>Mean</th>" +
@@ -240,7 +250,7 @@ $pad}"""
             appendLine("<table><tr><th>Range</th>")
             report.overall.bands.forEach { appendLine("<th>${escapeHtml(it.label)}</th>") }
             appendLine("</tr>")
-            (report.ranges.filter { it.hasData } + report.overall).forEach { r ->
+            (report.ranges + report.overall).forEach { r ->
                 val thin = if (r.hasData && !r.isReliable) " class=\"thin\"" else ""
                 appendLine("<tr$thin><td>${escapeHtml(r.label)}</td>")
                 r.bands.forEach { b ->
@@ -256,7 +266,7 @@ $pad}"""
             )
         }
 
-        report.ranges.filter { it.hasData }.forEach { r ->
+        report.ranges.forEach { r ->
             appendLine("<div class=\"page\"><h2>${escapeHtml(r.label)}</h2>")
             appendLine("<p class=\"muted\">${r.readingCount} readings · ${pct(r.coverage)} coverage</p>")
             appendLine(histogramSvg(r, report.spec))

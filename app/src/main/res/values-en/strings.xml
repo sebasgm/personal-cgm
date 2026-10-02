@@ -382,4 +382,10 @@
 
     <string name="tour_limits_title">What it will not do</string>
     <string name="tour_limits_body">Each of these is a decision, not something missing.\n\n**Nothing backfills.** The upstream service serves about half a day of coarse history, so every long window fills up from the day you installed this and not before. That is why coverage is on every screen that shows a figure.\n\n**It never suggests a dose**, and no prediction can trigger or silence an alarm.\n\n**Nothing leaves the phone** unless you switch on the web relay, which holds one value in memory on a server you run and forgets it on restart.\n\nThe forecast is switched off. It will come back when it can state how often it was right.\n\nThat is the tour. It is in Settings whenever you want it again.</string>
+    <string name="trends_tir_hint">Tap the bar for each band\'s boundaries and how long was spent in it.</string>
+    <string name="trends_tir_window">Last %1$s · %2$d%% of the period recorded</string>
+    <string name="trends_tir_explain">The percentages are of the readings that exist, not of the calendar. The time beside each one is per recorded day: where coverage is partial, the hours nobody measured count towards nothing.</string>
+    <string name="trends_tir_hm">%1$d h %2$d min a day</string>
+    <string name="trends_tir_m">%1$d min a day</string>
+    <string name="report_skipped">%1$d ranges with no readings at all were left out. The row above still covers the whole period, gaps included.</string>
 </resources>

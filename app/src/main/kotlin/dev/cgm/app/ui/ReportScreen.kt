@@ -419,7 +419,18 @@ private fun ReportPreview(report: Report) {
 
     RangeRow(report.overall, report.spec.unit.suffix, header = true)
     HorizontalDivider()
-    report.ranges.filter { it.hasData }.forEach {
+    // Said out loud, because the rows below would otherwise look like the whole
+    // period. The summary row above still covers it, gaps and all.
+    if (report.skippedRanges > 0) {
+        Text(
+            stringResource(R.string.report_skipped, report.skippedRanges),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 6.dp),
+        )
+        HorizontalDivider()
+    }
+    report.ranges.forEach {
         RangeRow(it, report.spec.unit.suffix, header = false)
         HorizontalDivider()
     }

@@ -64,6 +64,25 @@ data class GlucoseThresholds(
     }
 
     /**
+     * A zone's boundaries as a reader would say them, e.g. "70–180" or "<55".
+     *
+     * The outer two zones are open-ended in [boundsOf] — they run to 0 and to the
+     * largest plausible reading — and printing those edges would invent precision
+     * the band does not have. Nobody's urgent-low zone starts at zero.
+     *
+     * Symbols rather than words, so this needs no translation and stays narrow
+     * enough to sit beside a figure on a phone.
+     */
+    fun rangeLabel(zone: Zone, unit: GlucoseUnit): String {
+        val bounds = boundsOf(zone)
+        return when (zone) {
+            Zone.URGENT_LOW -> "<${unit.format(bounds.endInclusive)}"
+            Zone.VERY_HIGH -> ">${unit.format(bounds.start)}"
+            else -> "${unit.format(bounds.start)}–${unit.format(bounds.endInclusive)}"
+        }
+    }
+
+    /**
      * Force the boundaries into ascending order.
      *
      * Settings will let the user type these in, and a low above a high would

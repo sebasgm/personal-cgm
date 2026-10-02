@@ -145,15 +145,40 @@ class ReportBuilderTest {
     }
 
     @Test
-    fun `an empty range says it has nothing rather than reporting zero`() {
+    fun `a range with no readings is dropped, and counted`() {
+        // Two days asked for, one recorded. The empty day is a row of dashes, and
+        // on a window longer than the history behind it that is most of the report.
         val report = build(
             span("2026-09-01T00:00", "2026-09-03T00:00", ReportSplit.DAY),
             listOf(hour(at("2026-09-01T08:00"), 120.0)),
         )
-        val empty = report.ranges[1]
-        assertTrue(!empty.hasData)
-        assertNull(empty.mean)
-        assertNull(empty.median)
+        assertEquals(1, report.ranges.size)
+        assertTrue(report.ranges.all { it.hasData })
+        // Counted rather than silently gone, or what is left would read as the
+        // whole period.
+        assertEquals(1, report.skippedRanges)
+    }
+
+    @Test
+    fun `the overall row still spans the whole period, gaps included`() {
+        // Dropping the empty rows must not shrink the window the summary describes:
+        // its coverage is the figure that says how much of the period is behind it.
+        val report = build(
+            span("2026-09-01T00:00", "2026-09-05T00:00", ReportSplit.DAY),
+            listOf(hour(at("2026-09-01T08:00"), 120.0)),
+        )
+        assertEquals(at("2026-09-01T00:00"), report.overall.startMillis)
+        assertEquals(at("2026-09-05T00:00"), report.overall.endMillis)
+        assertTrue(report.overall.coverage < 0.05, "coverage was ${report.overall.coverage}")
+        assertEquals(3, report.skippedRanges)
+    }
+
+    @Test
+    fun `a period with nothing in it reports no ranges at all`() {
+        val report = build(span("2026-09-01T00:00", "2026-09-04T00:00", ReportSplit.DAY), emptyList())
+        assertTrue(report.ranges.isEmpty())
+        assertTrue(!report.hasData)
+        assertEquals(3, report.skippedRanges)
     }
 
     // -- bands ----------------------------------------------------------------
@@ -350,8 +375,38 @@ class ReportExportTest {
     }
 
     @Test
-    fun `a range with nothing in it still exports as valid json`() {
-        // The overall row always has data. An empty range is what used to emit
+    fun `an exported report states how many ranges it left out`() {
+        // Without this the remaining rows read as the whole period. The overall
+        // row is the one that still covers it, and its coverage says how thinly.
+        val start = LocalDateTime.parse("2026-09-01T00:00").atZone(madrid).toInstant().toEpochMilli()
+        val sparse = ReportBuilder.build(
+            spec = ReportSpec(start, start + 4 * 86_400_000L, ReportSplit.DAY),
+            hours = listOf(
+                HourlyBin(
+                    localDate = "2026-09-01", localHour = 8,
+                    bins = GlucoseHistogram.of(List(12) { 120.0 }),
+                    readingCount = 12, coverageBuckets = 12,
+                )
+            ),
+            hourStartMillis = { start + 8 * 3_600_000L },
+            generatedAtMillis = now,
+            zone = madrid,
+        )
+        assertEquals(3, sparse.skippedRanges)
+        assertEquals(1, sparse.ranges.size)
+
+        assertTrue(ReportExport.export(sparse, ReportFormat.CSV, madrid)
+            .contains("ranges_omitted_no_data,3"))
+        val json = ReportExport.export(sparse, ReportFormat.JSON, madrid)
+        kotlinx.serialization.json.Json.parseToJsonElement(json)
+        assertTrue(json.contains("\"rangesOmittedNoData\": 3"))
+        assertTrue(ReportExport.export(sparse, ReportFormat.HTML, madrid)
+            .contains("3 range(s)"))
+    }
+
+    @Test
+    fun `an absent figure is still null rather than nothing`() {
+        // The overall row of an empty period has no mean. It used to emit
         // `"meanMgdl": ,` and take the whole file down with it.
         val start = LocalDateTime.parse("2026-09-01T00:00").atZone(madrid).toInstant().toEpochMilli()
         val empty = ReportBuilder.build(

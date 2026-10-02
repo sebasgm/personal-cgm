@@ -382,4 +382,10 @@
 
     <string name="tour_limits_title">Lo que no va a hacer</string>
     <string name="tour_limits_body">Cada una de estas cosas es una decisión, no algo que falta.\n\n**No se puede recuperar el pasado.** El servicio de origen entrega apenas medio día de historial grueso, así que toda ventana larga se llena desde el día que instalaste esto y no antes. Por eso la cobertura aparece en cada pantalla que muestra una cifra.\n\n**Nunca sugiere una dosis**, y ningún pronóstico puede disparar ni silenciar una alarma.\n\n**Nada sale del teléfono** salvo que activés el relé web, que guarda un solo valor en memoria en un servidor tuyo y lo olvida al reiniciarse.\n\nEl pronóstico está apagado. Va a volver cuando pueda decir con qué frecuencia acertó.\n\nEso es todo. Está en Ajustes cuando lo quieras de nuevo.</string>
+    <string name="trends_tir_hint">Tocá la barra para ver los límites de cada franja y cuánto tiempo pasaste en ella.</string>
+    <string name="trends_tir_window">Últimos %1$s · %2$d%% del período registrado</string>
+    <string name="trends_tir_explain">Los porcentajes son sobre los valores que existen, no sobre el calendario. El tiempo que figura al lado es por día registrado: si la cobertura es parcial, las horas que nadie midió no cuentan para ningún lado.</string>
+    <string name="trends_tir_hm">%1$d h %2$d min al día</string>
+    <string name="trends_tir_m">%1$d min al día</string>
+    <string name="report_skipped">Se omitieron %1$d tramos sin ningún valor registrado. La fila de arriba sigue cubriendo todo el período, huecos incluidos.</string>
 </resources>
