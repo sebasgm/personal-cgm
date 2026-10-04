@@ -58,6 +58,7 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
+    implementation(libs.wear.complications.data.source)
     implementation(libs.wear.compose.material3)
     implementation(libs.wear.compose.foundation)
     debugImplementation(libs.compose.ui.tooling)

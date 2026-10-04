@@ -14,6 +14,16 @@ decision and a pass over the security plan.
 
 ### Added
 
+- **A Wear OS complication.** The reading on any watch face with a slot for it — short text,
+  ranged value or long text — rather than a watch face of our own, so it works on the faces
+  already installed and leaves their layout and battery behaviour alone. The platform never polls
+  us: an update is requested when a reading lands, which is the only moment there is anything new
+  to say. The **age is rendered by the watch face**, counting up from the reading's own timestamp,
+  which is what makes it trustworthy — a string we formatted once would freeze and then understate
+  the age for as long as the feed was down, exactly when the number is most dangerous. The gauge
+  spans the in-range band rather than the sensor's full scale, because a 40-to-400 arc puts every
+  ordinary reading within a few degrees of the same position. See docs/06-wear-os.md.
+
 - **The time-in-range bands now say where their edges are.** Each row carries its boundary beside
   its name — "high" is a word, "180–240" is the thing being counted — and the stacked bar, which
   previously did nothing when tapped, opens the bands in full: boundary, percentage, and how much
@@ -155,6 +165,27 @@ decision and a pass over the security plan.
   to the charts rather than as the summary they support.
 
 ### Fixed
+
+- **The poller could stop and leave a working-looking app behind.** One unhandled exception
+  anywhere in the loop — a notification the system refused, a failed preference read, an OEM
+  throwing from Do Not Disturb — ended polling for good, while the service stayed in the
+  foreground with a frozen number in the status bar. That is the worst shape a failure can take,
+  because nothing about it looks wrong. The loop is now supervised and restarted, each iteration's
+  notification and alarm work is guarded separately so neither can take the fetch down, and a
+  condition that needs the user (a rejected password) retries every quarter of an hour instead of
+  stopping until someone noticed and pressed Start.
+- **Nothing used to bring the poller back once its process was gone.** `START_STICKY` is a
+  request, and several manufacturers' battery managers ignore it. A quarter-hourly exact alarm now
+  checks: it starts the service if it is not running, and stops and restarts it if it is running
+  but has not polled in twelve minutes — a plain restart would miss that case, since starting an
+  already-running service does nothing to the loop that is wedged inside it. Exact because that is
+  one of the few things permitting a background foreground-service start, and the app already holds
+  the grant for reminders. Swiping the app out of recents re-arms it rather than ending it.
+- **Settings shows the time of the last check**, which is the only way to see this class of failure
+  without attaching a cable: "running" is what the service says about itself, a timestamp from
+  forty minutes ago is evidence.
+- **A reboot left xDrip+ users with no poller.** The boot receiver asked only whether LibreLinkUp
+  credentials existed, and a pushed source has none.
 
 - **Printing could never work while a language override was set**, which is the whole reason the
   PDF button failed. The Activity applied the chosen language by replacing its base context with

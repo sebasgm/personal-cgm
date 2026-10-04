@@ -18,4 +18,6 @@
     <string name="wear_dose_bolus">Bolo</string>
     <string name="wear_dose_line">%1$s · %2$s U</string>
     <string name="wear_minutes_ago">hace %1$d min</string>
+    <string name="comp_name">Glucosa</string>
+    <string name="comp_no_reading">Sin valores todavía</string>
 </resources>

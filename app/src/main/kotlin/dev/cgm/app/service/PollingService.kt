@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.PowerManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -33,6 +34,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.first
@@ -216,11 +219,42 @@ class PollingService : LifecycleService() {
 
         startForegroundCompat(buildNotification(strings.getString(R.string.notif_starting), null, StatusIconLabel.NO_DATA))
         if (loop?.isActive != true) {
-            loop = lifecycleScope.launch { pollLoop() }
+            loop = lifecycleScope.launch { superviseLoop() }
         }
         // START_STICKY: if we are killed for memory, come back. The reading is the
         // whole point of the app being installed.
         return START_STICKY
+    }
+
+    /**
+     * Keeps [pollLoop] alive for as long as the service is.
+     *
+     * The loop used to be launched directly, which made one unhandled exception
+     * anywhere inside it — a notification the system refused, a DataStore read
+     * that failed, an OEM throwing from Do Not Disturb — the permanent end of
+     * polling. The service stayed in the foreground with a frozen number in the
+     * status bar, which is the worst possible failure: it looks like it is working.
+     *
+     * Nothing is retried blindly. Each iteration already guards its own side
+     * effects; this is the backstop for whatever those guards do not cover, and it
+     * logs loudly because a loop that keeps restarting is a bug to find, not a
+     * condition to live with.
+     */
+    private suspend fun superviseLoop() {
+        while (currentCoroutineContext().isActive) {
+            try {
+                pollLoop()
+                // A clean return means the loop decided to stop. Nothing does that
+                // any more, so treat it as a fault too rather than exiting quietly.
+                Log.w(TAG, "poll loop returned; restarting")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Log.e(TAG, "poll loop died; restarting", e)
+            }
+            loopAliveSinceMillis = 0L
+            delay(LOOP_RESTART_DELAY_MILLIS)
+        }
     }
 
     private suspend fun pollLoop() {
@@ -237,23 +271,32 @@ class PollingService : LifecycleService() {
         repository.primeFromStorage()
         updateNotification()
 
-        while (lifecycleScope.isActive) {
+        while (currentCoroutineContext().isActive) {
             val startedAt = System.currentTimeMillis()
+            _lastPollAt.value = startedAt
+            if (loopAliveSinceMillis == 0L) loopAliveSinceMillis = startedAt
+
             val outcome = repository.pollOnce()
 
             consecutiveFailures =
                 if (outcome is PollOutcome.Success) 0 else consecutiveFailures + 1
 
-            updateNotification()
-            evaluateAlarms()
+            // Guarded individually. Neither is the point of the loop, and a
+            // notification the system refuses or an alarm channel an OEM objects
+            // to must not be able to stop readings being fetched and stored.
+            runCatching { updateNotification() }
+                .onFailure { Log.e(TAG, "could not update the notification", it) }
+            runCatching { evaluateAlarms() }
+                .onFailure { Log.e(TAG, "could not evaluate alarms", it) }
 
             val delayMillis = scheduler.nextDelayMillis(outcome, consecutiveFailures)
-            if (delayMillis == null) {
-                // Fatal: credentials are wrong or access was revoked. Stay in the
-                // foreground showing why, rather than disappearing silently.
-                updateNotification()
-                break
-            }
+                // Fatal used to break out of the loop for good. It means "needs the
+                // user" — a wrong password, revoked access — and staying in the
+                // foreground to say so was right, but stopping forever was not: a
+                // single transient 401 then ended the session until someone noticed
+                // and pressed Start. Retrying slowly costs almost nothing and
+                // recovers by itself, and the notification still says what is wrong.
+                ?: FATAL_RETRY_MILLIS
 
             // Measured from when this poll *started*, not from when it finished,
             // so a slow request does not push every later poll further out. If a
@@ -388,6 +431,19 @@ class PollingService : LifecycleService() {
         )
     }
 
+    /**
+     * Swiping the app out of recents.
+     *
+     * Several manufacturers treat that as "stop everything this app is doing",
+     * foreground service included, and the user almost never means it that way —
+     * they meant to tidy a screen. The watchdog is re-armed so the poller comes
+     * back even if this process does not survive the next few seconds.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        ServiceWatchdog.schedule(this)
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         loop?.cancel()
         wakeLock?.takeIf { it.isHeld }?.release()
@@ -396,12 +452,74 @@ class PollingService : LifecycleService() {
         clockReceiver = null
         unregisterXdrip()
         _running.value = false
+        loopAliveSinceMillis = 0L
+        _lastPollAt.value = 0L
         super.onDestroy()
     }
 
     companion object {
         private const val NOTIFICATION_ID = 1
         private const val WAKE_LOCK_TAG = "personal-cgm:polling"
+        private const val TAG = "PollingService"
+
+        /** Long enough not to spin on a persistent fault, short enough to recover. */
+        private const val LOOP_RESTART_DELAY_MILLIS = 30_000L
+
+        /**
+         * How long to wait before retrying something that needs the user.
+         *
+         * Fifteen minutes of a wrong password costs nothing. The alternative — the
+         * old behaviour — was stopping until someone noticed, which for a feed
+         * whose whole job is to be there is a worse trade in every case.
+         */
+        private const val FATAL_RETRY_MILLIS = 15L * 60 * 1000
+
+        /**
+         * When the loop started its current run, or 0 while it is not running.
+         *
+         * Separate from [lastPollAtMillis] so a loop that is alive but wedged
+         * inside a single poll is distinguishable from one that is not running at
+         * all. Static, so it dies with the process — which is correct, because a
+         * new process has no loop either.
+         */
+        @Volatile
+        private var loopAliveSinceMillis = 0L
+
+        /**
+         * When the last poll began. The watchdog's evidence that work is happening.
+         *
+         * A flow as well as a value, because it is also the answer to "is it
+         * actually running": a Settings screen showing a check from forty minutes
+         * ago says more than any status word could, and says it without the user
+         * having to attach a cable.
+         */
+        private val _lastPollAt = MutableStateFlow(0L)
+        val lastPollAt: StateFlow<Long> = _lastPollAt.asStateFlow()
+
+        val lastPollAtMillis: Long get() = _lastPollAt.value
+
+        /**
+         * Whether the loop has gone quiet for longer than it ever should.
+         *
+         * Compared against the loop's own clock rather than the reading's age: a
+         * sensor out of range legitimately produces no new readings for hours,
+         * while the loop still runs every five minutes. This asks whether *we* are
+         * working, not whether the sensor is.
+         */
+        fun isStalled(nowMillis: Long = System.currentTimeMillis()): Boolean {
+            if (!_running.value) return false
+            val last = lastPollAtMillis
+            if (last == 0L) return loopAliveSinceMillis == 0L
+            return nowMillis - last > STALL_AFTER_MILLIS
+        }
+
+        /**
+         * Twelve minutes: comfortably past the scheduler's longest ordinary gap
+         * (five minutes idle, five minutes of backoff) and well short of the
+         * twenty at which the signal-loss alarm fires. A stall should be caught
+         * before the alarm has to announce it.
+         */
+        private const val STALL_AFTER_MILLIS = 12L * 60 * 1000
         const val NOTIFICATION_GROUP = "dev.cgm.app.glucose"
 
         /**
@@ -430,10 +548,32 @@ class PollingService : LifecycleService() {
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, PollingService::class.java))
+            // Laid down here rather than only in the service, so a start that is
+            // refused — a background start the system rejects — still leaves
+            // something scheduled to try again later.
+            ServiceWatchdog.schedule(context)
         }
 
         fun stop(context: Context) {
+            // Cancelled first. Otherwise the watchdog would start the service
+            // again a quarter of an hour after the user deliberately stopped it,
+            // which is a worse bug than the one it exists to fix.
+            ServiceWatchdog.cancel(context)
             context.stopService(Intent(context, PollingService::class.java))
+        }
+
+        /**
+         * Tears the service down and brings it back.
+         *
+         * For a loop that is wedged rather than absent: `startForegroundService`
+         * on a running service only delivers another `onStartCommand`, and the
+         * existing loop is still there and still stuck. A new service gets a new
+         * one.
+         */
+        fun restart(context: Context) {
+            context.stopService(Intent(context, PollingService::class.java))
+            context.startForegroundService(Intent(context, PollingService::class.java))
+            ServiceWatchdog.schedule(context)
         }
     }
 }

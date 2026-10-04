@@ -388,4 +388,6 @@
     <string name="trends_tir_hm">%1$d h %2$d min a day</string>
     <string name="trends_tir_m">%1$d min a day</string>
     <string name="report_skipped">%1$d ranges with no readings at all were left out. The row above still covers the whole period, gaps included.</string>
+    <string name="set_last_check">Last check: %1$s</string>
+    <string name="set_last_check_never">No check has run yet.</string>
 </resources>

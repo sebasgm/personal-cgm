@@ -16,6 +16,7 @@ ktor = "3.6.0"
 carApp = "1.7.0"
 wearable = "20.0.1"
 wearCompose = "1.6.2"
+watchface = "1.2.1"
 logback = "1.6.3"
 
 [libraries]
@@ -23,6 +24,7 @@ car-app = { module = "androidx.car.app:app", version.ref = "carApp" }
 car-app-projected = { module = "androidx.car.app:app-projected", version.ref = "carApp" }
 play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "wearable" }
 wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wearCompose" }
+wear-complications-data-source = { module = "androidx.wear.watchface:watchface-complications-data-source-ktx", version.ref = "watchface" }
 wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
 ktor-server-core = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }

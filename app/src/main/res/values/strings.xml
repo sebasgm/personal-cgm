@@ -388,4 +388,6 @@
     <string name="trends_tir_hm">%1$d h %2$d min al día</string>
     <string name="trends_tir_m">%1$d min al día</string>
     <string name="report_skipped">Se omitieron %1$d tramos sin ningún valor registrado. La fila de arriba sigue cubriendo todo el período, huecos incluidos.</string>
+    <string name="set_last_check">Última consulta: %1$s</string>
+    <string name="set_last_check_never">Todavía no hizo ninguna consulta.</string>
 </resources>

@@ -318,3 +318,52 @@ The phone stays the source of truth and the only thing that talks to Abbott by d
 watch is a display. Every rule already established — stale shows no value, age is rendered by
 the platform, alarms never fire on old data — carries over unchanged, because they live in
 `:core` and `:core` is what the watch imports.
+
+---
+
+## Complication, shipped (W1)
+
+`GlucoseComplicationService` in `:wear`, offering **short text**, **ranged value**
+and **long text**. Register it from any watch face's own complication picker.
+
+A complication rather than a watch face, and that is the better trade here: it
+works on the faces already installed — including the ones that shipped with the
+watch — and leaves their layout, styling and battery behaviour alone. What it
+gives up is control of the refresh.
+
+### Two decisions that carry the design
+
+**The platform never polls us.** `UPDATE_PERIOD_SECONDS` is `0`, and
+`WatchDataService` calls `requestUpdate` when a reading lands. There is nothing
+new to say at any other moment, and a timer would wake the watch on a schedule
+unrelated to the sensor while still being late. Requests are averaged to roughly
+one per five minutes, so asking only on arrival keeps the budget off repeats.
+
+**The age is rendered by the watch face, not by us.** It is a
+`TimeDifferenceComplicationText` counting up from the reading's own timestamp.
+This is the whole reason the complication can be trusted: a string we formatted
+once would freeze at whatever it said when the update arrived and then understate
+the age for as long as the feed was down — exactly when the number is most
+dangerous. The platform counts it correctly with the phone switched off.
+
+### Smaller choices
+
+- The trend arrow travels with the number, not in the title, because the title is
+  where the age goes and the age matters more.
+- The ranged-value gauge spans the **in-range band**, not the sensor's scale. A
+  40-to-400 arc leaves every ordinary reading within a few degrees of the same
+  position. Out-of-range values pin at an end, which the number beside the arc
+  disambiguates.
+- No reading shows `--`, and the gauge reports `0` rather than no value: some
+  faces draw an absent ranged value as a full arc, which reads as a maximum.
+- Tapping opens the watch app, which holds the chart and the recent doses.
+- `contentDescription` spells out what the glyphs compress, for TalkBack.
+
+### Still open
+
+- **Tile.** Separate entry point, same `WatchStoreHolder`.
+- **Watch face (W3).** Still worth doing eventually, but no longer the only way
+  to get a number onto a face.
+- **Whether a stock OnePlus face's picker lists third-party complications.** The
+  open question from W0, and the one thing that decides whether this works on the
+  face the user actually wears. Nothing in the code can answer it.

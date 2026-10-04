@@ -54,6 +54,14 @@
           mode with unknown sources allowed, since this is sideloaded.
         -->
         <!-- Hands exported reports to other apps without exposing app storage. -->
+        <!--
+          Checks every quarter of an hour that the poller is still alive. Not
+          exported: the only thing that may trigger it is our own alarm.
+        -->
+        <receiver
+            android:name=".service.WatchdogReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.reports"

@@ -196,6 +196,23 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            // The last check, in plain sight. "Running" is what the service says
+            // about itself; this is evidence. A time from forty minutes ago is the
+            // symptom of the poller having quietly stopped, and it is the one thing
+            // that makes that visible without a cable attached.
+            val lastPoll by PollingService.lastPollAt.collectAsState()
+            if (polling) {
+                Text(
+                    if (lastPoll == 0L) {
+                        stringResource(R.string.set_last_check_never)
+                    } else {
+                        stringResource(R.string.set_last_check, clockTime(lastPoll))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onStartService) {
@@ -242,6 +259,11 @@ fun SettingsScreen(
         )
     }
 }
+
+/** Wall-clock time, to the second, because the seconds are the point here. */
+private fun clockTime(millis: Long): String = java.time.Instant.ofEpochMilli(millis)
+    .atZone(java.time.ZoneId.systemDefault())
+    .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))
 
 /**
  * Where readings come from.

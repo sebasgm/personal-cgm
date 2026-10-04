@@ -37,11 +37,12 @@ class WatchDataService : WearableListenerService() {
     /**
      * Everything that should happen when a reading lands.
      *
-     * The complication push update joins this when complications are built: it is
-     * the moment to request one, which is what keeps a watch face current without
-     * asking the platform to poll us.
+     * The complication request is here rather than on a timer because this is the
+     * only moment there is anything new to say — which is also what keeps the
+     * platform's update budget from being spent on repeats.
      */
     private fun onReadingAccepted(store: WatchStore) {
         store.payload.value?.let { WatchNotifier(this).show(it) }
+        GlucoseComplicationService.requestUpdate(this)
     }
 }

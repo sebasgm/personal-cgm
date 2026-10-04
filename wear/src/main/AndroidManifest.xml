@@ -38,6 +38,35 @@
         </activity>
 
         <!--
+          The reading, for any watch face with a slot for it.
+
+          UPDATE_PERIOD_SECONDS is 0 on purpose: the platform must never poll us.
+          There is nothing new to say until the phone sends a reading, and a timer
+          would wake the watch on a schedule unrelated to the sensor while still
+          being late. WatchDataService asks for an update when one lands.
+
+          SAFE_WATCH_FACE_VISIBLE is not requested: this needs no privileged
+          placement, and the data is already on this device.
+        -->
+        <service
+            android:name=".GlucoseComplicationService"
+            android:exported="true"
+            android:label="@string/comp_name"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,RANGED_VALUE,LONG_TEXT" />
+
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="0" />
+        </service>
+
+        <!--
           Started by the system when the phone publishes, whether or not anything
           is on screen. The path filter keeps us off every other app's traffic.
         -->
