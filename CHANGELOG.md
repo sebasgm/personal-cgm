@@ -166,6 +166,32 @@ decision and a pass over the security plan.
 
 ### Fixed
 
+- **The watchdog was killing the service it was meant to protect.** Its stall threshold was
+  twelve minutes while the loop's longest legitimate sleep — the wait after a condition needing
+  the user — is fifteen, so a healthy loop was declared stalled and "recovered" from every
+  quarter of an hour. Recovery was stop-then-start, and the start came from a background
+  process, where Android 12 and later refuse it: the net effect was a deliberately killed
+  service that could not come back. Hence the poller hanging *more* often than before the
+  watchdog existed, not less.
+  
+  Three changes. The loop now publishes the instant it intends to poll next, and a stall is
+  measured against that deadline plus five minutes' grace — a deadline cannot drift out of step
+  with the scheduler that sets it, which a hand-picked constant did. A wedged loop is rebuilt in
+  place by delivering an action to the service, which is already in the foreground and so subject
+  to none of the background-start restrictions; the service is never stopped to fix it. And the
+  watchdog decides synchronously inside `onReceive`, from a one-key preference file, because the
+  permission to start a foreground service from an alarm lasts about as long as the broadcast
+  does and the first version spent it on a settings read.
+- **The poll loop ran on the main thread.** `lifecycleScope` is confined to it, so readings
+  shared a thread with every frame the UI drew. Nothing in the loop needs to be there.
+- **GMI, estimated A1C, time in range and the daily pattern only recomputed when the window
+  changed.** They were calculated once when the screen was first built, so the only way to see
+  current figures was to switch the period and switch back. They are derived from the window, the
+  thresholds and the newest reading's timestamp now — the timestamp rather than the state itself,
+  because the state is replaced on every poll even when the poll returned a reading already held,
+  and an aggregate over ninety days of readings should run once per new reading rather than once a
+  minute. They also stop computing while the Trends tab is off screen.
+
 - **The poller could stop and leave a working-looking app behind.** One unhandled exception
   anywhere in the loop — a notification the system refused, a failed preference read, an OEM
   throwing from Do Not Disturb — ended polling for good, while the service stayed in the

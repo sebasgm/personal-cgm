@@ -72,6 +72,21 @@ like it is running.
 It should never be more than a few minutes old while the service runs. That line
 exists precisely so this failure is visible without a cable.
 
+### What the watchdog may and may not do
+
+It has exactly two moves, and the distinction matters because getting it wrong
+made things worse once already:
+
+- **Service not running** → start it.
+- **Service running but past its own polling deadline by five minutes** → ask it
+  to rebuild its loop in place, by delivering an action to the service that is
+  already in the foreground.
+
+It never stops a running service. The first version did — stop, then start — and
+the start came from a background process, where Android 12 and later refuse it.
+A legitimate fifteen-minute wait was being read as a stall, so the watchdog was
+killing a healthy service every quarter of an hour and failing to bring it back.
+
 ### Confirming the watchdog is armed
 
 ```sh

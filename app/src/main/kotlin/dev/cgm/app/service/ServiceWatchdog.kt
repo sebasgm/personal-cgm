@@ -7,11 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import dev.cgm.app.CgmApplication
-import dev.cgm.core.SourceKind
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * Brings the poller back when it has stopped.
@@ -84,52 +79,46 @@ object ServiceWatchdog {
 /**
  * Decides, every quarter of an hour, whether the poller needs help.
  *
- * Three outcomes: it is fine and nothing happens; it is dead and gets started; it
- * is alive but has not polled in longer than it ever should, and gets stopped and
- * started so the loop is rebuilt. The last case is the one a plain restart would
- * miss, because the service is present and `startForegroundService` on a running
- * service does nothing.
+ * Everything happens inside `onReceive`, synchronously, and that is the point.
+ * The first version read the stored settings on a background coroutine first,
+ * which spent the only window in which an alarm is permitted to start a
+ * foreground service — and then the start was refused. The decision now costs one
+ * synchronous preference read and one static flag.
+ *
+ * Three outcomes: nothing is wrong and nothing happens; the process is gone and
+ * the service is started; the service is alive but has missed its own polling
+ * deadline by five minutes, and is asked to rebuild its loop in place.
  */
 class WatchdogReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_CHECK) return
 
-        // Always first: if this throws or the app is not configured, the chain
-        // must not end here, or one bad check disables the watchdog for good.
+        // Always first: if anything below throws, the chain must not end here, or
+        // one bad check disables the watchdog for good.
         ServiceWatchdog.schedule(context)
 
-        val app = context.applicationContext as? CgmApplication ?: return
-        val pending = goAsync()
+        // Nothing to watch over until the user has asked for a poller. Read
+        // synchronously so the rest of this runs while a foreground start is
+        // still allowed.
+        if (!PollingService.isEnabled(context)) return
 
-        CoroutineScope(Dispatchers.Default).launch {
-            try {
-                // Nothing to watch over until there is a source to read.
-                val configured = runCatching {
-                    app.settings.sourceKindOnce() == SourceKind.XDRIP ||
-                        app.settings.credentials() != null
-                }.getOrDefault(false)
-                if (!configured) return@launch
-
-                when {
-                    !PollingService.running.value -> {
-                        Log.w(TAG, "poller is not running; starting it")
-                        PollingService.start(context)
-                    }
-
-                    PollingService.isStalled() -> {
-                        // Restarted rather than nudged. Whatever has the loop
-                        // wedged is inside it, and a new service gets a new loop.
-                        Log.w(TAG, "poller has stalled; restarting it")
-                        PollingService.restart(context)
-                    }
+        runCatching {
+            when {
+                !PollingService.running.value -> {
+                    Log.w(TAG, "poller is not running; starting it")
+                    PollingService.start(context)
                 }
-            } catch (e: Throwable) {
-                Log.e(TAG, "watchdog check failed", e)
-            } finally {
-                pending.finish()
+
+                PollingService.isStalled() -> {
+                    // Asked to rebuild its loop, never stopped. Stopping would
+                    // drop it out of the foreground, and the start that followed
+                    // would come from the background, where it is refused.
+                    Log.w(TAG, "poller has missed its deadline; rebuilding the loop")
+                    PollingService.kick(context)
+                }
             }
-        }
+        }.onFailure { Log.e(TAG, "watchdog check failed", it) }
     }
 
     companion object {

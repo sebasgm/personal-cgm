@@ -49,6 +49,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -306,32 +309,67 @@ class CgmViewModel(
     private val _period = MutableStateFlow(TrendPeriod.Default)
     val period: StateFlow<TrendPeriod> = _period.asStateFlow()
 
-    private val _periodStats = MutableStateFlow(GlucoseStatistics.Empty)
-    val periodStats: StateFlow<GlucoseStatistics> = _periodStats.asStateFlow()
-
     fun selectPeriod(period: TrendPeriod) {
         _period.value = period
-        refreshPeriodStats()
     }
 
-    private val _timeOfDay = MutableStateFlow(TimeOfDayProfile.Empty)
-    val timeOfDay: StateFlow<TimeOfDayProfile> = _timeOfDay.asStateFlow()
+    /**
+     * Everything the window's figures depend on.
+     *
+     * These used to be computed once, on creation, and then only when the period
+     * changed — so GMI and estimated A1C were whatever they had been when the
+     * screen was first built, and the only way to refresh them was to change the
+     * window and change it back. Driving them from a key instead means they
+     * recompute exactly when something has actually moved.
+     *
+     * The newest reading's timestamp rather than the state itself, because the
+     * state is replaced on every poll even when the poll returned the reading we
+     * already had. Keying on the timestamp recomputes once per genuinely new
+     * reading instead of once a minute over a hundred thousand rows.
+     */
+    private data class StatsKey(
+        val period: TrendPeriod,
+        val thresholds: GlucoseThresholds,
+        val newestReadingMillis: Long?,
+    )
 
-    fun refreshPeriodStats() {
-        viewModelScope.launch {
+    private val statsKey: Flow<StatsKey> = combine(_period, state) { period, state ->
+        StatsKey(
+            period = period,
+            thresholds = state.snapshot?.thresholds ?: GlucoseThresholds.Default,
+            newestReadingMillis = state.snapshot?.reading?.timestampMillis,
+        )
+    }.distinctUntilChanged()
+
+    /**
+     * Shared by both figures below, so one reading cannot update one and not the
+     * other — and so the pair is computed once per change rather than twice.
+     *
+     * `WhileSubscribed`: nothing here is wanted unless the Trends tab is on
+     * screen, and an aggregate over ninety days of readings is not something to
+     * run in the background for a screen nobody is looking at.
+     */
+    val periodStats: StateFlow<GlucoseStatistics> = statsKey
+        .mapLatest { key ->
             val now = clock()
-            _periodStats.value = withContext(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 repository.statistics(
-                    startMillis = now - _period.value.millis,
+                    startMillis = now - key.period.millis,
                     endMillis = now,
-                    thresholds = state.value.snapshot?.thresholds ?: GlucoseThresholds.Default,
+                    thresholds = key.thresholds,
                 )
             }
-            _timeOfDay.value = withContext(Dispatchers.IO) {
-                repository.timeOfDayProfile(now - _period.value.millis, now)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GlucoseStatistics.Empty)
+
+    val timeOfDay: StateFlow<TimeOfDayProfile> = statsKey
+        .mapLatest { key ->
+            val now = clock()
+            withContext(Dispatchers.IO) {
+                repository.timeOfDayProfile(now - key.period.millis, now)
             }
         }
-    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimeOfDayProfile.Empty)
 
     // -- tour --------------------------------------------------------------------
 
@@ -625,7 +663,6 @@ class CgmViewModel(
             // So Home opens on the last known reading instead of an em-dash.
             repository.primeFromStorage()
         }
-        refreshPeriodStats()
         refreshContinuity()
         refreshCalibration()
         evaluateReminder()
