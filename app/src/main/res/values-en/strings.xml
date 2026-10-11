@@ -210,6 +210,12 @@
     <string name="a11y_letter_spacing">Letter spacing</string>
     <string name="a11y_line_spacing">Line spacing</string>
     <string name="a11y_preview">Glucose 168 mg/dL, steady. Reading from 1 minute ago.</string>
+    <string name="a11y_theme">Theme</string>
+    <string name="a11y_theme_system">Follow the system</string>
+    <string name="a11y_theme_system_note">Uses the phone\'s light or dark setting, including any automatic schedule.</string>
+    <string name="a11y_theme_light">Light</string>
+    <string name="a11y_theme_dark">Dark</string>
+    <string name="a11y_theme_dark_note">Always dark, even when the phone is light. Useful if you check your glucose at night.</string>
     <string name="a11y_colour_vision">Zone colours</string>
     <string name="a11y_colour_default">Default</string>
     <string name="a11y_colour_default_note">Red low, green in range, amber high: the LibreLink convention.</string>

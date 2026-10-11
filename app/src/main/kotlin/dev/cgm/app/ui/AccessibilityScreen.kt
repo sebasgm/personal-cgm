@@ -37,6 +37,7 @@ import dev.cgm.app.R
 import dev.cgm.core.AccessibilityPreferences
 import dev.cgm.core.ColorVision
 import dev.cgm.core.ReadingFont
+import dev.cgm.core.ThemeMode
 import dev.cgm.core.Zone
 import androidx.compose.ui.res.stringResource
 import kotlin.math.roundToInt
@@ -112,6 +113,24 @@ fun AccessibilityScreen(viewModel: CgmViewModel) {
                     ReadingFont.DYSLEXIC -> stringResource(R.string.a11y_font_dyslexic_note)
                 },
             ) { update { p -> p.copy(font = font) } }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        SettingsSectionHeader(stringResource(R.string.a11y_theme))
+        ThemeMode.entries.forEach { mode ->
+            ChoiceRow(
+                selected = prefs.theme == mode,
+                title = when (mode) {
+                    ThemeMode.SYSTEM -> stringResource(R.string.a11y_theme_system)
+                    ThemeMode.LIGHT -> stringResource(R.string.a11y_theme_light)
+                    ThemeMode.DARK -> stringResource(R.string.a11y_theme_dark)
+                },
+                note = when (mode) {
+                    ThemeMode.SYSTEM -> stringResource(R.string.a11y_theme_system_note)
+                    ThemeMode.LIGHT -> null
+                    ThemeMode.DARK -> stringResource(R.string.a11y_theme_dark_note)
+                },
+            ) { update { p -> p.copy(theme = mode) } }
         }
 
         Spacer(Modifier.height(16.dp))

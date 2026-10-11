@@ -38,6 +38,30 @@ enum class ReadingFont {
 }
 
 /**
+ * Light or dark, or whatever the device says.
+ *
+ * [SYSTEM] is the default and stays the default: a phone that switches at dusk
+ * is already expressing a preference, and overriding it by default would be
+ * presumptuous. The override exists because this app is read in the dark more
+ * than most — a glucose check at 3am is a real use case, and someone who keeps
+ * their phone in light mode all day may still want this one app dark.
+ *
+ * Not an accessibility control in the strict sense, but it lives with them
+ * because it is the same kind of decision: how the thing should look to the
+ * person reading it, decided once and applied before the first frame.
+ */
+enum class ThemeMode {
+    /** Follow the device's light/dark setting, including any automatic schedule. */
+    SYSTEM,
+
+    /** Always light, whatever the device is doing. */
+    LIGHT,
+
+    /** Always dark, whatever the device is doing. */
+    DARK,
+}
+
+/**
  * Which zone palette to draw.
  *
  * Colour is never the only channel in this app — zones also carry position,
@@ -85,6 +109,7 @@ data class AccessibilityPreferences(
     /** Multiplier on line height. */
     val lineSpacing: Float = 1.0f,
     val colorVision: ColorVision = ColorVision.DEFAULT,
+    val theme: ThemeMode = ThemeMode.SYSTEM,
 ) {
     fun sanitised() = copy(
         textScale = textScale.coerceIn(MIN_TEXT_SCALE, MAX_TEXT_SCALE),

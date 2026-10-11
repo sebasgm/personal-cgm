@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import dev.cgm.app.R
+import dev.cgm.core.ThemeMode
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -95,11 +96,23 @@ class MainActivity : ComponentActivity() {
             )
             val accessibility by vm.accessibility.collectAsState()
 
+            // Resolved once, here, and then handed down. The Material scheme and
+            // the chart's own palette both depend on it, and they have to reach
+            // the same answer — so the device is asked in exactly one place.
+            val dark = when (accessibility.theme) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+
             MaterialTheme(
-                colorScheme = if (isSystemInDarkTheme()) CgmPalette.dark else CgmPalette.light,
+                colorScheme = if (dark) CgmPalette.dark else CgmPalette.light,
                 typography = cgmTypography(accessibility),
             ) {
-              CompositionLocalProvider(LocalColorVision provides accessibility.colorVision) {
+              CompositionLocalProvider(
+                  LocalColorVision provides accessibility.colorVision,
+                  LocalDarkTheme provides dark,
+              ) {
                 val accepted by vm.disclaimerAccepted.collectAsState()
                 val hasSource by vm.hasSource.collectAsState()
 

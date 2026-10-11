@@ -20,6 +20,28 @@ import dev.cgm.core.Zone
 /** The palette in force, so zone colours do not have to be threaded through every call. */
 val LocalColorVision = staticCompositionLocalOf { ColorVision.DEFAULT }
 
+/**
+ * Whether to draw dark, or null to follow the device.
+ *
+ * Nullable rather than defaulting to false, so anything composed outside the
+ * provider — a preview, a dialog hosted elsewhere — keeps asking the system
+ * exactly as it did before this preference existed. A plain `false` default
+ * would quietly light-mode anything that forgot to provide it.
+ */
+val LocalDarkTheme = staticCompositionLocalOf<Boolean?> { null }
+
+/**
+ * The light/dark decision in force: the stored preference if there is one, and
+ * the device's setting otherwise.
+ *
+ * Every colour that varies by theme reads this rather than asking the system
+ * directly. That is the whole mechanism — the chart palette and the Material
+ * scheme have to agree, and a near-black trace on a dark band is what
+ * disagreeing looks like.
+ */
+val isDarkTheme: Boolean
+    @Composable get() = LocalDarkTheme.current ?: isSystemInDarkTheme()
+
 object ZoneColors {
 
     /** LibreLink's convention: red low, green in range, amber high. */
@@ -126,10 +148,10 @@ object ChartColors {
     private val traceDark = Color(0xFFF2F2F2)
 
     val band: Color
-        @Composable get() = if (isSystemInDarkTheme()) bandDark else bandLight
+        @Composable get() = if (isDarkTheme) bandDark else bandLight
 
     val trace: Color
-        @Composable get() = if (isSystemInDarkTheme()) traceDark else traceLight
+        @Composable get() = if (isDarkTheme) traceDark else traceLight
 
     /**
      * The projection. Deliberately a different hue from the trace and from every
@@ -141,7 +163,7 @@ object ChartColors {
     private val forecastDark = Color(0xFF9FAEE8)
 
     val forecast: Color
-        @Composable get() = if (isSystemInDarkTheme()) forecastDark else forecastLight
+        @Composable get() = if (isDarkTheme) forecastDark else forecastLight
 
     /**
      * Signal loss, and the one colour here that does not mean a zone.

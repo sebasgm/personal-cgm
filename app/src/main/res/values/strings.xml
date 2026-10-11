@@ -210,6 +210,12 @@
     <string name="a11y_letter_spacing">Espacio entre letras</string>
     <string name="a11y_line_spacing">Espacio entre líneas</string>
     <string name="a11y_preview">Glucosa 168 mg/dL, estable. Lectura de hace 1 minuto.</string>
+    <string name="a11y_theme">Tema</string>
+    <string name="a11y_theme_system">Seguir al sistema</string>
+    <string name="a11y_theme_system_note">Usa el ajuste de claro u oscuro del teléfono, incluido su horario automático.</string>
+    <string name="a11y_theme_light">Claro</string>
+    <string name="a11y_theme_dark">Oscuro</string>
+    <string name="a11y_theme_dark_note">Siempre oscuro, aunque el teléfono esté en claro. Útil si consultás la glucosa de noche.</string>
     <string name="a11y_colour_vision">Colores de las zonas</string>
     <string name="a11y_colour_default">Predeterminado</string>
     <string name="a11y_colour_default_note">Rojo bajo, verde en rango, ámbar alto: la convención de LibreLink.</string>
