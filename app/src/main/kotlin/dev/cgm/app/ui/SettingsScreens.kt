@@ -924,7 +924,13 @@ private fun SliderRow(
     val dragging = remember { mutableStateOf(false) }
     Column(Modifier.padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            // Weighted so the label wraps rather than squeezing the value out of
+            // the row: at a large font scale it is the label that has to give.
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
+            )
             Text(
                 format(live),
                 fontWeight = FontWeight.Medium,

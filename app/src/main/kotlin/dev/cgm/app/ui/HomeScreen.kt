@@ -3,6 +3,7 @@ package dev.cgm.app.ui
 import android.content.Context
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -24,6 +27,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,8 +41,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -337,10 +343,8 @@ private fun SignalLossBanner(snapshot: GlucoseSnapshot?, freshness: Freshness, n
 private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now: Long) {
     if (snapshot == null) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
+            BigNumeral(
                 stringResource(R.string.home_empty_value),
-                fontSize = 84.sp,
-                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
@@ -355,31 +359,45 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
     val valueColor = if (stale) ZoneColors.stale else ZoneColors.of(snapshot.zone())
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
+        BigNumeral(
             snapshot.formattedValue(),
-            fontSize = 84.sp,
-            fontWeight = FontWeight.Bold,
             color = valueColor,
             // Tabular figures: the layout must not jitter as digits change.
             fontFamily = FontFamily.SansSerif,
         )
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        // Flows rather than a Row: at a large font scale the unit, the arrow and
+        // the delta no longer fit on one line, and a Row would simply push the
+        // delta off the edge. Wrapping keeps all three readable.
+        FlowRow(
+            horizontalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.Center,
+            itemVerticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(snapshot.unit.suffix, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                snapshot.unit.suffix,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 5.dp),
+            )
             // Half the height of the value itself. The arrow answers "which way is
             // this going", which is the second thing anyone looks for and was
             // previously set at a quarter of the size of the first.
             Text(
                 snapshot.reading.trend.glyph,
-                fontSize = 44.sp,
+                // Half the numeral's ceiling, and capped the same way: this is the
+                // second thing anyone looks at, and it has to survive the same
+                // zoom the number does.
+                fontSize = (BIG_NUMERAL_MAX_SP / 2).sp,
                 fontWeight = FontWeight.Bold,
                 color = valueColor,
             )
             snapshot.formattedDelta()?.let {
-                Text(it, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    it,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 5.dp),
+                )
             }
         }
 
@@ -395,6 +413,61 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
         )
     }
 }
+
+/**
+ * The big numeral, sized to the width it actually has.
+ *
+ * It used to be a flat `84.sp`. `sp` multiplies by the device's font-size
+ * setting, so on a phone with display zoom or large text turned up the number
+ * grew past the screen and was clipped mid-digit — on the one screen whose
+ * entire job is to be readable at a glance, and worst for exactly the people who
+ * turned the setting up.
+ *
+ * Auto-sizing rather than a smaller fixed size, because both ends matter: it
+ * still reaches 84sp when there is room for it, and it steps down only as far as
+ * it must. A single line is what makes that a shrink instead of a wrap — three
+ * digits split across two lines is not a reading.
+ *
+ * The style is merged onto the ambient one rather than replacing it, because
+ * [BasicText] inherits nothing on its own: a plain [TextStyle] here would quietly
+ * drop the reader's chosen typeface, which is the opposite of the point.
+ */
+@Composable
+private fun BigNumeral(
+    text: String,
+    color: Color,
+    fontFamily: FontFamily? = null,
+) {
+    BasicText(
+        text,
+        // A null in the overriding style means "leave it alone", so passing no
+        // family keeps whatever the accessibility settings put there.
+        style = LocalTextStyle.current.merge(
+            TextStyle(
+                color = color,
+                fontWeight = FontWeight.Bold,
+                fontFamily = fontFamily,
+                textAlign = TextAlign.Center,
+            )
+        ),
+        maxLines = 1,
+        autoSize = TextAutoSize.StepBased(
+            minFontSize = BIG_NUMERAL_MIN_SP.sp,
+            maxFontSize = BIG_NUMERAL_MAX_SP.sp,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** The size it reaches when there is room, which is what it always used to be. */
+private const val BIG_NUMERAL_MAX_SP = 84f
+
+/**
+ * The floor. Below this the number stops being glanceable, and a reader who has
+ * zoomed their screen is better served by a smaller number that is whole than by
+ * a larger one missing its last digit.
+ */
+private const val BIG_NUMERAL_MIN_SP = 36f
 
 private fun ageText(
     snapshot: GlucoseSnapshot,

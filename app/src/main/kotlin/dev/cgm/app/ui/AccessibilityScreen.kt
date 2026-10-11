@@ -235,7 +235,13 @@ private fun ScaleSlider(
     var live by remember(value) { mutableStateOf(value) }
     Column(Modifier.padding(vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            // Weighted so the label wraps rather than squeezing the value out of
+            // the row — and this is the screen where the text is largest.
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
+            )
             Text(format(live), fontWeight = FontWeight.Medium)
         }
         Slider(
