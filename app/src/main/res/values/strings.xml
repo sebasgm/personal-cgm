@@ -51,7 +51,7 @@
     <string name="log_today">Hoy</string>
     <string name="log_yesterday">Ayer</string>
     <string name="trends_empty">No hay nada registrado en esta ventana todavía.</string>
-    <string name="trends_coverage_warning">Por debajo del 70% de cobertura estas cifras no son fiables. El historial no se puede rellenar hacia atrás, así que esto se completa a medida que la app sigue funcionando.</string>
+    <string name="trends_coverage_warning" formatted="false">Por debajo del 70% de cobertura estas cifras no son fiables. El historial no se puede rellenar hacia atrás, así que esto se completa a medida que la app sigue funcionando.</string>
     <string name="trends_time_in_range">Tiempo en rango</string>
     <string name="trends_gmi">GMI</string>
     <string name="trends_a1c">A1C est.</string>
@@ -231,12 +231,12 @@
     <string name="reminder_ok">Entendido</string>
     <string name="reminder_read_full">Ver el aviso completo en Ajustes.</string>
     <string name="trends_daily_pattern">Patrón del día</string>
-    <string name="trends_daily_pattern_note">Cada hora del día, reunida a lo largo del periodo. La línea es la mediana; la banda intensa es el 50% central de las lecturas y la pálida llega del percentil 10 al 90. Lo que se lee aquí no es solo dónde está cada parte del día, sino cuánto varía.</string>
+    <string name="trends_daily_pattern_note" formatted="false">Cada hora del día, reunida a lo largo del periodo. La línea es la mediana; la banda intensa es el 50% central de las lecturas y la pálida llega del percentil 10 al 90. Lo que se lee aquí no es solo dónde está cada parte del día, sino cuánto varía.</string>
     <string name="trends_daily_pattern_days">%1$d días con datos</string>
     <string name="trends_daily_pattern_thin">Con menos de %1$d días esto describe unos pocos días, no un patrón: una noche rara domina la franja entera.</string>
     <string name="trends_daily_pattern_empty">Todavía no hay suficientes horas registradas para dibujar el patrón del día.</string>
     <string name="trends_slices">El día en franjas</string>
-    <string name="trends_slices_note">Cada franja de 3 horas, reunida a lo largo del periodo. La caja es el 50% central de las lecturas y la línea de dentro, la mediana; las guías llegan del percentil 10 al 90. Lo que se lee aquí no es solo dónde está esa parte del día, sino cuánto varía.</string>
+    <string name="trends_slices_note" formatted="false">Cada franja de 3 horas, reunida a lo largo del periodo. La caja es el 50% central de las lecturas y la línea de dentro, la mediana; las guías llegan del percentil 10 al 90. Lo que se lee aquí no es solo dónde está esa parte del día, sino cuánto varía.</string>
     <string name="trends_inspect_hint">Deslizá el dedo sobre cualquiera de los dos gráficos para ver los números de una franja. Tocá para abrirlo en pantalla completa.</string>
     <string name="trends_inspect_median">Mediana %1$s</string>
     <string name="trends_inspect_middle">50%% central %1$s–%2$s</string>

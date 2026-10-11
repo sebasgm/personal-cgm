@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -443,6 +444,11 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
     val unit = state.unit
     val setting = settings[kind]
     val context = LocalContext.current
+    // The slider labels are formatted inside a plain lambda, which cannot call
+    // stringResource. Resources read through this local rather than off the
+    // context, so a configuration change — the app's own language setting among
+    // them — invalidates the composable instead of leaving a stale label behind.
+    val resources = LocalResources.current
     val notifier = remember { AlarmNotifier(context) }
     val hasPolicyAccess = notifier.hasPolicyAccess()
 
@@ -477,7 +483,7 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
                 label = stringResource(R.string.alarm_warn_after),
                 value = (setting.afterMillis / 60_000).toDouble(),
                 format = { minutes ->
-                    context.getString(R.string.alarm_warn_after_value, minutes.toInt())
+                    resources.getString(R.string.alarm_warn_after_value, minutes.toInt())
                 },
                 range = 5f..60f,
                 helper = stringResource(R.string.alarm_warn_after_helper),
@@ -488,7 +494,7 @@ fun AlarmDetailScreen(viewModel: CgmViewModel, kind: AlarmKind) {
         SliderRow(
             label = stringResource(R.string.alarm_repeat_every),
             value = (setting.repeatEveryMillis / 60_000).toDouble(),
-            format = { minutes -> context.getString(R.string.alarm_minutes, minutes.toInt()) },
+            format = { minutes -> resources.getString(R.string.alarm_minutes, minutes.toInt()) },
             range = 1f..60f,
         ) { update { s -> s.copy(repeatEveryMillis = it.toLong() * 60_000) } }
 

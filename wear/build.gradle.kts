@@ -48,6 +48,26 @@ android {
 dependencies {
     implementation(project(":core"))
 
+    /**
+     * Nothing here uses Fragments; this is a floor, not a dependency.
+     *
+     * androidx.fragment arrives transitively at 1.1.0 — play-services-wearable
+     * brings it, and so does appcompat under the watch-face complication
+     * artifacts. That version predates the ActivityResult contracts the
+     * activities here are built on: its FragmentActivity never calls
+     * super.onRequestPermissionsResult and uses request codes the contracts
+     * treat as invalid, so a permission result can be delivered to nothing. Lint
+     * reports it as an error rather than a warning for that reason.
+     *
+     * A constraint rather than `implementation`, because what is wanted is the
+     * version requirement without the library on the compile classpath.
+     */
+    constraints {
+        implementation(libs.androidx.fragment) {
+            because("ActivityResult contracts need Fragment 1.3.0 or newer")
+        }
+    }
+
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.play.services.wearable)
     implementation(libs.androidx.core.ktx)

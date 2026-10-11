@@ -88,6 +88,25 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":data-llu"))
 
+    /**
+     * Nothing here uses Fragments; this is a floor, not a dependency.
+     *
+     * androidx.fragment arrives transitively at 1.1.0, under
+     * play-services-wearable. That version predates the ActivityResult
+     * contracts the activities here are built on: its FragmentActivity never calls
+     * super.onRequestPermissionsResult and uses request codes the contracts
+     * treat as invalid, so a permission result can be delivered to nothing. Lint
+     * reports it as an error rather than a warning for that reason.
+     *
+     * A constraint rather than `implementation`, because what is wanted is the
+     * version requirement without the library on the compile classpath.
+     */
+    constraints {
+        implementation(libs.androidx.fragment) {
+            because("ActivityResult contracts need Fragment 1.3.0 or newer")
+        }
+    }
+
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
     // Publishes readings to the watch over the Data Layer.
