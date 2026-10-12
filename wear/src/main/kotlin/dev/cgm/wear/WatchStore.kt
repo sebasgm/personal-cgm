@@ -30,12 +30,13 @@ class WatchStore(context: Context) {
      * Accept a payload, unless it is older than what we already hold.
      *
      * The Data Layer makes no ordering guarantee, and a reconnection can deliver a
-     * buffered item after a newer one. Without the sequence check that would move
-     * the watch backwards in time.
+     * buffered item after a newer one, which would move the watch backwards in
+     * time. [WatchPayload.supersedes] is the rule, shared with the relay so the
+     * two cannot disagree about which of two payloads is the newer.
      */
     fun accept(incoming: WatchPayload): Boolean {
         val current = _payload.value
-        if (current != null && incoming.sequence <= current.sequence) return false
+        if (current != null && !incoming.supersedes(current)) return false
 
         _payload.value = incoming
         runCatching { file.writeBytes(incoming.encode()) }

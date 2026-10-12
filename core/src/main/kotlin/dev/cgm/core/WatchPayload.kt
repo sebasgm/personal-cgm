@@ -24,7 +24,21 @@ data class WatchPayload(
     val history: List<GlucoseReading> = emptyList(),
     /** Phone clock when sent; lets the watch detect a wildly skewed clock. */
     val sentAtMillis: Long,
-    /** Bumped per payload so the watch can drop out-of-order Data Layer delivery. */
+    /**
+     * Bumped per payload, for diagnostics only.
+     *
+     * **Not an ordering key**, though it was one, and that was a bug worth
+     * recording. The counter lives in the phone's polling service, so it restarts
+     * at 1 whenever that process does. Every receiver compared it against the
+     * value it had persisted, so a phone whose service had been restarted sent a
+     * run of payloads that all looked older than what the receiver already held,
+     * and every one of them was refused — permanently, because the counter
+     * restarted again on the next restart. A frozen complication and a frozen
+     * relay were the same bug seen twice.
+     *
+     * [supersedes] orders on the timestamps instead, which survive a restart
+     * because they do not belong to the process that sends them.
+     */
     val sequence: Long = 0,
     /**
      * Insulin logged in the last [DOSE_WINDOW_MILLIS], newest last.
@@ -37,6 +51,35 @@ data class WatchPayload(
     val recentDoses: List<InsulinDose> = emptyList(),
 ) {
     fun encode(): ByteArray = Json.encodeToString(serializer(), this).toByteArray()
+
+    /**
+     * Whether this payload should replace [current] on a display.
+     *
+     * Every receiver of this format needs the same answer — the watch's store, the
+     * complication behind it, and the web relay all hold one current payload and
+     * must refuse anything that would move it backwards. So the rule lives with
+     * the format rather than being written out once per receiver, which is how the
+     * three of them came to share one bug.
+     *
+     * Ordered on the **reading's own timestamp**, which is the sensor's clock. That
+     * is the only value in the payload that is monotonic across everything that
+     * can go wrong between the two devices: the phone's polling service can
+     * restart, which resets [sequence]; the phone's wall clock can be corrected or
+     * change zone, which moves [sentAtMillis]. Neither disturbs the order readings
+     * were taken in.
+     *
+     * A payload carrying the *same* reading still wins if it was sent later,
+     * because the rest of it may have moved — a dose logged between polls, a delta
+     * recomputed against a new neighbour. Only a strictly older reading is refused,
+     * which is exactly the out-of-order delivery the Data Layer can produce when a
+     * buffered item lands after a newer one.
+     */
+    fun supersedes(current: WatchPayload): Boolean {
+        val mine = snapshot.reading.timestampMillis
+        val theirs = current.snapshot.reading.timestampMillis
+        if (mine != theirs) return mine > theirs
+        return sentAtMillis > current.sentAtMillis
+    }
 
     companion object {
         /** Data Layer path. Stage 3 listens on this prefix. */

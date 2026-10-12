@@ -15,6 +15,14 @@ class RelayStoreTest {
     private var now = 1_800_000_000_000L
     private val store = RelayStore { now }
 
+    /**
+     * A push whose reading is [ageMinutes] old.
+     *
+     * The age is what orders these, not [WatchPayload.sequence] — a counter that
+     * belongs to the phone's polling service and restarts with it. The sequence is
+     * still passed through so the assertions below can name which push they got
+     * back.
+     */
     private fun payload(sequence: Long, ageMinutes: Int = 1) = WatchPayload(
         snapshot = GlucoseSnapshot(GlucoseReading(160.0, now - ageMinutes * 60_000L)),
         sentAtMillis = now,
@@ -35,8 +43,8 @@ class RelayStoreTest {
 
     @Test
     fun `a newer push replaces an older one`() {
-        store.accept(payload(1))
-        assertTrue(store.accept(payload(2)))
+        store.accept(payload(1, ageMinutes = 5))
+        assertTrue(store.accept(payload(2, ageMinutes = 1)))
         assertEquals(2L, store.current()!!.sequence)
     }
 
@@ -44,15 +52,30 @@ class RelayStoreTest {
     fun `an out-of-order push is refused`() {
         // A retry from a phone that reconnected can arrive behind a newer one,
         // and moving backwards in time is what a display must never do.
-        store.accept(payload(5))
-        assertFalse(store.accept(payload(4)))
+        store.accept(payload(5, ageMinutes = 1))
+        assertFalse(store.accept(payload(4, ageMinutes = 5)))
         assertEquals(5L, store.current()!!.sequence)
     }
 
     @Test
-    fun `the same sequence twice changes nothing`() {
+    fun `the same push twice changes nothing`() {
         store.accept(payload(3))
         assertFalse(store.accept(payload(3)))
+    }
+
+    @Test
+    fun `a phone that restarted keeps being served`() {
+        // The phone's sequence counter restarts with its polling service. While
+        // that counter was the ordering key, a restart meant every push after it
+        // looked older than what was held and was refused for good: the browser
+        // showed a value frozen at the moment the service died, with the phone
+        // polling normally the whole time.
+        store.accept(payload(207, ageMinutes = 5))
+        assertTrue(
+            store.accept(payload(1, ageMinutes = 1)),
+            "a restarted phone must not be locked out by its own reset counter",
+        )
+        assertEquals(1L, store.current()!!.sequence)
     }
 
     @Test

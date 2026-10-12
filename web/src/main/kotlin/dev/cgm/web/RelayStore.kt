@@ -28,8 +28,10 @@ class RelayStore(
         val current = held.get()
         // Out-of-order arrivals are dropped. A retried push from a phone that
         // reconnected can land behind a newer one, and moving backwards in time
-        // is the one thing a display must never do.
-        if (current != null && payload.sequence <= current.payload.sequence) return false
+        // is the one thing a display must never do. The rule is
+        // [WatchPayload.supersedes], shared with the watch's store: both hold one
+        // current payload from the same sender, so both need the same answer.
+        if (current != null && !payload.supersedes(current.payload)) return false
 
         held.set(Entry(payload, clock()))
         return true

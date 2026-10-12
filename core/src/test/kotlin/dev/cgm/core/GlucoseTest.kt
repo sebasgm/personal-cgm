@@ -1,6 +1,7 @@
 package dev.cgm.core
 
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
@@ -157,6 +158,59 @@ class WatchPayloadTest {
     fun `downsample leaves short history untouched`() {
         val short = history(5)
         assertEquals(short, WatchPayload.downsample(short))
+    }
+
+    private fun payload(
+        readingAtMillis: Long,
+        sentAtMillis: Long = readingAtMillis,
+        sequence: Long = 0,
+    ) = WatchPayload(
+        snapshot = GlucoseSnapshot(GlucoseReading(112.0, readingAtMillis)),
+        sentAtMillis = sentAtMillis,
+        sequence = sequence,
+    )
+
+    @Test
+    fun `a newer reading supersedes an older one`() {
+        assertTrue(payload(now).supersedes(payload(now - 60_000)))
+    }
+
+    @Test
+    fun `an older reading never supersedes a newer one`() {
+        assertFalse(payload(now - 60_000).supersedes(payload(now)))
+    }
+
+    @Test
+    fun `the same payload twice is refused`() {
+        assertFalse(payload(now).supersedes(payload(now)))
+    }
+
+    @Test
+    fun `the same reading sent again supersedes, because the doses may have moved`() {
+        val held = payload(now, sentAtMillis = now)
+        val resent = payload(now, sentAtMillis = now + 30_000)
+        assertTrue(resent.supersedes(held))
+    }
+
+    @Test
+    fun `a restarted phone is not locked out`() {
+        // The phone's sequence counter lives in its polling service, so it goes
+        // back to 1 whenever that process restarts. This used to be the ordering
+        // key, which meant a restart made every later payload look old and the
+        // receiver refused all of them for good — a frozen complication and a
+        // frozen relay, with the phone polling perfectly the whole time.
+        val beforeRestart = payload(now, sentAtMillis = now, sequence = 207)
+        val afterRestart = payload(now + 60_000, sentAtMillis = now + 60_000, sequence = 1)
+        assertTrue(afterRestart.supersedes(beforeRestart))
+    }
+
+    @Test
+    fun `a phone whose clock was corrected is not locked out`() {
+        // sentAtMillis is the phone's wall clock and can be moved by an NTP
+        // correction or by hand. The reading's own timestamp is what orders.
+        val held = payload(now, sentAtMillis = now + 60L * 60 * 1000)
+        val next = payload(now + 60_000, sentAtMillis = now + 60_000)
+        assertTrue(next.supersedes(held))
     }
 }
 
