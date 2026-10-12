@@ -13,7 +13,6 @@ import androidx.core.app.NotificationCompat
 import dev.cgm.app.Locales
 import dev.cgm.app.R
 import dev.cgm.app.service.StatusBarIcon
-import dev.cgm.app.service.PollingService
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.ReadingFont
@@ -138,11 +137,15 @@ class AlarmNotifier(private val context: Context) {
             // Re-notifying without sound is how the engine keeps an alarm visible
             // while staying quiet during recovery or a snooze.
             .setOnlyAlertOnce(!makeSound)
-            // Grouped with the ongoing reading, so an alarm does not claim a second
-            // status bar slot and push the value out of view. The alert still
-            // announces itself with sound and a heads-up; what it stops doing is
-            // replacing the number on screen with a warning about that number.
-            .setGroup(PollingService.NOTIFICATION_GROUP)
+            // Not grouped with the ongoing reading. It was, to keep an alarm from
+            // claiming a second status bar slot, and that is exactly what broke the
+            // tray: summary plus one child is a suppressed group, so the platform
+            // hid the ongoing notification — the only one that gets updated when a
+            // reading lands — and showed this one, whose icon never changes after it
+            // fires. See the note in PollingService.buildNotification.
+            //
+            // An alarm now carries its own slot, alongside the live value rather
+            // than in place of it.
             .addAction(
                 0,
                 strings.getString(R.string.alarm_snooze),
@@ -164,11 +167,15 @@ class AlarmNotifier(private val context: Context) {
     /**
      * What an alarm's status bar icon reads.
      *
-     * The same number the ongoing notification shows, on purpose. Android gives the
-     * status bar one icon per notification and a high-importance alarm wins the
-     * space, so an alarm with its own icon *replaced* the glucose value with a
-     * generic warning triangle — at exactly the moment the number matters most.
-     * Now whichever notification the status bar picks, it shows the value.
+     * The same number the ongoing notification shows, on purpose. It no longer has
+     * to be: the two notifications are ungrouped, so the live value keeps its own
+     * slot and an alarm can never take it over. This is kept as the belt to that
+     * braces — if the platform ever does collapse the two, the icon left standing
+     * still reads as a glucose value and not as a warning about one.
+     *
+     * It is a snapshot from the moment the alarm fired and is not refreshed, so it
+     * is the wrong thing to read a current value from. The ongoing notification is
+     * the one that tracks the sensor.
      *
      * Signal loss is the exception, and honestly so: it fires precisely because
      * there is no current value, so it shows the unknown marker rather than the last

@@ -424,12 +424,21 @@ class PollingService : LifecycleService() {
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            // One status bar icon, not two. Alarms join this group, so while one is
-            // firing the system collapses them and the icon that survives is this
-            // one — the current value. An alert that hides the number it is alerting
-            // about is worse than no icon at all.
-            .setGroup(NOTIFICATION_GROUP)
-            .setGroupSummary(true)
+            // Deliberately ungrouped. This used to be a group summary with alarms
+            // joining it as children, to spend one status bar slot instead of two.
+            // It did the opposite of what it claimed: a group holding a summary and
+            // a single child is a *suppressed* group, so the platform hid this
+            // notification's icon and showed the lone alarm standalone. The alarm's
+            // icon is rendered once, when it fires, while this one is what every new
+            // reading updates — so for the whole life of an alert the tray sat
+            // frozen on the value from the moment it started, and a signal-loss
+            // alert left a bare "?" there. Both read as the icon having died.
+            //
+            // The cost of ungrouping is a second icon while an alert is up. That is
+            // the right way round: an extra icon is noise, whereas a stale number is
+            // a lie, and this is the one number the app exists to tell the truth
+            // about. Nothing here now depends on how the platform chooses to collapse
+            // a group, which is the undocumented heuristic that caused the bug.
             // The watch posts its own, which is how tapping it can open something
             // on the watch. Bridging this as well would put two of the same value
             // on the wrist.
@@ -558,7 +567,6 @@ class PollingService : LifecycleService() {
          * mistake the fixed threshold made.
          */
         private const val STALL_GRACE_MILLIS = 5L * 60 * 1000
-        const val NOTIFICATION_GROUP = "dev.cgm.app.glucose"
 
         /**
          * What xDrip+ last said it was reading, e.g. "G6 Native".
