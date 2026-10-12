@@ -58,6 +58,14 @@ object StatusBarIcon {
     /** A pixel each side, so antialiasing at the outer edge is not clipped. */
     private const val PAD_PX = 1
 
+    /**
+     * The widest bitmap worth rendering, for the same reason [HEIGHT_PX] is the
+     * tallest: sharpness, not size. Twice the height covers every label here —
+     * "HI" is the widest at roughly 2.2 to 1 — and bounds what a label of short
+     * glyphs can ask for. See [renderText].
+     */
+    private const val MAX_WIDTH_PX = HEIGHT_PX * 2
+
     /** Used for "HI", "LO" and "?" when no typeface was chosen. */
     private val condensed: Typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
 
@@ -145,12 +153,28 @@ object StatusBarIcon {
     /** Anything not made of digits — "HI", "LO", "?", "--" — comes from the font. */
     private fun renderText(label: String, typeface: Typeface? = null): Bitmap {
         paint.typeface = typeface ?: condensed
-        // Measure once at an arbitrary size, then scale so the glyphs are exactly
+        // Measure once at an arbitrary size, then scale so the glyphs are about
         // HEIGHT_PX tall, and size the bitmap to whatever width that needs.
         paint.textSize = HEIGHT_PX.toFloat()
         paint.getTextBounds(label, 0, label.length, bounds)
-        if (bounds.height() > 0) {
-            paint.textSize = HEIGHT_PX * (HEIGHT_PX.toFloat() / bounds.height())
+        if (bounds.height() > 0 && bounds.width() > 0) {
+            // Scaling to the target height alone is unbounded, and "--" is where
+            // that showed. A hyphen is about a twelfth of its em tall, so asking
+            // for 96 rows of it asked for a text size near 1150 and a bitmap some
+            // 770 pixels wide — a third of a megabyte, rebuilt for the label the
+            // service starts on and parcelled to the system with every refresh.
+            //
+            // The width budget costs nothing to impose, because the status bar
+            // scales the icon to fit a square and preserves its aspect: what is
+            // drawn depends on the *ratio* of the glyphs, never on how many pixels
+            // we rendered them into. Past a point the extra pixels are only thrown
+            // away, so a wide label is scaled to fill the budget instead of the
+            // height, and comes out looking exactly the same.
+            val scale = minOf(
+                HEIGHT_PX.toFloat() / bounds.height(),
+                MAX_WIDTH_PX.toFloat() / bounds.width(),
+            )
+            paint.textSize = HEIGHT_PX * scale
             paint.getTextBounds(label, 0, label.length, bounds)
         }
 

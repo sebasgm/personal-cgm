@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationText
 import androidx.wear.watchface.complications.data.ComplicationType
@@ -48,6 +49,24 @@ class GlucoseComplicationService : ComplicationDataSourceService() {
         listener: ComplicationRequestListener,
     ) {
         val payload = WatchStoreHolder.get(this).payload.value
+        // Logged because in a push model there is otherwise no way to tell the two
+        // failures apart from the wrist. A complication stuck on "--" can mean the
+        // platform never asked us — the update request was dropped, the budget was
+        // spent, the slot is on a face that is not on screen — or that it asked and
+        // we had nothing to say. Those have opposite fixes and look identical.
+        //
+        // The reading's *age* rather than its value: this lands in the system log,
+        // which is read by bug reports and is the wrong place for a glucose figure.
+        // The age is what diagnoses the pipeline anyway — a value we are happy with
+        // and a value an hour stale are the two different faults.
+        Log.i(
+            TAG,
+            "asked for ${request.complicationType}; held=" + (
+                payload?.snapshot?.reading
+                    ?.let { "a reading ${it.ageMillis(System.currentTimeMillis()) / 1000}s old" }
+                    ?: "nothing"
+                ),
+        )
         listener.onComplicationData(complicationFor(request.complicationType, payload))
     }
 
@@ -198,6 +217,8 @@ class GlucoseComplicationService : ComplicationDataSourceService() {
     companion object {
         /** Two characters, so it does not reflow a slot sized for a number. */
         private const val NO_VALUE = "--"
+
+        private const val TAG = "GlucoseComplication"
 
         /**
          * Asks the platform to come and fetch a new value.
