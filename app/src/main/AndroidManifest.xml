@@ -117,11 +117,18 @@
             </intent-filter>
         </receiver>
 
+        <!--
+          Restarts the poller after a reboot and after the app is replaced. The
+          second matters as much as the first for a sideloaded build: an update
+          kills the service and drops its alarms, so without this every install
+          left the monitor off. See BootReceiver.
+        -->
         <receiver
             android:name=".service.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
     </application>
