@@ -188,6 +188,19 @@ class AlarmNotifier(private val context: Context) {
 
     fun clear(kind: AlarmKind) = manager.cancel(notificationId(kind))
 
+    /**
+     * The alarm's own wording, for anything that has to repeat it elsewhere.
+     *
+     * [CarAlertNotifier] says the same sentence on the car screen rather than
+     * composing its own. A driver who hears one phrasing and then reads another
+     * on their phone has to work out which to trust, at the worst moment to be
+     * doing that.
+     */
+    fun wording(kind: AlarmKind, setting: AlarmSetting, snapshot: GlucoseSnapshot?): Wording =
+        Wording(title(kind, snapshot), body(kind, setting, snapshot))
+
+    data class Wording(val title: String, val body: String?)
+
     private fun notificationId(kind: AlarmKind) = 100 + kind.ordinal
 
     private fun title(kind: AlarmKind, snapshot: GlucoseSnapshot?): String {

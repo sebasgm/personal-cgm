@@ -19,6 +19,7 @@ import dev.cgm.core.SourceKind
 import dev.cgm.app.Locales
 import dev.cgm.app.R
 import dev.cgm.app.alarm.AlarmNotifier
+import dev.cgm.app.alarm.CarAlertNotifier
 import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.data.TimeChangeReceiver
 import dev.cgm.app.data.SecureSettings
@@ -86,6 +87,7 @@ class PollingService : LifecycleService() {
     private var clockReceiver: TimeChangeReceiver? = null
     private var xdripReceiver: XdripReceiver? = null
     private val alarms = AlarmEngine()
+    private lateinit var carNotifier: CarAlertNotifier
     private var loop: Job? = null
     private lateinit var strings: Context
 
@@ -95,6 +97,7 @@ class PollingService : LifecycleService() {
         repository = app.repository
         settings = app.settings
         notifier = AlarmNotifier(this)
+        carNotifier = CarAlertNotifier(this)
         // Notification text must follow the app's chosen language, not the device's.
         strings = Locales.wrap(this)
         watch = WatchBridge(this)
@@ -346,7 +349,18 @@ class PollingService : LifecycleService() {
             nowMillis = now,
         )
 
-        decision.cleared.forEach(notifier::clear)
+        // Read once per evaluation rather than held in a field: the toggle can
+        // change while the service runs, and a car alert that keeps firing after
+        // it was switched off is the kind of thing nobody thinks to look for.
+        val carAlerts = settings.carAlertsEnabledOnce()
+
+        decision.cleared.forEach {
+            notifier.clear(it)
+            // Cleared unconditionally, not only when the toggle is on. Switching
+            // the setting off between firing and clearing would otherwise leave
+            // the car's copy on screen with no way to take it down.
+            carNotifier.clear(it)
+        }
         decision.firing.forEach { kind ->
             notifier.notify(
                 kind = kind,
@@ -355,6 +369,22 @@ class PollingService : LifecycleService() {
                 makeSound = kind in decision.sound,
                 font = readingFont,
             )
+            if (carAlerts) {
+                // Only when it would make a sound on the phone. The alarm engine
+                // re-notifies silently to keep a condition visible, and the car
+                // reads every message it is given aloud — so without this gate a
+                // persistent low would be announced on every poll.
+                if (kind in decision.sound) {
+                    val wording = notifier.wording(kind, configured[kind], state.snapshot)
+                    carNotifier.show(
+                        kind = kind,
+                        snapshot = state.snapshot,
+                        title = wording.title,
+                        body = wording.body,
+                        font = readingFont,
+                    )
+                }
+            }
         }
         settings.saveAlarmState(decision.state)
     }

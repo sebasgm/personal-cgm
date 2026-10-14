@@ -317,6 +317,24 @@ class SecureSettings(private val context: Context) : SessionStore {
         context.dataStore.edit { it[KEY_FORECAST] = enabled }
     }
 
+    /**
+     * Whether an alarm is also announced on a connected car screen.
+     *
+     * Off by default, and that is not timidity. Turning it on posts the alarm a
+     * second time shaped as a message, which is the only shape Android Auto
+     * surfaces, and the car then reads it out loud — to whoever is in the car,
+     * not only to the driver. A glucose reading spoken to passengers is a choice
+     * someone makes, not a default they discover. See [CarAlertNotifier].
+     */
+    val carAlertsEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_CAR_ALERTS] ?: false }
+
+    suspend fun setCarAlertsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_CAR_ALERTS] = enabled }
+    }
+
+    suspend fun carAlertsEnabledOnce(): Boolean = carAlertsEnabled.first()
+
     // -- alarms -----------------------------------------------------------
 
     /**
@@ -363,6 +381,7 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_SOURCE: Preferences.Key<String> = stringPreferencesKey("source_kind")
         val KEY_TOUR_SEEN: Preferences.Key<Boolean> = booleanPreferencesKey("tour_seen")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
+        val KEY_CAR_ALERTS: Preferences.Key<Boolean> = booleanPreferencesKey("car_alerts")
         val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")
         val KEY_ALARM_STATE: Preferences.Key<String> = stringPreferencesKey("alarm_state")
         val KEY_EMAIL: Preferences.Key<String> = stringPreferencesKey("llu_email")

@@ -527,6 +527,22 @@ class CgmViewModel(
         viewModelScope.launch { settings.saveAccessibility(preferences) }
     }
 
+    // -- car ----------------------------------------------------------------
+
+    /**
+     * Whether an alarm is also announced on a connected car screen.
+     *
+     * Android Auto has no surface an app can keep a number on, so this repeats
+     * the alarm as a message - the one shape it does surface - and the car reads
+     * it aloud. See CarAlertNotifier for why that is the only route.
+     */
+    val carAlertsEnabled: StateFlow<Boolean> = settings.carAlertsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setCarAlertsEnabled(enabled: Boolean) {
+        viewModelScope.launch { settings.setCarAlertsEnabled(enabled) }
+    }
+
     // -- forecast -----------------------------------------------------------
 
     /**

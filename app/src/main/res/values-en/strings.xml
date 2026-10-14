@@ -396,4 +396,11 @@
     <string name="report_skipped">%1$d ranges with no readings at all were left out. The row above still covers the whole period, gaps included.</string>
     <string name="set_last_check">Last check: %1$s</string>
     <string name="set_last_check_never">No check has run yet.</string>
+    <string name="car_alert_sender">CGM</string>
+    <string name="car_alert_reply">Reply</string>
+    <string name="car_alert_mark_read">Mark as read</string>
+    <string name="car_alert_channel">Car alerts</string>
+    <string name="car_alert_channel_desc">Repeats an alarm as a message so Android Auto shows it and reads it aloud.</string>
+    <string name="car_alerts_title">Announce in Android Auto</string>
+    <string name="car_alerts_subtitle">Repeats the alarm as a message, the only shape Android Auto surfaces. The car reads it aloud, to passengers as well as you.</string>
 </resources>

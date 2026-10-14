@@ -396,4 +396,11 @@
     <string name="report_skipped">Se omitieron %1$d tramos sin ningún valor registrado. La fila de arriba sigue cubriendo todo el período, huecos incluidos.</string>
     <string name="set_last_check">Última consulta: %1$s</string>
     <string name="set_last_check_never">Todavía no hizo ninguna consulta.</string>
+    <string name="car_alert_sender">CGM</string>
+    <string name="car_alert_reply">Responder</string>
+    <string name="car_alert_mark_read">Marcar como leído</string>
+    <string name="car_alert_channel">Avisos en el auto</string>
+    <string name="car_alert_channel_desc">Repite una alarma como mensaje para que Android Auto la muestre y la lea en voz alta.</string>
+    <string name="car_alerts_title">Avisar en Android Auto</string>
+    <string name="car_alerts_subtitle">Repite la alarma como mensaje, el único formato que Android Auto muestra. El auto la lee en voz alta, también para los acompañantes.</string>
 </resources>

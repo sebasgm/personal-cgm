@@ -392,6 +392,7 @@ fun AlarmsScreen(viewModel: CgmViewModel, onOpen: (Destination) -> Unit) {
     val context = LocalContext.current
     val notifier = remember { AlarmNotifier(context) }
     val hasPolicyAccess = notifier.hasPolicyAccess()
+    val carAlerts by viewModel.carAlertsEnabled.collectAsState()
 
     Column(
         Modifier
@@ -425,6 +426,13 @@ fun AlarmsScreen(viewModel: CgmViewModel, onOpen: (Destination) -> Unit) {
             }
             HorizontalDivider()
         }
+
+        Spacer(Modifier.height(16.dp))
+        SwitchRow(
+            title = stringResource(R.string.car_alerts_title),
+            subtitle = stringResource(R.string.car_alerts_subtitle),
+            checked = carAlerts,
+        ) { viewModel.setCarAlertsEnabled(it) }
 
         if (!hasPolicyAccess) {
             Spacer(Modifier.height(16.dp))
