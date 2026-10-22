@@ -19,6 +19,7 @@ import dev.cgm.core.CarbEntry
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.InsulinDose
 import dev.cgm.core.InsulinKind
+import dev.cgm.core.SensorInfo
 import dev.cgm.core.TrendArrow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -202,6 +203,10 @@ interface DoseDao {
             "AND givenAtMillis <= :endMillis ORDER BY givenAtMillis ASC"
     )
     fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<DoseEntity>>
+
+    /** Every dose, for the raw export. */
+    @Query("SELECT * FROM doses ORDER BY givenAtMillis ASC")
+    suspend fun all(): List<DoseEntity>
 }
 
 /**
@@ -217,15 +222,19 @@ interface DoseDao {
 )
 data class CarbEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val grams: Double,
+    /** Null for a meal logged without a carbohydrate count. */
+    val grams: Double?,
     val eatenAtMillis: Long,
     val note: String?,
+    /** File name of the meal's photo in internal storage, or null. */
+    val photoName: String? = null,
 ) {
     fun toEntry() = CarbEntry(
         id = id,
         grams = grams,
         eatenAtMillis = eatenAtMillis,
         note = note,
+        photoName = photoName,
     )
 
     companion object {
@@ -234,6 +243,7 @@ data class CarbEntity(
             grams = entry.grams,
             eatenAtMillis = entry.eatenAtMillis,
             note = entry.note,
+            photoName = entry.photoName,
         )
     }
 }
@@ -255,6 +265,89 @@ interface CarbDao {
             "AND eatenAtMillis <= :endMillis ORDER BY eatenAtMillis ASC"
     )
     fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<CarbEntity>>
+
+    /** Every meal, for the raw export. */
+    @Query("SELECT * FROM carbs ORDER BY eatenAtMillis ASC")
+    suspend fun all(): List<CarbEntity>
+
+    /** Photo names on meals older than [beforeMillis], so the files can be removed. */
+    @Query(
+        "SELECT photoName FROM carbs " +
+            "WHERE eatenAtMillis < :beforeMillis AND photoName IS NOT NULL"
+    )
+    suspend fun photoNamesBefore(beforeMillis: Long): List<String>
+
+    /** Every photo name still referenced, so orphaned files can be told apart. */
+    @Query("SELECT photoName FROM carbs WHERE photoName IS NOT NULL")
+    suspend fun allPhotoNames(): List<String>
+
+    /**
+     * Forgets the photos on meals older than [beforeMillis].
+     *
+     * The row stays; only its picture goes. A meal from last year is still a meal,
+     * and the alternative — deleting the entry with its image — would quietly
+     * rewrite the food log to keep disk space down.
+     */
+    @Query(
+        "UPDATE carbs SET photoName = NULL " +
+            "WHERE eatenAtMillis < :beforeMillis AND photoName IS NOT NULL"
+    )
+    suspend fun clearPhotosBefore(beforeMillis: Long)
+}
+
+/**
+ * One row per physical sensor this phone has seen.
+ *
+ * Exists so that sensor identity survives a restart, and so a change of sensor is
+ * something observed rather than inferred. Without it the app had only the
+ * activation instant the API reports, which LibreLinkUp moves when the sensor is
+ * re-scanned — and a moved activation looks exactly like a new sensor, which is
+ * how a sensor halfway through its life came to be announced as freshly fitted.
+ *
+ * The serial is the key because it is the only thing Abbott sends that identifies
+ * the hardware. Rows are kept after the sensor ends: they are the record of which
+ * sensor produced which readings, which is the part that cannot be reconstructed.
+ */
+@Entity(tableName = "sensors")
+data class SensorEntity(
+    @PrimaryKey val serial: String,
+    /**
+     * Earliest activation ever seen for this serial.
+     *
+     * Only ever moves earlier. A later activation for a serial already on record
+     * is a re-scan, not a restart, and taking it would reset the day count.
+     */
+    val startedAtMillis: Long,
+    /** When this phone first saw the sensor, which is not when it was fitted. */
+    val firstSeenMillis: Long,
+    /** The lifetime in force for this session, so later changes do not rewrite it. */
+    val lifetimeDays: Int,
+    /** Abbott's product code, uninterpreted. Null when the source did not say. */
+    val productType: Int?,
+) {
+    fun toInfo() = SensorInfo(
+        serial = serial,
+        startedAtMillis = startedAtMillis,
+        lifetimeDays = lifetimeDays,
+        productType = productType,
+    )
+}
+
+@Dao
+interface SensorDao {
+
+    @Upsert
+    suspend fun upsert(sensor: SensorEntity)
+
+    @Query("SELECT * FROM sensors WHERE serial = :serial")
+    suspend fun bySerial(serial: String): SensorEntity?
+
+    /** The most recently activated sensor, which is the one being worn. */
+    @Query("SELECT * FROM sensors ORDER BY startedAtMillis DESC LIMIT 1")
+    suspend fun latest(): SensorEntity?
+
+    @Query("SELECT * FROM sensors ORDER BY startedAtMillis DESC")
+    fun observeAll(): Flow<List<SensorEntity>>
 }
 
 @Database(
@@ -263,8 +356,9 @@ interface CarbDao {
         DoseEntity::class,
         CarbEntity::class,
         HourlyRollupEntity::class,
+        SensorEntity::class,
     ],
-    version = 5,
+    version = 8,
     exportSchema = false,
 )
 abstract class ReadingDatabase : RoomDatabase() {
@@ -272,6 +366,7 @@ abstract class ReadingDatabase : RoomDatabase() {
     abstract fun doses(): DoseDao
     abstract fun carbs(): CarbDao
     abstract fun rollups(): HourlyRollupDao
+    abstract fun sensors(): SensorDao
 
     companion object {
         /**
@@ -378,9 +473,84 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds the sensors table.
+         *
+         * Created empty, and the first poll after the upgrade fills in the sensor
+         * currently being worn. That row's `firstSeenMillis` is therefore the
+         * upgrade, not the activation — which is why it is a separate column from
+         * `startedAtMillis` and why nothing counts days from it.
+         */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    // Spelled the way Room generates it, primary key as a table
+                    // constraint and all: this statement is validated against the
+                    // entity when the database opens, and a cosmetic difference
+                    // there surfaces as a crash on launch rather than a warning.
+                    "CREATE TABLE IF NOT EXISTS `sensors` (" +
+                        "`serial` TEXT NOT NULL, " +
+                        "`startedAtMillis` INTEGER NOT NULL, " +
+                        "`firstSeenMillis` INTEGER NOT NULL, " +
+                        "`lifetimeDays` INTEGER NOT NULL, " +
+                        "`productType` INTEGER, " +
+                        "PRIMARY KEY(`serial`))"
+                )
+            }
+        }
+
+        /**
+         * Makes a meal's carbohydrate count optional.
+         *
+         * SQLite cannot drop a NOT NULL, so the table is rebuilt and copied. Every
+         * existing row keeps its figure: a meal that was counted stays counted, and
+         * only meals logged from here on can be null.
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `carbs_new` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`grams` REAL, " +
+                        "`eatenAtMillis` INTEGER NOT NULL, " +
+                        "`note` TEXT)"
+                )
+                db.execSQL(
+                    "INSERT INTO `carbs_new` (`id`, `grams`, `eatenAtMillis`, `note`) " +
+                        "SELECT `id`, `grams`, `eatenAtMillis`, `note` FROM `carbs`"
+                )
+                db.execSQL("DROP TABLE `carbs`")
+                db.execSQL("ALTER TABLE `carbs_new` RENAME TO `carbs`")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_carbs_eatenAtMillis` " +
+                        "ON `carbs` (`eatenAtMillis`)"
+                )
+            }
+        }
+
+        /**
+         * Adds the meal photo column.
+         *
+         * A plain nullable column, so no table rebuild: every existing meal keeps
+         * its row and simply has no picture.
+         */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `carbs` ADD COLUMN `photoName` TEXT")
+            }
+        }
+
         fun create(context: Context): ReadingDatabase =
             Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                    MIGRATION_6_7,
+                    MIGRATION_7_8,
+                )
                 .build()
     }
 }

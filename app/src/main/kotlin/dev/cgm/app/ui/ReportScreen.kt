@@ -55,6 +55,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.cgm.app.R
 import dev.cgm.app.data.ReportFiles
+import dev.cgm.core.RawExport
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.rememberCoroutineScope
 import dev.cgm.core.RangeReport
 import dev.cgm.core.Report
 import dev.cgm.core.ReportBands
@@ -81,6 +86,7 @@ import kotlin.math.roundToInt
 @Composable
 fun ReportSection(viewModel: CgmViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val preferences by viewModel.reportPreferences.collectAsState()
     val report by viewModel.report.collectAsState()
     val building by viewModel.reportBuilding.collectAsState()
@@ -192,6 +198,33 @@ fun ReportSection(viewModel: CgmViewModel) {
                 }
             }
         }
+
+        // Outside the block above on purpose: the raw export does not need a
+        // report to have been assembled, and the case it exists for is precisely
+        // the one where the report came back empty or full of holes.
+        Spacer(Modifier.height(24.dp))
+        Text(stringResource(R.string.report_raw), style = MaterialTheme.typography.labelLarge)
+        Text(
+            stringResource(R.string.report_raw_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        Spacer(Modifier.height(6.dp))
+        val noRawReceiver = stringResource(R.string.report_share_failed)
+        val nothingStored = stringResource(R.string.report_raw_empty)
+        OutlinedButton(onClick = {
+            scope.launch {
+                val csv = withContext(Dispatchers.IO) {
+                    runCatching { viewModel.rawExportCsv() }.getOrNull()
+                }
+                if (csv == null) {
+                    Toast.makeText(context, nothingStored, Toast.LENGTH_LONG).show()
+                } else {
+                    shareRaw(context, csv, noRawReceiver)
+                }
+            }
+        }) { Text(stringResource(R.string.report_raw_button)) }
     }
 
     if (previewing && ready != null) {
@@ -497,6 +530,25 @@ private val ReportSplit.labelRes: Int
         ReportSplit.MONTH -> R.string.report_split_month
         ReportSplit.EQUAL -> R.string.report_split_equal
     }
+
+/**
+ * Writes the raw CSV out and hands it to a chooser.
+ *
+ * Same cache directory and FileProvider path as a report, so nothing new is
+ * exposed, and the file is as disposable as every other export.
+ */
+private fun shareRaw(context: Context, csv: String, onFailure: String) {
+    val file = ReportFiles.writeRaw(context, csv, RawExport.fileName(System.currentTimeMillis()))
+    val intent = Intent.createChooser(
+        ReportFiles.shareFile(context, file, RawExport.MIME_TYPE),
+        file.name,
+    )
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, onFailure, Toast.LENGTH_LONG).show()
+    }
+}
 
 private fun share(context: Context, report: Report, format: ReportFormat, onFailure: String) {
     val file = ReportFiles.write(context, report, format)

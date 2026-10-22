@@ -31,6 +31,30 @@ object ReportFiles {
         }
     }
 
+    /**
+     * Writes the raw export into the same cache directory a report uses.
+     *
+     * Same directory so the single FileProvider path keeps working, and same
+     * throwaway lifetime: this is a file on its way into a message, not a second
+     * copy of the history to leave on disk.
+     */
+    fun writeRaw(context: Context, csv: String, fileName: String): File {
+        val directory = File(context.cacheDir, DIRECTORY).apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        return File(directory, fileName).apply { writeText(csv) }
+    }
+
+    /** Share any exported file, for the raw CSV which is not a [ReportFormat]. */
+    fun shareFile(context: Context, file: File, mimeType: String): Intent =
+        Intent(Intent.ACTION_SEND).apply {
+            type = mimeType
+            putExtra(Intent.EXTRA_STREAM, uriFor(context, file))
+            putExtra(Intent.EXTRA_SUBJECT, file.name)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
     fun shareIntent(context: Context, file: File, format: ReportFormat): Intent {
         return Intent(Intent.ACTION_SEND).apply {
             type = format.mimeType

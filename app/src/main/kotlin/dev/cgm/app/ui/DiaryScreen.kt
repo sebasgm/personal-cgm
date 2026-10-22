@@ -1,6 +1,15 @@
 package dev.cgm.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +42,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,7 +60,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import java.time.ZoneOffset
 import dev.cgm.app.R
 import dev.cgm.core.CarbEntry
+import dev.cgm.app.data.MealPhotos
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.produceState
+import dev.cgm.core.InsulinDay
 import dev.cgm.core.InsulinDayTotals
+import dev.cgm.core.InsulinDiary
 import dev.cgm.core.InsulinDose
 import dev.cgm.core.InsulinKind
 import java.time.Instant
@@ -95,6 +116,11 @@ fun DiaryScreen(viewModel: CgmViewModel) {
     var kind by remember { mutableStateOf(InsulinKind.BOLUS) }
     var unitsText by remember { mutableStateOf("") }
     var gramsText by remember { mutableStateOf("") }
+    // The chosen image is copied into app storage as soon as it is picked, so the
+    // transient read permission on the picker's Uri cannot expire before saving.
+    var photoName by remember { mutableStateOf<String?>(null) }
+    var viewingPhoto by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     var minutesAgo by remember { mutableStateOf(0) }
     /** Set only when a date and time were chosen explicitly; otherwise the chips rule. */
     var pickedAtMillis by remember { mutableStateOf<Long?>(null) }
@@ -107,7 +133,10 @@ fun DiaryScreen(viewModel: CgmViewModel) {
     val acceptable = when (entry) {
         DiaryEntryKind.INSULIN -> units != null &&
             InsulinDose(kind = kind, units = units, givenAtMillis = 1).isPlausible
-        DiaryEntryKind.FOOD -> grams != null &&
+        // An empty field is a meal with no count, which is allowed and is the
+        // reason the button is not gated on a number. A field with something
+        // unparseable in it is still refused: that is a typo, not an omission.
+        DiaryEntryKind.FOOD -> (gramsText.isBlank() || grams != null) &&
             CarbEntry(grams = grams, eatenAtMillis = 1).isPlausible
     }
     // Resolved at save time when no explicit instant was picked, so a form left open
@@ -190,16 +219,36 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                     onValueChange = { gramsText = it },
                     labelRes = R.string.carb_grams,
                     suffixRes = R.string.carb_grams_suffix,
-                    isError = gramsText.isNotEmpty() && !acceptable,
+                    isError = gramsText.isNotBlank() && !acceptable,
                 )
-                if (gramsText.isNotEmpty() && !acceptable) {
+                if (gramsText.isNotBlank() && !acceptable) {
                     FieldError(
                         stringResource(
                             R.string.carb_invalid,
                             formatUnits(CarbEntry.MAX_PLAUSIBLE_GRAMS),
                         )
                     )
+                } else {
+                    // Said on the form rather than left to be discovered by
+                    // pressing save with an empty field and seeing it work.
+                    Text(
+                        stringResource(R.string.carb_grams_optional),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+
+                MealPhotoPicker(
+                    photoName = photoName,
+                    onPicked = { photoName = it },
+                    onRemoved = {
+                        photoName?.let { name ->
+                            MealPhotos.delete(MealPhotos.directoryIn(context), name)
+                        }
+                        photoName = null
+                    },
+                    onView = { viewingPhoto = it },
+                )
 
                 // Carbohydrates are almost always estimated in round numbers, and
                 // typing 45 on a keypad while holding a plate is the friction that
@@ -285,15 +334,18 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                         note = note,
                     )
                     DiaryEntryKind.FOOD -> viewModel.logCarbs(
-                        grams = grams ?: return@Button,
+                        grams = grams,
                         eatenAtMillis = at,
                         note = note,
+                        photoName = photoName,
                     )
                 }
                 // Reset only what should not carry over. The kind usually repeats —
                 // a bolus is followed by another bolus — so it stays.
                 unitsText = ""
                 gramsText = ""
+                // Handed to the saved entry, so it must not be deleted here.
+                photoName = null
                 minutesAgo = 0
                 pickedAtMillis = null
                 note = ""
@@ -306,6 +358,9 @@ fun DiaryScreen(viewModel: CgmViewModel) {
 
         Spacer(Modifier.height(24.dp))
         TodayTotals(doses, carbs, zone)
+
+        Spacer(Modifier.height(16.dp))
+        ByDaySummary(doses, carbs, zone)
 
         Spacer(Modifier.height(16.dp))
         Text(
@@ -345,6 +400,7 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                     entry = row.entry,
                     zone = zone,
                     onDelete = { viewModel.deleteCarbs(row.entry) },
+                    onViewPhoto = { viewingPhoto = it },
                 )
             }
             HorizontalDivider()
@@ -381,6 +437,9 @@ fun DiaryScreen(viewModel: CgmViewModel) {
             },
             onDismiss = { pickingTime = null },
         )
+    }
+    viewingPhoto?.let { name ->
+        MealPhotoDialog(name = name, onDismiss = { viewingPhoto = null })
     }
 }
 
@@ -558,24 +617,189 @@ private fun DoseRow(dose: InsulinDose, zone: ZoneId, onDelete: () -> Unit) {
 }
 
 @Composable
-private fun CarbRow(entry: CarbEntry, zone: ZoneId, onDelete: () -> Unit) {
+private fun CarbRow(
+    entry: CarbEntry,
+    zone: ZoneId,
+    onDelete: () -> Unit,
+    onViewPhoto: (String) -> Unit,
+) {
     val time = remember(entry.eatenAtMillis) {
         Instant.ofEpochMilli(entry.eatenAtMillis).atZone(zone).format(DIARY_TIME_FORMAT)
     }
 
     EntryRow(
-        title = stringResource(R.string.carb_row, formatUnits(entry.grams)),
+        title = entry.grams
+            ?.let { stringResource(R.string.carb_row, formatUnits(it)) }
+            // Named rather than shown as "0 g" or "— g": the meal happened, and
+            // only the count is missing.
+            ?: stringResource(R.string.carb_row_uncounted),
         subtitle = entry.note?.let { stringResource(R.string.dose_given_at, time, it) } ?: time,
         onDelete = onDelete,
+        leading = entry.photoName?.let { name ->
+            { MealThumbnail(name = name, onClick = { onViewPhoto(name) }) }
+        },
     )
 }
 
+/**
+ * A meal's photograph, small, in the diary row.
+ *
+ * Decoded at thumbnail size rather than full size and scaled down by the layout:
+ * a list of meals that decodes a 1024px bitmap per row runs the heap out, and the
+ * row only ever shows 48dp of it.
+ */
 @Composable
-private fun EntryRow(title: String, subtitle: String, onDelete: () -> Unit) {
+private fun MealThumbnail(name: String, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val bitmap by produceState<android.graphics.Bitmap?>(null, name) {
+        value = withContext(Dispatchers.IO) {
+            MealPhotos.load(MealPhotos.directoryIn(context), name, THUMBNAIL_PX)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick),
+    ) {
+        bitmap?.let {
+            Image(
+                bitmap = it.asImageBitmap(),
+                contentDescription = stringResource(R.string.carb_photo_open),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/**
+ * Pick a photo for the meal being logged.
+ *
+ * The system photo picker, which needs no permission at all: it hands back one
+ * image the user chose and never gives the app access to the gallery. A camera
+ * capture would mean a camera permission and a FileProvider round trip for a
+ * picture the camera app has already saved anyway.
+ */
+@Composable
+private fun MealPhotoPicker(
+    photoName: String?,
+    onPicked: (String) -> Unit,
+    onRemoved: () -> Unit,
+    onView: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val picker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            // Copied and downscaled off the main thread: a phone photo is several
+            // megabytes and decoding it on the UI thread drops frames visibly.
+            val saved = withContext(Dispatchers.IO) {
+                MealPhotos.save(
+                    resolver = context.contentResolver,
+                    uri = uri,
+                    directory = MealPhotos.directoryIn(context),
+                )
+            }
+            saved?.let(onPicked)
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        photoName?.let { MealThumbnail(name = it, onClick = { onView(it) }) }
+        if (photoName != null) Spacer(Modifier.width(10.dp))
+        TextButton(
+            onClick = {
+                picker.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            }
+        ) {
+            Text(
+                stringResource(
+                    if (photoName == null) R.string.carb_photo_add
+                    else R.string.carb_photo_change
+                )
+            )
+        }
+        if (photoName != null) {
+            TextButton(onClick = onRemoved) {
+                Text(stringResource(R.string.carb_photo_remove))
+            }
+        }
+    }
+    Text(
+        stringResource(R.string.carb_photo_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** A meal's photograph, full size. */
+@Composable
+private fun MealPhotoDialog(name: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val bitmap by produceState<android.graphics.Bitmap?>(null, name) {
+        value = withContext(Dispatchers.IO) {
+            MealPhotos.load(MealPhotos.directoryIn(context), name, FULL_PX)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.carb_photo_open)) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.carb_photo_close))
+            }
+        },
+        text = {
+            val loaded = bitmap
+            if (loaded == null) {
+                // Says so rather than showing an empty frame: a photo pruned at
+                // ninety days, or lost to a restore, is a fact worth stating.
+                Text(
+                    stringResource(R.string.carb_photo_missing),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                Image(
+                    bitmap = loaded.asImageBitmap(),
+                    contentDescription = stringResource(R.string.carb_photo_open),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+    )
+}
+
+private const val THUMBNAIL_PX = 160
+private const val FULL_PX = 1024
+
+@Composable
+private fun EntryRow(
+    title: String,
+    subtitle: String,
+    onDelete: () -> Unit,
+    /** Shown before the text. Only a meal with a photograph has one. */
+    leading: (@Composable () -> Unit)? = null,
+) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        leading?.let {
+            it()
+            Spacer(Modifier.width(10.dp))
+        }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(
@@ -606,3 +830,112 @@ private fun formatUnits(units: Double): String =
     if (units % 1.0 == 0.0) units.toInt().toString() else String.format("%.1f", units)
 
 private val DIARY_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM HH:mm")
+
+/**
+ * Insulin per calendar day, most recent first.
+ *
+ * The counterpart to today's figures above: the question "how much do I take on a
+ * normal day" needs several days side by side, and reading it off the merged
+ * entry list means adding up by eye.
+ *
+ * Days with nothing logged are absent rather than shown as zero. A missing day
+ * means nothing was recorded, which is not the same claim as no insulin having
+ * been taken — and in a diary the difference is the whole point.
+ */
+@Composable
+private fun ByDaySummary(doses: List<InsulinDose>, carbs: List<CarbEntry>, zone: ZoneId) {
+    val days = remember(doses, carbs, zone) {
+        InsulinDiary.byDay(doses, carbs, zone, limitDays = BY_DAY_LIMIT)
+    }
+
+    Text(
+        stringResource(R.string.diary_by_day),
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Medium,
+    )
+    Text(
+        stringResource(R.string.diary_by_day_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 2.dp),
+    )
+    Spacer(Modifier.height(8.dp))
+
+    if (days.isEmpty()) {
+        Text(
+            stringResource(R.string.diary_by_day_empty),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    days.forEach { day ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    dayLabel(day.date, zone),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                // Grams sit under the units as context, and say plainly when some
+                // of the day's meals carry no count at all.
+                carbNote(day)?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                stringResource(
+                    R.string.diary_day_units,
+                    formatUnits(day.totals.totalUnits),
+                    formatUnits(day.totals.basalUnits),
+                    formatUnits(day.totals.bolusUnits),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+    }
+}
+
+@Composable
+private fun carbNote(day: InsulinDay): String? = when {
+    !day.hasCarbs -> null
+    day.countedMeals == 0 -> stringResource(R.string.diary_day_carbs_none, day.uncountedMeals)
+    day.uncountedMeals > 0 -> stringResource(
+        R.string.diary_day_carbs_uncounted,
+        formatUnits(day.carbGrams),
+        day.countedMeals,
+        day.uncountedMeals,
+    )
+    else -> stringResource(
+        R.string.diary_day_carbs,
+        formatUnits(day.carbGrams),
+        day.countedMeals,
+    )
+}
+
+@Composable
+private fun dayLabel(date: LocalDate, zone: ZoneId): String {
+    val today = LocalDate.now(zone)
+    return when (date) {
+        today -> stringResource(R.string.diary_day_today)
+        today.minusDays(1) -> stringResource(R.string.diary_day_yesterday)
+        else -> date.format(BY_DAY_FORMAT)
+    }
+}
+
+private val BY_DAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM")
+
+/** Two weeks: enough to see a normal day, short enough to stay a summary. */
+private const val BY_DAY_LIMIT = 14

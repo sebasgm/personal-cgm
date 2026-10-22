@@ -4,6 +4,7 @@ import android.content.Context
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.platform.LocalContext
@@ -63,6 +66,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -85,6 +89,8 @@ fun HomeScreen(viewModel: CgmViewModel) {
     val isLive by viewModel.isLive.collectAsState()
     val windowEnd by viewModel.endMillis.collectAsState()
     var pickingDate by remember { mutableStateOf(false) }
+    var showingSensor by remember { mutableStateOf(false) }
+    val sensorLifetime by viewModel.sensorLifetimeDays.collectAsState()
 
     // Ticks regardless of whether data arrives. A frozen "2 min ago" over a dead
     // feed is the exact failure this screen exists to prevent.
@@ -97,6 +103,12 @@ fun HomeScreen(viewModel: CgmViewModel) {
 
     val snapshot = state.snapshot
     val freshness = state.freshness(now)
+
+    // The chosen lifetime is applied here as well as on the next poll, so picking
+    // 15 days corrects the figure on the spot. Waiting for a poll would leave the
+    // wrong count — the thing the user just went in to fix — on screen for another
+    // minute, which reads as the setting having done nothing.
+    val sensor = state.sensor?.copy(lifetimeDays = sensorLifetime)
 
     Column(
         modifier = Modifier
@@ -192,8 +204,19 @@ fun HomeScreen(viewModel: CgmViewModel) {
             stats = stats,
             windowLabel = ChartZoom.label(span),
             unit = snapshot?.unit,
-            sensor = state.sensor,
+            sensor = sensor,
             now = now,
+            onSensorClick = { showingSensor = true },
+        )
+    }
+
+    if (showingSensor) {
+        SensorDialog(
+            sensor = sensor,
+            lifetimeDays = sensorLifetime,
+            now = now,
+            onSetLifetime = viewModel::setSensorLifetimeDays,
+            onDismiss = { showingSensor = false },
         )
     }
 
@@ -566,6 +589,7 @@ private fun StatStrip(
     unit: dev.cgm.core.GlucoseUnit?,
     sensor: SensorInfo?,
     now: Long,
+    onSensorClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -597,12 +621,24 @@ private fun StatStrip(
             muted = !stats.isReliable,
             note = coverageNote,
         )
+        // Past the designed end this shows "expired" rather than a day number.
+        // The count does carry on — day 16 of a 15-day sensor is true — but
+        // printing a day above the lifetime produced "day 15/14", which states a
+        // contradiction and buries the one fact that matters: it is over.
+        val expired = sensor?.isExpired(now) == true
         StatCell(
             label = stringResource(R.string.home_stat_sensor),
-            value = sensor?.dayOfSession(now)
-                ?.let { stringResource(R.string.home_sensor_day, it, SensorInfo.SESSION_DAYS) }
-                ?: "—",
-            muted = sensor?.isExpired(now) == true,
+            value = when {
+                sensor?.startedAtMillis == null -> "—"
+                expired -> stringResource(R.string.home_sensor_expired)
+                else -> stringResource(
+                    R.string.home_sensor_day,
+                    sensor.dayOfSession(now) ?: 0,
+                    sensor.lifetimeDays,
+                )
+            },
+            muted = expired,
+            onClick = onSensorClick,
         )
     }
 }
@@ -614,8 +650,21 @@ private fun StatCell(
     muted: Boolean,
     note: String? = null,
     valueColor: Color? = null,
+    onClick: (() -> Unit)? = null,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        // Only the cells that have somewhere to go take a click. A tappable cell
+        // that opens nothing is worse than a plain one.
+        modifier = if (onClick != null) {
+            Modifier
+                .clip(MaterialTheme.shapes.small)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        } else {
+            Modifier
+        },
+    ) {
         Text(
             value,
             style = MaterialTheme.typography.titleLarge,
@@ -701,3 +750,141 @@ private fun ForecastWarning(onAccept: () -> Unit) {
         }
     }
 }
+
+/**
+ * Everything known about the sensor being worn.
+ *
+ * Reached by tapping the sensor figure on the strip, because that figure is where
+ * the question starts: it says a day number, and the things you want next — which
+ * sensor this is, and how long it has left — do not fit in a cell that shares a
+ * row with two others.
+ *
+ * The hours and minutes appear only inside the last day. Before that they are
+ * false precision: the end is computed from an activation stamp the vendor's cloud
+ * reports to the minute and a nominal lifetime, so "3 days" is honest where
+ * "71 h 12 min" would pretend to an accuracy the inputs do not carry.
+ */
+@Composable
+private fun SensorDialog(
+    sensor: SensorInfo?,
+    lifetimeDays: Int,
+    now: Long,
+    onSetLifetime: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.sensor_title)) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.sensor_close))
+            }
+        },
+        text = {
+            Column {
+                val startedAt = sensor?.startedAtMillis
+                if (sensor == null || startedAt == null) {
+                    Text(
+                        stringResource(R.string.sensor_none),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    SensorRow(
+                        stringResource(R.string.sensor_serial),
+                        sensor.serial ?: stringResource(R.string.sensor_unknown),
+                    )
+                    SensorRow(
+                        stringResource(R.string.sensor_started),
+                        Instant.ofEpochMilli(startedAt)
+                            .atZone(ZoneId.systemDefault())
+                            .format(sensorStartFormatter),
+                    )
+                    SensorRow(
+                        stringResource(R.string.sensor_lifetime),
+                        stringResource(
+                            R.string.sensor_day_of,
+                            sensor.dayOfSession(now) ?: 0,
+                            sensor.lifetimeDays,
+                        ),
+                    )
+                    SensorRow(
+                        stringResource(R.string.sensor_remaining),
+                        remainingLabel(sensor, now),
+                    )
+                    // Shown only when the account gave one. It is Abbott's own
+                    // code and we do not interpret it; it is here so that a
+                    // lifetime wrongly set can be matched against the hardware
+                    // later rather than guessed at again.
+                    sensor.productType?.let {
+                        SensorRow(stringResource(R.string.sensor_product_code), it.toString())
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    stringResource(R.string.sensor_lifetime_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SensorInfo.LIFETIME_CHOICES.forEach { days ->
+                        FilterChip(
+                            selected = days == lifetimeDays,
+                            onClick = { onSetLifetime(days) },
+                            label = {
+                                Text(stringResource(R.string.sensor_lifetime_days, days))
+                            },
+                        )
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun SensorRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+    Spacer(Modifier.height(6.dp))
+}
+
+/**
+ * How long is left, at the coarseness the answer deserves.
+ *
+ * Hours and minutes inside the final day, whole days before it, and "expired"
+ * rather than a negative once past the end — a sensor that stopped yesterday has
+ * no time left, and "-3 h" invites the reading that it has some.
+ */
+@Composable
+private fun remainingLabel(sensor: SensorInfo, now: Long): String {
+    val remaining = sensor.remainingMillis(now) ?: return stringResource(R.string.sensor_unknown)
+    if (remaining <= 0) return stringResource(R.string.sensor_ended)
+    if (!sensor.isFinalDay(now)) {
+        // Rounded up: with 25 hours left you are on your last full day, and
+        // rounding down to "1 day" would read as less time than there is.
+        val days = ceil(remaining.toDouble() / (24 * 60 * 60 * 1000)).toInt()
+        return stringResource(R.string.sensor_remaining_days, days)
+    }
+    val totalMinutes = remaining / 60_000
+    return stringResource(
+        R.string.sensor_remaining_hm,
+        (totalMinutes / 60).toInt(),
+        (totalMinutes % 60).toInt(),
+    )
+}
+
+private val sensorStartFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")

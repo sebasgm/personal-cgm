@@ -30,6 +30,26 @@
     <string name="home_stat_average">Promedio</string>
     <string name="home_stat_sensor">Sensor</string>
     <string name="home_sensor_day">día %1$d/%2$d</string>
+    <string name="home_sensor_expired">vencido</string>
+    <string name="sensor_title">Sensor</string>
+    <string name="sensor_serial">Número de serie</string>
+    <string name="sensor_started">Activado</string>
+    <string name="sensor_day_of">Día %1$d de %2$d</string>
+    <string name="sensor_remaining">Tiempo restante</string>
+    <string name="sensor_remaining_hm">%1$d h %2$d min</string>
+    <!-- Not plurals: the days figure is 14 or 15 for a lifetime, and the
+         remaining-days line only renders above one day, because anything
+         inside the last day is shown as hours and minutes instead. Neither
+         string can reach a singular. -->
+    <string name="sensor_remaining_days">%1$d días</string>
+    <string name="sensor_ended">Vencido</string>
+    <string name="sensor_lifetime">Duración</string>
+    <string name="sensor_lifetime_days">%1$d días</string>
+    <string name="sensor_lifetime_note">Abbott vende sensores de 14 y 15 días por la misma cuenta, y la API no dice cuál es cuál de forma confiable. Elegí el que estás usando: un Libre 2 Plus o 3 Plus dura 15 días.</string>
+    <string name="sensor_product_code">Código de producto</string>
+    <string name="sensor_unknown">Desconocido</string>
+    <string name="sensor_none">Todavía no hay datos del sensor.</string>
+    <string name="sensor_close">Cerrar</string>
     <string name="home_coverage_none">sin datos</string>
     <string name="home_coverage_under_one">&lt;1% de la ventana</string>
     <string name="home_coverage_percent">%1$d%% de la ventana</string>
@@ -287,12 +307,31 @@
     <string name="diary_food_title">Registrar comida</string>
     <string name="carb_grams">Carbohidratos</string>
     <string name="carb_grams_suffix">g</string>
+    <string name="carb_grams_optional">Opcional</string>
     <string name="carb_invalid">Ingresá una cantidad entre 1 y %1$s g</string>
+    <string name="carb_row_uncounted">Comida, sin contar</string>
     <string name="carb_row">%1$s g de carbohidratos</string>
+    <string name="carb_photo_add">Agregar foto</string>
+    <string name="carb_photo_change">Cambiar foto</string>
+    <string name="carb_photo_remove">Quitar foto</string>
+    <string name="carb_photo_attached">Foto adjunta</string>
+    <string name="carb_photo_note">Se guarda solo en este teléfono y se borra a los 90 días. La comida queda.</string>
+    <string name="carb_photo_open">Foto de la comida</string>
+    <string name="carb_photo_missing">La foto ya no está.</string>
+    <string name="carb_photo_close">Cerrar</string>
     <string name="carb_quick">Cantidades habituales</string>
     <string name="diary_today">Hoy: %1$s U basal · %2$s U bolo · %3$s g</string>
     <string name="diary_recent">Últimas anotaciones</string>
     <string name="diary_empty">Todavía no anotaste nada.</string>
+    <string name="diary_by_day">Por día</string>
+    <string name="diary_by_day_note">Unidades registradas por día, basal y bolo por separado. Es lo que anotaste, no lo que el cuerpo recibió.</string>
+    <string name="diary_day_units">%1$s U · basal %2$s · bolo %3$s</string>
+    <string name="diary_day_carbs">%1$s g en %2$d comidas</string>
+    <string name="diary_day_carbs_uncounted">%1$s g en %2$d comidas · %3$d sin contar</string>
+    <string name="diary_day_carbs_none">%1$d comidas, sin contar</string>
+    <string name="diary_day_today">Hoy</string>
+    <string name="diary_day_yesterday">Ayer</string>
+    <string name="diary_by_day_empty">Todavía no hay nada registrado.</string>
     <string name="diary_note">Registra insulina y comida. Es lo que anotás vos; el Registro es lo que midió el sensor.</string>
     <string name="set_report">Informe</string>
     <string name="report_period">Período</string>
@@ -304,6 +343,10 @@
     <string name="report_ranges">Cantidad de partes: %1$d</string>
     <string name="report_empty">Todavía no hay datos suficientes para este período. El historial se acumula desde que instalaste la app; no se puede recuperar lo anterior.</string>
     <string name="report_thin_ranges">Algunos tramos tienen poca cobertura. Sus cifras figuran igual, marcadas, porque ocultarlas sería peor que mostrarlas con la advertencia.</string>
+    <string name="report_raw">Exportar en bruto</string>
+    <string name="report_raw_note">Todo lo guardado en el teléfono, sin resumir: cada lectura, dosis y comida, con su marca de tiempo en UTC. El informe de arriba se arma con los resúmenes por hora, así que si muestra un hueco, este archivo es la única forma de saber si faltan las lecturas o solo el resumen.</string>
+    <string name="report_raw_button">CSV en bruto</string>
+    <string name="report_raw_empty">No hay nada guardado para exportar.</string>
     <string name="report_export">Exportar</string>
     <string name="report_pdf">PDF</string>
     <string name="report_mean">Media</string>

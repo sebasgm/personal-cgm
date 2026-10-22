@@ -3,6 +3,7 @@ package dev.cgm.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dev.cgm.core.SensorInfo
 import dev.cgm.core.InsulinReminder
 import dev.cgm.core.InsulinReminders
 import dev.cgm.app.reminder.ReminderScheduler
@@ -239,24 +240,39 @@ class CgmViewModel(
      * Records a meal. [onResult] reports whether it was accepted, so the form can
      * keep what was typed if it was not.
      */
+    /**
+     * [grams] is null for a meal logged without counting carbohydrates, and
+     * [photoName] names an image already copied into the app's own storage.
+     */
     fun logCarbs(
-        grams: Double,
+        grams: Double?,
         eatenAtMillis: Long,
         note: String?,
+        photoName: String? = null,
         onResult: (Boolean) -> Unit = {},
     ) {
         viewModelScope.launch {
             onResult(
                 repository.saveCarbs(
                     CarbEntry(
-                        grams = CarbEntry.roundGrams(grams),
+                        grams = grams?.let(CarbEntry::roundGrams),
                         eatenAtMillis = eatenAtMillis,
                         note = CarbEntry.cleanNote(note),
+                        photoName = photoName,
                     )
                 )
             )
         }
     }
+
+    /**
+     * Everything stored, unsummarised, as CSV.
+     *
+     * Deliberately separate from the report: the report is built from the hourly
+     * rollups and so cannot distinguish a reading that is missing from one that was
+     * never summarised. This reads the readings table itself.
+     */
+    suspend fun rawExportCsv(): String = repository.rawExport()
 
     fun deleteCarbs(entry: CarbEntry) {
         viewModelScope.launch { repository.deleteCarbs(entry) }
@@ -541,6 +557,26 @@ class CgmViewModel(
 
     fun setCarAlertsEnabled(enabled: Boolean) {
         viewModelScope.launch { settings.setCarAlertsEnabled(enabled) }
+    }
+
+    // -- sensor -------------------------------------------------------------
+
+    /**
+     * How long the sensor being worn is designed to run, in days.
+     *
+     * The wearer sets it because the API does not reliably say: Abbott ships
+     * 14-day and 15-day sensors through the same endpoint, and assuming 14 for
+     * both reported a 15-day sensor as expired a day before it was.
+     */
+    val sensorLifetimeDays: StateFlow<Int> = settings.sensorLifetimeDays
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            SensorInfo.DEFAULT_LIFETIME_DAYS,
+        )
+
+    fun setSensorLifetimeDays(days: Int) {
+        viewModelScope.launch { settings.setSensorLifetimeDays(days) }
     }
 
     // -- forecast -----------------------------------------------------------

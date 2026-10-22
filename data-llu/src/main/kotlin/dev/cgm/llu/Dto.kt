@@ -60,8 +60,23 @@ internal data class Connection(
 @Serializable
 internal data class Sensor(
     val sn: String? = null,
-    /** Activation time, epoch seconds. */
+    /**
+     * Activation time, epoch seconds.
+     *
+     * Moves when the sensor is re-scanned, so it is not an identity and not a
+     * fixed session start — [sn] is the identity. See SensorIdentity.reconcile.
+     */
     val a: Long? = null,
+    /**
+     * Abbott's product code. Undocumented; stored, never interpreted.
+     *
+     * Kept so the 14-versus-15-day lifetime can eventually be read from the API
+     * instead of asked of the user, once this phone has seen enough sensors to
+     * establish the mapping from its own data.
+     */
+    val pt: Int? = null,
+    /** Warm-up minutes, as the account reports them. Recorded, not yet used. */
+    val w: Int? = null,
 )
 
 @Serializable

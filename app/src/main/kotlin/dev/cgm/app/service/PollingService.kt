@@ -285,6 +285,9 @@ class PollingService : LifecycleService() {
         // first poll. A no-op once they agree; the backfill path after the
         // migration that created the table empty.
         runCatching { repository.ensureRollups() }
+        // Housekeeping beside the rollups: photographs expire long before the
+        // readings do, and the meals they belonged to are kept either way.
+        runCatching { repository.pruneMealPhotos() }
 
         // Before the first fetch: the status bar shows the last known value rather
         // than "--", which after a restart could otherwise persist for as long as

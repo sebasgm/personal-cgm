@@ -1,5 +1,9 @@
 package dev.cgm.core
 
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+
 import kotlinx.serialization.Serializable
 
 /** The two things a dose can be. */
@@ -111,9 +115,30 @@ internal object TypedAmount {
 @Serializable
 data class CarbEntry(
     val id: Long = 0,
-    val grams: Double,
+    /**
+     * Grams of carbohydrate, or null when the meal was logged without counting.
+     *
+     * Optional because the common case is honest ignorance: you ate, you know
+     * roughly when, and you did not weigh it. The alternative was a required
+     * field, which forces a number that is a guess and then lets every total
+     * downstream treat that guess as measured. Null says "not counted", which is
+     * the truth and which sums to nothing rather than to a fiction.
+     */
+    val grams: Double? = null,
     val eatenAtMillis: Long,
     val note: String? = null,
+    /**
+     * File name of a photo of the meal, within the app's own storage, or null.
+     *
+     * A name rather than the image: the picture lives as a file and only its name
+     * is a column, so the database that holds two years of readings does not also
+     * carry hundreds of megabytes of JPEG. A name rather than a path, so moving
+     * the directory does not invalidate every row.
+     *
+     * It is a memory aid and nothing more. Nothing in this app reads the image, and
+     * nothing estimates carbohydrates from it.
+     */
+    val photoName: String? = null,
 ) {
 
     /**
@@ -121,10 +146,14 @@ data class CarbEntry(
      *
      * A typo guard, not a dietary opinion: 400 where 40 was meant is the realistic
      * error, and the bound sits far enough above a large meal that it never argues
-     * with a real one.
+     * with a real one. An uncounted meal has nothing to check.
      */
     val isPlausible: Boolean
-        get() = grams > 0 && grams <= MAX_PLAUSIBLE_GRAMS && eatenAtMillis > 0
+        get() = eatenAtMillis > 0 &&
+            (grams == null || (grams > 0 && grams <= MAX_PLAUSIBLE_GRAMS))
+
+    /** Whether a carbohydrate figure was recorded at all. */
+    val isCounted: Boolean get() = grams != null
 
     companion object {
         const val MAX_PLAUSIBLE_GRAMS = 400.0
@@ -148,8 +177,19 @@ data class CarbEntry(
 
         fun cleanNote(note: String?): String? = TypedAmount.cleanNote(note)
 
-        /** A day's carbohydrates. The only aggregate a food log is ever asked for. */
-        fun totalGrams(entries: List<CarbEntry>): Double = entries.sumOf { it.grams }
+        /**
+         * A day's carbohydrates, counting only the meals that were counted.
+         *
+         * Uncounted meals contribute nothing rather than zero, and the two are
+         * not the same claim — which is why [countedOf] exists beside this, so a
+         * total can say what it rests on instead of implying it covers every meal.
+         */
+        fun totalGrams(entries: List<CarbEntry>): Double =
+            entries.mapNotNull { it.grams }.sum()
+
+        /** How many of [entries] carried a figure, and how many did not. */
+        fun countedOf(entries: List<CarbEntry>): Pair<Int, Int> =
+            entries.count { it.isCounted } to entries.count { !it.isCounted }
     }
 }
 
@@ -162,5 +202,65 @@ data class InsulinDayTotals(val basalUnits: Double, val bolusUnits: Double) {
             basalUnits = doses.filter { it.kind == InsulinKind.BASAL }.sumOf { it.units },
             bolusUnits = doses.filter { it.kind == InsulinKind.BOLUS }.sumOf { it.units },
         )
+    }
+}
+
+/**
+ * One calendar day of insulin, with the carbohydrates recorded beside it.
+ *
+ * Beside, never combined: the grams are context for the units, and a single
+ * figure mixing them would be meaningless. [uncountedMeals] is carried because a
+ * day's grams means something different when three of its meals were never
+ * counted, and a total with no such note invites reading it as the whole day.
+ */
+data class InsulinDay(
+    val date: LocalDate,
+    val totals: InsulinDayTotals,
+    val doseCount: Int,
+    val carbGrams: Double,
+    val countedMeals: Int,
+    val uncountedMeals: Int,
+) {
+    val hasCarbs: Boolean get() = countedMeals > 0 || uncountedMeals > 0
+}
+
+/**
+ * A day-by-day summary, most recent first.
+ *
+ * Grouped in [zone] rather than by UTC day, because "how much did I take
+ * yesterday" is a question about the calendar the person lives in. Days with
+ * nothing recorded are left out rather than shown as zero: no insulin logged is
+ * not the same statement as no insulin taken, and this is a diary, not a chart.
+ */
+object InsulinDiary {
+
+    fun byDay(
+        doses: List<InsulinDose>,
+        carbs: List<CarbEntry>,
+        zone: ZoneId,
+        limitDays: Int = Int.MAX_VALUE,
+    ): List<InsulinDay> {
+        fun dayOf(millis: Long): LocalDate =
+            Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+
+        val dosesByDay = doses.groupBy { dayOf(it.givenAtMillis) }
+        val carbsByDay = carbs.groupBy { dayOf(it.eatenAtMillis) }
+
+        return (dosesByDay.keys + carbsByDay.keys)
+            .sortedDescending()
+            .take(limitDays)
+            .map { date ->
+                val forDay = dosesByDay[date].orEmpty()
+                val meals = carbsByDay[date].orEmpty()
+                val (counted, uncounted) = CarbEntry.countedOf(meals)
+                InsulinDay(
+                    date = date,
+                    totals = InsulinDayTotals.of(forDay),
+                    doseCount = forDay.size,
+                    carbGrams = CarbEntry.totalGrams(meals),
+                    countedMeals = counted,
+                    uncountedMeals = uncounted,
+                )
+            }
     }
 }

@@ -160,6 +160,9 @@ class LibreLinkUpSource(
                     serial = it.sn,
                     // Abbott sends activation as epoch seconds.
                     startedAtMillis = it.a?.times(1000),
+                    productType = it.pt,
+                    // Deliberately left at the default here: this layer does not
+                    // know the lifetime, and the stored session supplies it.
                 )
             },
         )

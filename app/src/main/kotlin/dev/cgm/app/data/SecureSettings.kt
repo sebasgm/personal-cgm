@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.cgm.core.SensorInfo
 import dev.cgm.core.AccessibilityPreferences
 import dev.cgm.core.ReportPreferences
 import dev.cgm.core.SourceKind
@@ -335,6 +336,27 @@ class SecureSettings(private val context: Context) : SessionStore {
 
     suspend fun carAlertsEnabledOnce(): Boolean = carAlertsEnabled.first()
 
+    // -- sensor -----------------------------------------------------------
+
+    /**
+     * How many days the sensor being worn is designed to last.
+     *
+     * Asked rather than detected. LibreLinkUp does send a product code, but no
+     * public document maps it to a lifetime, and the app previously assumed 14
+     * for everything — which reported "day 15/14" on a 15-day sensor and muted
+     * it as expired a day early. The wearer knows which box it came out of; the
+     * API does not reliably say.
+     */
+    val sensorLifetimeDays: Flow<Int> = context.dataStore.data.map {
+        it[KEY_SENSOR_LIFETIME] ?: SensorInfo.DEFAULT_LIFETIME_DAYS
+    }
+
+    suspend fun setSensorLifetimeDays(days: Int) {
+        context.dataStore.edit { it[KEY_SENSOR_LIFETIME] = days }
+    }
+
+    suspend fun sensorLifetimeDaysOnce(): Int = sensorLifetimeDays.first()
+
     // -- alarms -----------------------------------------------------------
 
     /**
@@ -382,6 +404,7 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_TOUR_SEEN: Preferences.Key<Boolean> = booleanPreferencesKey("tour_seen")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
         val KEY_CAR_ALERTS: Preferences.Key<Boolean> = booleanPreferencesKey("car_alerts")
+        val KEY_SENSOR_LIFETIME: Preferences.Key<Int> = intPreferencesKey("sensor_lifetime_days")
         val KEY_ALARMS: Preferences.Key<String> = stringPreferencesKey("alarm_settings")
         val KEY_ALARM_STATE: Preferences.Key<String> = stringPreferencesKey("alarm_state")
         val KEY_EMAIL: Preferences.Key<String> = stringPreferencesKey("llu_email")

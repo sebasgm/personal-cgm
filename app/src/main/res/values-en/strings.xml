@@ -30,6 +30,26 @@
     <string name="home_stat_average">Average</string>
     <string name="home_stat_sensor">Sensor</string>
     <string name="home_sensor_day">day %1$d/%2$d</string>
+    <string name="home_sensor_expired">expired</string>
+    <string name="sensor_title">Sensor</string>
+    <string name="sensor_serial">Serial number</string>
+    <string name="sensor_started">Activated</string>
+    <string name="sensor_day_of">Day %1$d of %2$d</string>
+    <string name="sensor_remaining">Time left</string>
+    <string name="sensor_remaining_hm">%1$d h %2$d min</string>
+    <!-- Not plurals: the days figure is 14 or 15 for a lifetime, and the
+         remaining-days line only renders above one day, because anything
+         inside the last day is shown as hours and minutes instead. Neither
+         string can reach a singular. -->
+    <string name="sensor_remaining_days">%1$d days</string>
+    <string name="sensor_ended">Expired</string>
+    <string name="sensor_lifetime">Lifetime</string>
+    <string name="sensor_lifetime_days">%1$d days</string>
+    <string name="sensor_lifetime_note">Abbott sells 14-day and 15-day sensors through the same account, and the API does not reliably say which is which. Pick the one you are wearing: a Libre 2 Plus or 3 Plus runs 15 days.</string>
+    <string name="sensor_product_code">Product code</string>
+    <string name="sensor_unknown">Unknown</string>
+    <string name="sensor_none">No sensor data yet.</string>
+    <string name="sensor_close">Close</string>
     <string name="home_coverage_none">no data</string>
     <string name="home_coverage_under_one">&lt;1% of window</string>
     <string name="home_coverage_percent">%1$d%% of window</string>
@@ -287,12 +307,31 @@
     <string name="diary_food_title">Log food</string>
     <string name="carb_grams">Carbohydrates</string>
     <string name="carb_grams_suffix">g</string>
+    <string name="carb_grams_optional">Optional</string>
     <string name="carb_invalid">Enter an amount between 1 and %1$s g</string>
+    <string name="carb_row_uncounted">Meal, not counted</string>
     <string name="carb_row">%1$s g of carbs</string>
+    <string name="carb_photo_add">Add photo</string>
+    <string name="carb_photo_change">Change photo</string>
+    <string name="carb_photo_remove">Remove photo</string>
+    <string name="carb_photo_attached">Photo attached</string>
+    <string name="carb_photo_note">Kept on this phone only, and deleted after 90 days. The meal itself stays.</string>
+    <string name="carb_photo_open">Meal photo</string>
+    <string name="carb_photo_missing">The photo is no longer there.</string>
+    <string name="carb_photo_close">Close</string>
     <string name="carb_quick">Common amounts</string>
     <string name="diary_today">Today: %1$s U basal · %2$s U bolus · %3$s g</string>
     <string name="diary_recent">Recent entries</string>
     <string name="diary_empty">Nothing logged yet.</string>
+    <string name="diary_by_day">By day</string>
+    <string name="diary_by_day_note">Units recorded per day, basal and bolus kept apart. This is what you logged, not what your body received.</string>
+    <string name="diary_day_units">%1$s U · basal %2$s · bolus %3$s</string>
+    <string name="diary_day_carbs">%1$s g across %2$d meals</string>
+    <string name="diary_day_carbs_uncounted">%1$s g across %2$d meals · %3$d not counted</string>
+    <string name="diary_day_carbs_none">%1$d meals, not counted</string>
+    <string name="diary_day_today">Today</string>
+    <string name="diary_day_yesterday">Yesterday</string>
+    <string name="diary_by_day_empty">Nothing recorded yet.</string>
     <string name="diary_note">Insulin and food, as you record them. The Logbook is what the sensor measured.</string>
     <string name="set_report">Report</string>
     <string name="report_period">Period</string>
@@ -304,6 +343,10 @@
     <string name="report_ranges">Number of parts: %1$d</string>
     <string name="report_empty">Not enough data for this period yet. History accumulates from the day you installed the app; nothing earlier can be recovered.</string>
     <string name="report_thin_ranges">Some ranges have thin coverage. Their figures are still shown, and marked, because hiding them would mislead more than showing them with the warning.</string>
+    <string name="report_raw">Raw export</string>
+    <string name="report_raw_note">Everything stored on the phone, unsummarised: every reading, dose and meal, timestamped in UTC. The report above is assembled from the hourly summaries, so when it shows a gap this file is the only way to tell whether the readings are missing or only the summary is.</string>
+    <string name="report_raw_button">Raw CSV</string>
+    <string name="report_raw_empty">There is nothing stored to export.</string>
     <string name="report_export">Export</string>
     <string name="report_pdf">PDF</string>
     <string name="report_mean">Mean</string>

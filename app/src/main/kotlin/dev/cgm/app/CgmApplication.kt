@@ -3,6 +3,7 @@ package dev.cgm.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import dev.cgm.app.data.MealPhotos
 import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.data.ReadingDatabase
 import dev.cgm.app.data.RollupWriter
@@ -29,6 +30,8 @@ class CgmApplication : Application() {
             database.rollups(),
             database.doses(),
             database.carbs(),
+            database.sensors(),
+            MealPhotos.directoryIn(this),
         )
     }
 

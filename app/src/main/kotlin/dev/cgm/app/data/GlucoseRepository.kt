@@ -24,7 +24,9 @@ import dev.cgm.core.ThresholdOverrides
 import dev.cgm.core.Zone
 import dev.cgm.core.GlucoseSourceException
 import dev.cgm.core.PollOutcome
+import dev.cgm.core.SensorIdentity
 import dev.cgm.core.SensorInfo
+import dev.cgm.core.RawExport
 import dev.cgm.core.Report
 import dev.cgm.core.ReportBuilder
 import dev.cgm.core.ReportSpec
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import okhttp3.OkHttpClient
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
@@ -108,6 +111,15 @@ class GlucoseRepository(
     private val rollupDao: HourlyRollupDao? = null,
     private val doseDao: DoseDao,
     private val carbDao: CarbDao,
+    /** Where sensor identity is kept, so it survives a restart. */
+    private val sensorDao: SensorDao,
+    /**
+     * Directory holding meal photographs.
+     *
+     * A directory rather than a Context: deleting a file alongside its row is data
+     * work, and it does not need the rest of Android to do it.
+     */
+    private val mealPhotoDir: File,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
 
@@ -179,7 +191,47 @@ class GlucoseRepository(
         return true
     }
 
-    suspend fun deleteCarbs(entry: CarbEntry) = carbDao.delete(CarbEntity.from(entry))
+    /**
+     * Removes a meal, and its photograph with it.
+     *
+     * The file goes first. An orphaned file is litter that [pruneMealPhotos] will
+     * collect; a row pointing at a file that is gone is a broken thumbnail the user
+     * sees, so of the two possible half-finished states this picks the quiet one.
+     */
+    suspend fun deleteCarbs(entry: CarbEntry) {
+        MealPhotos.delete(mealPhotoDir, entry.photoName)
+        carbDao.delete(CarbEntity.from(entry))
+    }
+
+    /**
+     * Forget photographs older than the retention window, and sweep orphans.
+     *
+     * Called on startup beside [ensureRollups]. The meals themselves are untouched
+     * — only their pictures expire, because a year-old reading still feeds a
+     * pattern while a year-old photo of lunch is bytes nobody will open.
+     */
+    suspend fun pruneMealPhotos() {
+        val cutoff = clock() - MealPhotos.RETENTION_MILLIS
+        runCatching {
+            carbDao.photoNamesBefore(cutoff).forEach { MealPhotos.delete(mealPhotoDir, it) }
+            carbDao.clearPhotosBefore(cutoff)
+            MealPhotos.deleteOrphans(mealPhotoDir, carbDao.allPhotoNames().toSet())
+        }
+    }
+
+    /**
+     * Everything on the device, unsummarised.
+     *
+     * Reads the readings table directly rather than the hourly rollups the report
+     * is built from. That is the point of it: when a report shows a gap, this is
+     * the only way to tell whether the readings are missing or merely unsummarised.
+     */
+    suspend fun rawExport(nowMillis: Long = clock()): String = RawExport.export(
+        readings = dao.since(0).map { it.toReading() },
+        doses = doseDao.all().map(DoseEntity::toDose),
+        carbs = carbDao.all().map(CarbEntity::toEntry),
+        generatedAtMillis = nowMillis,
+    )
 
     /**
      * How complete the last [windowMillis] of history actually is.
@@ -459,6 +511,8 @@ class GlucoseRepository(
             .withThresholds(overrides.applyTo(account))
             .withUnit(unitOverride ?: accountUnit)
 
+        val sensor = resolveSensor(result.sensor)
+
         _state.update {
             it.copy(
                 configured = true,
@@ -466,7 +520,7 @@ class GlucoseRepository(
                 lastSuccessMillis = clock(),
                 error = null,
                 policy = currentPolicy(),
-                sensor = result.sensor ?: it.sensor,
+                sensor = sensor ?: it.sensor,
                 accountThresholds = account,
                 overrides = overrides,
                 unit = unitOverride ?: accountUnit,
@@ -476,6 +530,54 @@ class GlucoseRepository(
         }
         _results.emit(result)
         return PollOutcome.Success(result.snapshot.reading.ageMillis(clock()))
+    }
+
+    /**
+     * Settle what sensor is being worn, and for how long it is designed to run.
+     *
+     * The stored row is the authority on when the session started. The API's
+     * activation stamp is only consulted for a serial we have never seen, because
+     * LibreLinkUp moves that stamp to the moment of a re-scan: believing it on
+     * every poll made a mid-life sensor restart its day count at one, which reads
+     * as a sensor having been changed when it has not been.
+     */
+    private suspend fun resolveSensor(fetched: SensorInfo?): SensorInfo? {
+        val lifetime = runCatching { settings.sensorLifetimeDaysOnce() }
+            .getOrDefault(SensorInfo.DEFAULT_LIFETIME_DAYS)
+
+        val serial = fetched?.serial
+        val storedRow = runCatching {
+            if (serial != null) sensorDao.bySerial(serial) else sensorDao.latest()
+        }.getOrNull()
+
+        val resolution = SensorIdentity.reconcile(storedRow?.toInfo(), fetched, lifetime)
+        val sensor = resolution.sensor ?: return null
+
+        // Only a sensor that names itself can be kept on record; an anonymous one
+        // has nothing to key a row on, and inventing a key would merge two
+        // sensors into one history.
+        val keyed = sensor.serial
+        val started = sensor.startedAtMillis
+        if (keyed != null && started != null) {
+            // The row's own first sighting is preserved, so a poll does not keep
+            // moving it to now. A different serial has no row yet and takes now.
+            val firstSeen = storedRow
+                ?.takeIf { it.serial == keyed }
+                ?.firstSeenMillis
+                ?: clock()
+            runCatching {
+                sensorDao.upsert(
+                    SensorEntity(
+                        serial = keyed,
+                        startedAtMillis = started,
+                        firstSeenMillis = firstSeen,
+                        lifetimeDays = sensor.lifetimeDays,
+                        productType = sensor.productType,
+                    )
+                )
+            }
+        }
+        return sensor
     }
 
     /**
