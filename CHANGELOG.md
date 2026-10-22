@@ -11,6 +11,28 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.1] - unreleased
+
+### Changed
+
+- **The logbook's export now lives on the Logbook, and insulin has its own on the Diary.** Both
+  were briefly one combined file behind a button on the report screen, which put the logbook's
+  export two screens away from the logbook. Each screen now exports its own subject: the Logbook
+  writes every reading, the Diary writes insulin and meals. Separate files rather than one with a
+  filter, because the narrower file is the one worth sending when the question is about a gap.
+
+- **The logbook export calls out values that arrived late.** The trend column reads `UNKNOWN` for a
+  reading that came from the vendor's 15-minute history rather than a live poll, because the graph
+  points carry no arrow. It is the only thing in the file that distinguishes a value fetched after
+  the fact from one polled at the time, and it turns out to be exactly four readings an hour.
+
+### Fixed
+
+- **The version heading in What's New showed a stray bracket.** Keep a Changelog brackets the
+  version because in the source it is a link target, and the parser trimmed brackets from the
+  *ends* of the line — which took the opening one and left the closing one stranded in the middle.
+  Headings now read "3.1.1 · unreleased".
+
 ## [3.1.0] - 2026-10-22
 
 The first release since the phone and the watch were put into daily use together, which is where

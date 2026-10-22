@@ -143,4 +143,73 @@ class RawExportTest {
         assertTrue(RawExport.fileName(now).startsWith("cgm-raw-"))
         assertTrue(RawExport.fileName(now).endsWith(".csv"))
     }
+
+    // -- the per-screen exports -------------------------------------------
+
+    @Test
+    fun `the logbook export carries only readings`() {
+        val csv = RawExport.readings(
+            readings = listOf(reading(now, 100.0), reading(now + minute, 101.0)),
+            generatedAtMillis = now,
+        )
+
+        assertContains(csv, "# readings,2")
+        assertTrue("dose" !in csv && "meal" !in csv)
+        assertEquals("section,timestamp_utc,epoch_millis,value_mgdl,trend", csv.lineSequence()
+            .first { it.startsWith("section,") })
+    }
+
+    @Test
+    fun `a backfilled reading is distinguishable by its trend`() {
+        // UNKNOWN is how a value that arrived from the 15-minute history is told
+        // apart from one polled live, which is the whole point of the column.
+        val csv = RawExport.readings(
+            readings = listOf(
+                GlucoseReading(valueMgdl = 90.0, timestampMillis = now, trend = TrendArrow.UNKNOWN),
+                reading(now + minute, 91.0),
+            ),
+            generatedAtMillis = now,
+        )
+
+        val trends = rows(csv).map { it.split(",")[4] }
+        assertEquals(listOf("UNKNOWN", "STEADY"), trends)
+    }
+
+    @Test
+    fun `the diary export carries only treatments, in one time order`() {
+        val csv = RawExport.treatments(
+            doses = listOf(
+                InsulinDose(kind = InsulinKind.BASAL, units = 12.0, givenAtMillis = now + minute)
+            ),
+            carbs = listOf(CarbEntry(grams = 40.0, eatenAtMillis = now)),
+            generatedAtMillis = now,
+        )
+
+        assertContains(csv, "# doses,1")
+        assertContains(csv, "# meals,1")
+        assertEquals(listOf("meal", "dose"), rows(csv).map { it.substringBefore(",") })
+        assertTrue("value_mgdl" !in csv, "readings are not this file's subject")
+    }
+
+    @Test
+    fun `every treatment row has as many cells as the header`() {
+        // The two files have different shapes, and reusing the wide row builders
+        // under the narrow header is exactly how a column silently shifts.
+        val csv = RawExport.treatments(
+            doses = listOf(
+                InsulinDose(kind = InsulinKind.BOLUS, units = 4.0, givenAtMillis = now)
+            ),
+            carbs = listOf(CarbEntry(grams = null, eatenAtMillis = now + minute)),
+            generatedAtMillis = now,
+        )
+
+        val columns = csv.lineSequence().first { it.startsWith("section,") }.split(",").size
+        rows(csv).forEach { assertEquals(columns, it.split(",").size, "row: $it") }
+    }
+
+    @Test
+    fun `the file name says which export it is`() {
+        assertTrue(RawExport.fileName(now, "readings").startsWith("cgm-readings-"))
+        assertTrue(RawExport.fileName(now, "insulin").startsWith("cgm-insulin-"))
+    }
 }

@@ -28,12 +28,99 @@ object RawExport {
 
     const val MIME_TYPE = "text/csv"
 
-    fun fileName(generatedAtMillis: Long): String =
-        "cgm-raw-" +
+    fun fileName(generatedAtMillis: Long, kind: String = "raw"): String =
+        "cgm-$kind-" +
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmm")
                 .withZone(ZoneOffset.UTC)
                 .format(Instant.ofEpochMilli(generatedAtMillis)) +
             ".csv"
+
+    /**
+     * The logbook alone: every reading, nothing else.
+     *
+     * Its own export rather than a filter over the combined one, because it is
+     * reached from the Logbook and that screen's subject is the readings.
+     *
+     * The trend column is the useful one here beyond the value. `UNKNOWN` marks a
+     * reading that came from the vendor's 15-minute history rather than a live
+     * poll, because the graph points carry no arrow — which makes it the only
+     * thing in the file that says a value arrived after the fact.
+     */
+    fun readings(readings: List<GlucoseReading>, generatedAtMillis: Long): String = buildString {
+        appendHeader(generatedAtMillis)
+        appendLine("# readings,${readings.size}")
+        readings.minOfOrNull { it.timestampMillis }
+            ?.let { appendLine("# first_reading,${stamp(it)}") }
+        readings.maxOfOrNull { it.timestampMillis }
+            ?.let { appendLine("# last_reading,${stamp(it)}") }
+        appendLine()
+        appendLine("section,timestamp_utc,epoch_millis,value_mgdl,trend")
+        readings.sortedBy { it.timestampMillis }.forEach {
+            appendLine(
+                listOf(
+                    "reading",
+                    stamp(it.timestampMillis),
+                    it.timestampMillis.toString(),
+                    number(it.valueMgdl),
+                    it.trend.name,
+                ).joinToString(",")
+            )
+        }
+    }
+
+    /**
+     * Insulin and meals, without the readings.
+     *
+     * Reached from the Diary, whose subject is what the person did rather than
+     * what the sensor measured. Units and grams stay in separate columns, as they
+     * do everywhere else: one column holding both is a column something will
+     * eventually add up.
+     */
+    fun treatments(
+        doses: List<InsulinDose>,
+        carbs: List<CarbEntry>,
+        generatedAtMillis: Long,
+    ): String = buildString {
+        appendHeader(generatedAtMillis)
+        appendLine("# doses,${doses.size}")
+        appendLine("# meals,${carbs.size}")
+        appendLine()
+        appendLine("section,timestamp_utc,epoch_millis,insulin_kind,units,grams,has_photo,note")
+
+        // Narrow cells, matching this file's own header. The combined export keeps
+        // the wide ones, where a dose has to leave the reading columns empty.
+        val rows = doses.map { d ->
+            Row(
+                d.givenAtMillis,
+                listOf(
+                    "dose", stamp(d.givenAtMillis), d.givenAtMillis.toString(),
+                    d.kind.name, number(d.units), "", "", quote(d.note),
+                ).joinToString(","),
+            )
+        } + carbs.map { c ->
+            Row(
+                c.eatenAtMillis,
+                listOf(
+                    "meal", stamp(c.eatenAtMillis), c.eatenAtMillis.toString(),
+                    "", "",
+                    // Empty, not zero: an uncounted meal recorded no number.
+                    c.grams?.let(::number) ?: "",
+                    if (c.photoName != null) "1" else "0",
+                    quote(c.note),
+                ).joinToString(","),
+            )
+        }
+        rows.sortedBy { it.atMillis }.forEach { appendLine(it.cells) }
+    }
+
+    private fun StringBuilder.appendHeader(generatedAtMillis: Long) {
+        appendLine(
+            "# Raw export of everything stored on the device. Not medical advice and " +
+                "not a medical device; these values come from a consumer sensor read " +
+                "through an unofficial interface and have not been assessed by any regulator."
+        )
+        appendLine("# generated,${stamp(generatedAtMillis)}")
+    }
 
     fun export(
         readings: List<GlucoseReading>,

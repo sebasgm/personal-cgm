@@ -97,6 +97,21 @@ fun ReleaseNotesScreen() {
     }
 }
 
+/**
+ * "[3.1.0] - 2026-10-22" as "3.1.0 · 2026-10-22".
+ *
+ * Keep a Changelog brackets the version because in the source it is a link
+ * target. The brackets are markup, not content. Trimming them from the *ends*
+ * of the line took the opening one and left the closing one stranded in the
+ * middle, which is what the screen was showing.
+ */
+private fun versionHeading(text: String): String =
+    VERSION_BRACKETS.replace(text) { it.groupValues[1] }
+        .replace(" - ", " · ")
+        .trim()
+
+private val VERSION_BRACKETS = Regex("\\[([^]]+)]")
+
 sealed interface ChangelogLine {
     data class Version(val text: String) : ChangelogLine
     data class Section(val text: String) : ChangelogLine
@@ -131,7 +146,7 @@ internal fun parseChangelog(raw: String): List<ChangelogLine> {
 
             trimmed.startsWith("## ") -> {
                 flushParagraph()
-                out += ChangelogLine.Version(trimmed.removePrefix("## ").trim('[', ']', ' '))
+                out += ChangelogLine.Version(versionHeading(trimmed.removePrefix("## ")))
             }
 
             trimmed.startsWith("### ") -> {

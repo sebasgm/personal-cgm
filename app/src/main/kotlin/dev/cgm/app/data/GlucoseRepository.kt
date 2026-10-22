@@ -226,6 +226,19 @@ class GlucoseRepository(
      * is built from. That is the point of it: when a report shows a gap, this is
      * the only way to tell whether the readings are missing or merely unsummarised.
      */
+    /** The logbook, unsummarised, for the Logbook screen's own export. */
+    suspend fun readingsExport(nowMillis: Long = clock()): String = RawExport.readings(
+        readings = dao.since(0).map { it.toReading() },
+        generatedAtMillis = nowMillis,
+    )
+
+    /** Insulin and meals, for the Diary screen's export. */
+    suspend fun treatmentsExport(nowMillis: Long = clock()): String = RawExport.treatments(
+        doses = doseDao.all().map(DoseEntity::toDose),
+        carbs = carbDao.all().map(CarbEntity::toEntry),
+        generatedAtMillis = nowMillis,
+    )
+
     suspend fun rawExport(nowMillis: Long = clock()): String = RawExport.export(
         readings = dao.since(0).map { it.toReading() },
         doses = doseDao.all().map(DoseEntity::toDose),

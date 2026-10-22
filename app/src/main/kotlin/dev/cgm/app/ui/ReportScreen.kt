@@ -199,32 +199,6 @@ fun ReportSection(viewModel: CgmViewModel) {
             }
         }
 
-        // Outside the block above on purpose: the raw export does not need a
-        // report to have been assembled, and the case it exists for is precisely
-        // the one where the report came back empty or full of holes.
-        Spacer(Modifier.height(24.dp))
-        Text(stringResource(R.string.report_raw), style = MaterialTheme.typography.labelLarge)
-        Text(
-            stringResource(R.string.report_raw_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-        Spacer(Modifier.height(6.dp))
-        val noRawReceiver = stringResource(R.string.report_share_failed)
-        val nothingStored = stringResource(R.string.report_raw_empty)
-        OutlinedButton(onClick = {
-            scope.launch {
-                val csv = withContext(Dispatchers.IO) {
-                    runCatching { viewModel.rawExportCsv() }.getOrNull()
-                }
-                if (csv == null) {
-                    Toast.makeText(context, nothingStored, Toast.LENGTH_LONG).show()
-                } else {
-                    shareRaw(context, csv, noRawReceiver)
-                }
-            }
-        }) { Text(stringResource(R.string.report_raw_button)) }
     }
 
     if (previewing && ready != null) {
@@ -532,13 +506,18 @@ private val ReportSplit.labelRes: Int
     }
 
 /**
- * Writes the raw CSV out and hands it to a chooser.
+ * Writes an export out and hands it to a chooser.
  *
- * Same cache directory and FileProvider path as a report, so nothing new is
- * exposed, and the file is as disposable as every other export.
+ * Shared by the Logbook and the Diary: same cache directory and FileProvider path
+ * as a report, so nothing new is exposed, and the file is as disposable as every
+ * other export. [kind] only names the file.
  */
-private fun shareRaw(context: Context, csv: String, onFailure: String) {
-    val file = ReportFiles.writeRaw(context, csv, RawExport.fileName(System.currentTimeMillis()))
+fun shareCsv(context: Context, csv: String, kind: String, onFailure: String) {
+    val file = ReportFiles.writeRaw(
+        context,
+        csv,
+        RawExport.fileName(System.currentTimeMillis(), kind),
+    )
     val intent = Intent.createChooser(
         ReportFiles.shareFile(context, file, RawExport.MIME_TYPE),
         file.name,

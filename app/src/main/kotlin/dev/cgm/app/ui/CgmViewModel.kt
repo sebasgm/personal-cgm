@@ -274,6 +274,12 @@ class CgmViewModel(
      */
     suspend fun rawExportCsv(): String = repository.rawExport()
 
+    /** The logbook as CSV, for the export on the Logbook screen. */
+    suspend fun readingsExportCsv(): String = repository.readingsExport()
+
+    /** Insulin and meals as CSV, for the export on the Diary screen. */
+    suspend fun treatmentsExportCsv(): String = repository.treatmentsExport()
+
     fun deleteCarbs(entry: CarbEntry) {
         viewModelScope.launch { repository.deleteCarbs(entry) }
     }

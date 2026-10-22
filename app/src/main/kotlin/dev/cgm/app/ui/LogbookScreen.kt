@@ -72,6 +72,16 @@ fun LogbookScreen(viewModel: CgmViewModel) {
     }
 
     LazyColumn(Modifier.fillMaxSize()) {
+        // Above the days rather than in a menu: this screen exists to show what the
+        // app actually received, and handing that over is the same job.
+        item(key = "export") {
+            CsvExportRow(
+                titleRes = R.string.log_export,
+                noteRes = R.string.log_export_note,
+                kind = "readings",
+                load = viewModel::readingsExportCsv,
+            )
+        }
         byDay.forEach { (day, dayReadings) ->
             item(key = "header-$day") {
                 DayHeader(day, dayReadings, thresholds)

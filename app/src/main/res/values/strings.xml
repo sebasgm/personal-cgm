@@ -314,7 +314,6 @@
     <string name="carb_photo_add">Agregar foto</string>
     <string name="carb_photo_change">Cambiar foto</string>
     <string name="carb_photo_remove">Quitar foto</string>
-    <string name="carb_photo_attached">Foto adjunta</string>
     <string name="carb_photo_note">Se guarda solo en este teléfono y se borra a los 90 días. La comida queda.</string>
     <string name="carb_photo_open">Foto de la comida</string>
     <string name="carb_photo_missing">La foto ya no está.</string>
@@ -343,10 +342,12 @@
     <string name="report_ranges">Cantidad de partes: %1$d</string>
     <string name="report_empty">Todavía no hay datos suficientes para este período. El historial se acumula desde que instalaste la app; no se puede recuperar lo anterior.</string>
     <string name="report_thin_ranges">Algunos tramos tienen poca cobertura. Sus cifras figuran igual, marcadas, porque ocultarlas sería peor que mostrarlas con la advertencia.</string>
-    <string name="report_raw">Exportar en bruto</string>
-    <string name="report_raw_note">Todo lo guardado en el teléfono, sin resumir: cada lectura, dosis y comida, con su marca de tiempo en UTC. El informe de arriba se arma con los resúmenes por hora, así que si muestra un hueco, este archivo es la única forma de saber si faltan las lecturas o solo el resumen.</string>
-    <string name="report_raw_button">CSV en bruto</string>
-    <string name="report_raw_empty">No hay nada guardado para exportar.</string>
+    <string name="log_export">Exportar registro</string>
+    <string name="log_export_note">Todas las lecturas guardadas, sin resumir, en CSV. La columna de tendencia dice UNKNOWN cuando el valor llegó del historial de 15 minutos del fabricante en vez de una consulta en vivo: así se ve cuáles llegaron después.</string>
+    <string name="log_export_button">CSV</string>
+    <string name="export_empty">No hay nada guardado para exportar.</string>
+    <string name="diary_export">Exportar diario</string>
+    <string name="diary_export_note">Insulina y comidas como las registraste, en CSV. Sin lecturas: unidades y gramos van en columnas separadas.</string>
     <string name="report_export">Exportar</string>
     <string name="report_pdf">PDF</string>
     <string name="report_mean">Media</string>

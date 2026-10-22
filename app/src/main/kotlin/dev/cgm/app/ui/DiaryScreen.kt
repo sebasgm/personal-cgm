@@ -363,6 +363,14 @@ fun DiaryScreen(viewModel: CgmViewModel) {
         ByDaySummary(doses, carbs, zone)
 
         Spacer(Modifier.height(16.dp))
+        CsvExportRow(
+            titleRes = R.string.diary_export,
+            noteRes = R.string.diary_export_note,
+            kind = "insulin",
+            load = viewModel::treatmentsExportCsv,
+        )
+
+        Spacer(Modifier.height(16.dp))
         Text(
             stringResource(R.string.diary_recent),
             style = MaterialTheme.typography.titleSmall,

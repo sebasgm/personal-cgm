@@ -314,7 +314,6 @@
     <string name="carb_photo_add">Add photo</string>
     <string name="carb_photo_change">Change photo</string>
     <string name="carb_photo_remove">Remove photo</string>
-    <string name="carb_photo_attached">Photo attached</string>
     <string name="carb_photo_note">Kept on this phone only, and deleted after 90 days. The meal itself stays.</string>
     <string name="carb_photo_open">Meal photo</string>
     <string name="carb_photo_missing">The photo is no longer there.</string>
@@ -343,10 +342,12 @@
     <string name="report_ranges">Number of parts: %1$d</string>
     <string name="report_empty">Not enough data for this period yet. History accumulates from the day you installed the app; nothing earlier can be recovered.</string>
     <string name="report_thin_ranges">Some ranges have thin coverage. Their figures are still shown, and marked, because hiding them would mislead more than showing them with the warning.</string>
-    <string name="report_raw">Raw export</string>
-    <string name="report_raw_note">Everything stored on the phone, unsummarised: every reading, dose and meal, timestamped in UTC. The report above is assembled from the hourly summaries, so when it shows a gap this file is the only way to tell whether the readings are missing or only the summary is.</string>
-    <string name="report_raw_button">Raw CSV</string>
-    <string name="report_raw_empty">There is nothing stored to export.</string>
+    <string name="log_export">Export logbook</string>
+    <string name="log_export_note">Every stored reading, unsummarised, as CSV. The trend column reads UNKNOWN when the value came from the vendor\'s 15-minute history rather than a live poll, which is how you see which ones arrived late.</string>
+    <string name="log_export_button">CSV</string>
+    <string name="export_empty">There is nothing stored to export.</string>
+    <string name="diary_export">Export diary</string>
+    <string name="diary_export_note">Insulin and meals as you recorded them, as CSV. No readings: units and grams stay in separate columns.</string>
     <string name="report_export">Export</string>
     <string name="report_pdf">PDF</string>
     <string name="report_mean">Mean</string>
