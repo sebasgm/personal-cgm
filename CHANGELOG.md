@@ -5,14 +5,60 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Nothing has been released yet. Everything built so far sits under Unreleased, and the first
-tagged version will be cut when the app is worth installing on a phone that is not the
-developer's — which, given this reads medical data, means after the disclaimer, the license
-decision and a pass over the security plan.
+**Every build gets a numbered heading here, released or not.** This file is what the What's New
+screen shows, so a heading that said only "Unreleased" left no way to tell which build a phone
+was actually running — which matters most for the builds that are sideloaded one at a time onto
+the developer's own phone. A version that has been tagged carries its date; one that has only
+been built carries `unreleased` in place of a date, and the number is still there.
 
-## [Unreleased]
+## [3.1.0] - 2026-10-22
+
+The first release since the phone and the watch were put into daily use together, which is where
+most of this came from: the freezes, the gaps and the wrong sensor arithmetic were all found by
+wearing it rather than by reading it.
 
 ### Added
+
+- **Meal photographs.** A picture can be attached to a meal, through the system photo picker,
+  which needs no permission at all — it hands back the one image you chose and never gives the
+  app the gallery. The image is downscaled to 1024px and stored as a file in the app's own
+  storage, with only its name in the database: a BLOB column would put hundreds of megabytes of
+  JPEG inside the same database that holds two years of readings, and every query and migration
+  would carry them. Thumbnail on the diary row, full size on tap. **Photographs expire after 90
+  days** against two years for the readings, because a reading from last year still feeds a
+  pattern while a photo of last year's lunch is bytes nobody will open — and when one expires the
+  meal itself is kept, with only the picture forgotten. Deleting a meal deletes its file, and a
+  sweep on startup collects anything orphaned by a crash between the two writes. Nothing in the
+  app reads these images, and nothing estimates carbohydrates from them.
+
+- **A raw export, beside the report.** Every reading, dose and meal as stored, in one CSV in time
+  order, timestamped in UTC with the epoch millis beside each stamp so a timezone argument cannot
+  silently move a reading to another hour. This exists because the report cannot answer the
+  question it most often raises: the report is assembled from the hourly rollups, so a gap in it
+  is a statement about the summaries, and only the readings table knows whether the readings are
+  there. The button is deliberately outside the report's own export row — the case it is for is
+  the one where the report came back empty.
+
+- **A per-day insulin summary in the diary.** The last fourteen days, most recent first, each with
+  total units and basal and bolus broken out, and the day's carbohydrates underneath as context —
+  beside, never added, because units and grams are not the same quantity. Days with nothing
+  recorded are absent rather than shown as zero: "nothing logged" and "no insulin taken" are
+  different claims and this is a diary.
+
+- **A sensor detail view.** Tapping the sensor figure on the home screen opens the serial number,
+  the activation time, the day of the session and the time left — hours and minutes inside the
+  final day, whole days before it. Before the last day the hours would be false precision: the end
+  is computed from a vendor timestamp and a nominal lifetime, so "3 days" is honest where
+  "71 h 12 min" pretends to an accuracy the inputs do not carry. Abbott's own product code is
+  shown when the account sends one, stored uninterpreted, so the 14-versus-15-day mapping can
+  eventually be learned from sensors this phone has actually worn instead of guessed.
+
+- **A glucose alarm can be announced on the car screen.** Android Auto has no surface an app can
+  keep a number on, so a firing alarm is repeated as a message — the one shape the car does
+  surface — and read aloud. Off by default, and that is not timidity: it speaks the reading to
+  whoever is in the car, not only to the driver. **This has never been seen to fire on a real car
+  screen.** It builds, installs and persists its setting; that is all that has been confirmed.
+
 
 - **A Wear OS complication.** The reading on any watch face with a slot for it — short text,
   ranged value or long text — rather than a watch face of our own, so it works on the faces
@@ -106,6 +152,21 @@ decision and a pass over the security plan.
 
 ### Changed
 
+- **A meal no longer needs a carbohydrate count.** The field is optional, because the common case
+  is honest ignorance: you ate, you know roughly when, and you did not weigh it. A required field
+  forces a number that is a guess and then lets every total downstream treat that guess as
+  measured. An uncounted meal contributes **nothing rather than zero** to a day's grams, and the
+  summary says how many of the day's meals carried no figure, so a total can never be read as
+  covering meals it does not. Nonsense typed into the field is still refused — an omission and a
+  typo are not the same thing.
+
+- **The sensor lifetime is asked rather than assumed.** Abbott ships 14-day and 15-day sensors
+  through the same account and the API does not reliably say which is which, so the lifetime is a
+  choice in the sensor view, applied immediately. The default stays 14: of the two ways to be
+  wrong, showing a good sensor as finished is recoverable by looking at it, and showing a dead
+  sensor's readings as current is not.
+
+
 - **The report leaves out ranges with no readings in them.** Nothing backfills, so asking for a
   year by day on a three-month-old install produced a page that was mostly dashes, with the part
   worth reading buried in it. They are dropped once in the builder rather than in each of the four
@@ -165,6 +226,44 @@ decision and a pass over the security plan.
   to the charts rather than as the summary they support.
 
 ### Fixed
+
+- **A 15-day sensor read "day 15/14" and expired a day early.** A single 14-day constant was
+  applied to every sensor, and `isExpired` was derived from it — so a Libre 2 Plus was greyed out
+  as finished while it was still working. The lifetime is now per sensor, and past the designed
+  end the strip says "expired" rather than printing a day number above the lifetime, which stated
+  a contradiction and buried the one fact that mattered.
+
+- **Re-scanning a sensor made it look like a new one.** LibreLinkUp moves the activation timestamp
+  to the moment of a scan, and the day count was computed from that timestamp alone, so a sensor
+  halfway through its life restarted at day one. The **serial number** is now the identity, kept in
+  its own table so it survives a restart, and the earliest activation ever seen for a serial wins.
+  A new sensor means a new serial and nothing else — and a first sighting is never reported as a
+  change, so reinstalling mid-sensor no longer claims one was just fitted.
+
+- **A high or low alarm froze the tray icon on the value it fired with.** The ongoing notification
+  carried `setGroupSummary`, and the alarm joined the same group as its only child. A group with a
+  summary and exactly one child is a suppressed group: the platform hid the summary — the only
+  notification a new reading updates — and showed the lone alarm, whose icon is rendered once at
+  fire time and never again. So the tray sat on the firing value for the life of the alert, and on
+  signal loss showed "?" and appeared to stop working altogether. Both comments in the code
+  asserted the opposite platform behaviour. Neither notification is grouped now. An alert costs a
+  second status-bar slot, which is the right trade: an extra icon is noise, a stale number is a
+  lie.
+
+- **A restarted phone could freeze the watch and the relay indefinitely.** Payload sequence numbers
+  restarted from zero after a process restart while the watch still held the old high-water mark,
+  so every new reading was rejected as stale — permanently, not until the next poll.
+
+- **The poller did not come back after the app was replaced.** Only a reboot restarted it, so every
+  sideloaded install left the service dead until the app was opened by hand. It now also starts on
+  `MY_PACKAGE_REPLACED`, which is confirmed on the device: back up and in the foreground about a
+  second after the install killed it.
+
+- **The status-bar bitmap was unbounded.** A pathological label could ask for an absurdly wide
+  icon, so the width is now clamped. This is **not** claimed as the cause of any tray trouble — the
+  clamped path has never been reached on a real device — and the complication now logs whether the
+  platform asked for an update, which is the part that was unobservable.
+
 
 - **The watchdog was killing the service it was meant to protect.** Its stall threshold was
   twelve minutes while the loop's longest legitimate sleep — the wait after a condition needing
