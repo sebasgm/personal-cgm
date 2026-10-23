@@ -3,6 +3,8 @@ package dev.cgm.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dev.cgm.core.ReportFormat
+import java.time.ZoneId
 import dev.cgm.core.SensorInfo
 import dev.cgm.core.InsulinReminder
 import dev.cgm.core.InsulinReminders
@@ -265,20 +267,16 @@ class CgmViewModel(
         }
     }
 
-    /**
-     * Everything stored, unsummarised, as CSV.
-     *
-     * Deliberately separate from the report: the report is built from the hourly
-     * rollups and so cannot distinguish a reading that is missing from one that was
-     * never summarised. This reads the readings table itself.
-     */
-    suspend fun rawExportCsv(): String = repository.rawExport()
-
     /** The logbook as CSV, for the export on the Logbook screen. */
     suspend fun readingsExportCsv(): String = repository.readingsExport()
 
-    /** Insulin and meals as CSV, for the export on the Diary screen. */
-    suspend fun treatmentsExportCsv(): String = repository.treatmentsExport()
+    /** The diary over a span, in [format], for the Diary screen's export. */
+    suspend fun treatmentsExport(
+        fromMillis: Long,
+        toMillis: Long,
+        zone: ZoneId,
+        format: ReportFormat,
+    ): String = repository.treatmentsExport(fromMillis, toMillis, zone, format)
 
     fun deleteCarbs(entry: CarbEntry) {
         viewModelScope.launch { repository.deleteCarbs(entry) }

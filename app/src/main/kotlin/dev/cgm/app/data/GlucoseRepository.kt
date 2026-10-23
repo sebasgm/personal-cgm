@@ -29,9 +29,11 @@ import dev.cgm.core.SensorInfo
 import dev.cgm.core.RawExport
 import dev.cgm.core.Report
 import dev.cgm.core.ReportBuilder
+import dev.cgm.core.ReportFormat
 import dev.cgm.core.ReportSpec
 import dev.cgm.core.SourceKind
 import dev.cgm.core.SourceResult
+import dev.cgm.core.TreatmentExport
 import dev.cgm.llu.LibreLinkUpCredentials
 import dev.cgm.llu.LibreLinkUpSource
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +47,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import okhttp3.OkHttpClient
 import java.io.File
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /**
@@ -232,17 +235,27 @@ class GlucoseRepository(
         generatedAtMillis = nowMillis,
     )
 
-    /** Insulin and meals, for the Diary screen's export. */
-    suspend fun treatmentsExport(nowMillis: Long = clock()): String = RawExport.treatments(
+    /**
+     * The diary over a span, in [format].
+     *
+     * The whole table is read and then filtered in memory rather than queried by
+     * range: a diary is tens of rows a week, the day totals need whole local days
+     * which do not line up with a UTC range, and two code paths for one answer is
+     * how a total and the entries under it come to disagree.
+     */
+    suspend fun treatmentsExport(
+        fromMillis: Long,
+        toMillis: Long,
+        zone: ZoneId,
+        format: ReportFormat,
+        nowMillis: Long = clock(),
+    ): String = TreatmentExport.export(
         doses = doseDao.all().map(DoseEntity::toDose),
         carbs = carbDao.all().map(CarbEntity::toEntry),
-        generatedAtMillis = nowMillis,
-    )
-
-    suspend fun rawExport(nowMillis: Long = clock()): String = RawExport.export(
-        readings = dao.since(0).map { it.toReading() },
-        doses = doseDao.all().map(DoseEntity::toDose),
-        carbs = carbDao.all().map(CarbEntity::toEntry),
+        fromMillis = fromMillis,
+        toMillis = toMillis,
+        zone = zone,
+        format = format,
         generatedAtMillis = nowMillis,
     )
 

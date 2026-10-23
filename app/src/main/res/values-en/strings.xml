@@ -348,6 +348,11 @@
     <string name="export_empty">There is nothing stored to export.</string>
     <string name="diary_export">Export diary</string>
     <string name="diary_export_note">Insulin and meals as you recorded them, as CSV. No readings: units and grams stay in separate columns.</string>
+    <string name="diary_export_from">From</string>
+    <string name="diary_export_to">To</string>
+    <string name="diary_export_pdf">PDF</string>
+    <string name="diary_export_range_note">The end day is included in full. Defaults to the last 14 days.</string>
+    <string name="diary_export_nothing">Nothing recorded in that range.</string>
     <string name="report_export">Export</string>
     <string name="report_pdf">PDF</string>
     <string name="report_mean">Mean</string>

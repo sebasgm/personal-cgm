@@ -11,6 +11,38 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.3] - unreleased
+
+### Added
+
+- **The diary export takes a date range, and comes in CSV, JSON or PDF.** The diary's natural unit
+  is a visit — "the last fortnight", "since the dose changed" — and an export fixed to everything
+  stored is the wrong document for every one of those. Two date buttons, fourteen days by default,
+  and the end day is included in full. Dragging the start past the end reorders the pair rather
+  than refusing it: that is an ordinary slip and an error message for it is friction the screen can
+  absorb.
+
+  All three formats carry the same things, as the report's exports do: the span, the zone it was
+  grouped in, day totals with basal and bolus apart, how many meals went uncounted, and the
+  disclaimer. The PDF goes through the system print pipeline by way of a visible page, the same
+  route the report uses — it paginates and embeds fonts properly, and it leaves one document to
+  keep correct instead of two that have to agree.
+
+  Days come out oldest first here, unlike the screen's own list: a diary read as a document is read
+  forwards, while newest-first exists so the phone shows today without scrolling.
+
+### Changed
+
+- **The print viewer is now shared rather than owned by the report.** It took a `Report` and
+  rendered that report's HTML, so the diary could not reach the print pipeline at all without a
+  second copy of the WebView, the print-framework lookup and its failure reporting. It now takes a
+  file.
+
+- **Removed the combined raw export.** It wrote readings, insulin and meals into one table with a
+  `section` column, which meant one header trying to fit two shapes — and the narrow and wide row
+  builders being mixed under it had already shifted a column once. Each screen now has the document
+  for its own subject, and nothing is reachable by two code paths that could drift.
+
 ## [3.1.2] - unreleased
 
 ### Added

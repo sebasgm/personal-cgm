@@ -6,11 +6,12 @@ import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * The raw export, which exists to be diffed against a report that claims a gap.
+ * The logbook export, which exists to be diffed against a report that claims a gap.
  *
- * Its whole value is being unprocessed, so the things worth testing are that it
- * omits nothing, keeps one time order across all three kinds of row, and never
- * turns an absent figure into a zero.
+ * Its whole value is being unprocessed, so what is worth testing is that it omits
+ * nothing, keeps one time order, and states when each reading arrived — the last of
+ * which is the only thing that distinguishes a poller that was asleep from one that
+ * was awake and being handed nothing new.
  */
 class RawExportTest {
 
@@ -29,99 +30,20 @@ class RawExportTest {
             .toList()
 
     @Test
-    fun `every row is present and in one time order`() {
-        val csv = RawExport.export(
-            readings = listOf(reading(now, 100.0), reading(now + 2 * minute, 104.0)),
-            doses = listOf(
-                InsulinDose(kind = InsulinKind.BOLUS, units = 4.0, givenAtMillis = now + minute)
-            ),
-            carbs = listOf(CarbEntry(grams = 30.0, eatenAtMillis = now + 3 * minute)),
+    fun `every reading is present and in time order`() {
+        val csv = RawExport.readings(
+            readings = listOf(reading(now + 2 * minute, 104.0), reading(now, 100.0)),
             generatedAtMillis = now,
         )
 
-        val sections = rows(csv).map { it.substringBefore(",") }
-        assertEquals(listOf("reading", "dose", "reading", "meal"), sections)
+        assertEquals(listOf("100", "104"), rows(csv).map { it.split(",")[3] })
+        assertContains(csv, "# readings,2")
     }
 
     @Test
-    fun `the header counts what the file contains`() {
-        val csv = RawExport.export(
-            readings = listOf(reading(now, 100.0)),
-            doses = emptyList(),
-            carbs = listOf(CarbEntry(grams = null, eatenAtMillis = now)),
-            generatedAtMillis = now,
-        )
-
-        assertContains(csv, "# readings,1")
-        assertContains(csv, "# doses,0")
-        assertContains(csv, "# meals,1")
-    }
-
-    @Test
-    fun `an uncounted meal exports an empty figure, never a zero`() {
-        val csv = RawExport.export(
-            readings = emptyList(),
-            doses = emptyList(),
-            carbs = listOf(CarbEntry(grams = null, eatenAtMillis = now)),
-            generatedAtMillis = now,
-        )
-
-        val meal = rows(csv).single()
-        // grams is the 8th column; empty means "not counted", 0 would be a claim.
-        assertEquals("", meal.split(",")[7])
-    }
-
-    @Test
-    fun `a photo is reported as a flag, not a path`() {
-        val csv = RawExport.export(
-            readings = emptyList(),
-            doses = emptyList(),
-            carbs = listOf(
-                CarbEntry(grams = 20.0, eatenAtMillis = now, photoName = "abc.jpg"),
-                CarbEntry(grams = 20.0, eatenAtMillis = now + minute),
-            ),
-            generatedAtMillis = now,
-        )
-
-        val cells = rows(csv).map { it.split(",")[8] }
-        assertEquals(listOf("1", "0"), cells)
-        assertTrue("abc.jpg" !in csv, "a private file name is not export material")
-    }
-
-    @Test
-    fun `a note with a comma and a quote survives the round trip`() {
-        val csv = RawExport.export(
-            readings = emptyList(),
-            doses = emptyList(),
-            carbs = listOf(
-                CarbEntry(grams = 20.0, eatenAtMillis = now, note = """rice, the "good" kind""")
-            ),
-            generatedAtMillis = now,
-        )
-
-        assertContains(csv, """"rice, the ""good"" kind"""")
-    }
-
-    @Test
-    fun `each row carries both a readable stamp and its epoch millis`() {
-        val csv = RawExport.export(
-            readings = listOf(reading(now, 100.0)),
-            doses = emptyList(),
-            carbs = emptyList(),
-            generatedAtMillis = now,
-        )
-
-        val cells = rows(csv).single().split(",")
-        assertEquals(now.toString(), cells[2], "the number is the one to compute with")
-        assertTrue(cells[1].startsWith("20"), "and a UTC stamp beside it for reading")
-    }
-
-    @Test
-    fun `the span is stated so a truncated file is obvious`() {
-        val csv = RawExport.export(
+    fun `the header states the span so a truncated file is obvious`() {
+        val csv = RawExport.readings(
             readings = listOf(reading(now, 100.0), reading(now + 60 * minute, 110.0)),
-            doses = emptyList(),
-            carbs = emptyList(),
             generatedAtMillis = now,
         )
 
@@ -130,8 +52,26 @@ class RawExportTest {
     }
 
     @Test
+    fun `each row carries both a readable stamp and its epoch millis`() {
+        val cells = rows(
+            RawExport.readings(listOf(reading(now, 100.0)), now)
+        ).single().split(",")
+
+        assertEquals(now.toString(), cells[2], "the number is the one to compute with")
+        assertTrue(cells[1].startsWith("20"), "and a UTC stamp beside it for reading")
+    }
+
+    @Test
+    fun `insulin and meals are not this document's subject`() {
+        val csv = RawExport.readings(listOf(reading(now, 100.0)), now)
+
+        val header = csv.lineSequence().first { it.startsWith("section,") }
+        assertTrue("units" !in header && "grams" !in header, "header: $header")
+    }
+
+    @Test
     fun `an empty database still exports a usable file`() {
-        val csv = RawExport.export(emptyList(), emptyList(), emptyList(), now)
+        val csv = RawExport.readings(emptyList(), now)
 
         assertContains(csv, "# readings,0")
         assertContains(csv, "section,timestamp_utc")
@@ -140,84 +80,14 @@ class RawExportTest {
 
     @Test
     fun `the file name is stamped and carries the csv extension`() {
-        assertTrue(RawExport.fileName(now).startsWith("cgm-raw-"))
-        assertTrue(RawExport.fileName(now).endsWith(".csv"))
-    }
-
-    // -- the per-screen exports -------------------------------------------
-
-    @Test
-    fun `the logbook export carries only readings`() {
-        val csv = RawExport.readings(
-            readings = listOf(reading(now, 100.0), reading(now + minute, 101.0)),
-            generatedAtMillis = now,
-        )
-
-        assertContains(csv, "# readings,2")
-        assertTrue("dose" !in csv && "meal" !in csv)
-        val header = csv.lineSequence().first { it.startsWith("section,") }
-        assertTrue("value_mgdl" in header && "trend" in header)
-        assertTrue("units" !in header && "grams" !in header, "header: $header")
-    }
-
-    @Test
-    fun `a backfilled reading is distinguishable by its trend`() {
-        // UNKNOWN is how a value that arrived from the 15-minute history is told
-        // apart from one polled live, which is the whole point of the column.
-        val csv = RawExport.readings(
-            readings = listOf(
-                GlucoseReading(valueMgdl = 90.0, timestampMillis = now, trend = TrendArrow.UNKNOWN),
-                reading(now + minute, 91.0),
-            ),
-            generatedAtMillis = now,
-        )
-
-        val trends = rows(csv).map { it.split(",")[4] }
-        assertEquals(listOf("UNKNOWN", "STEADY"), trends)
-    }
-
-    @Test
-    fun `the diary export carries only treatments, in one time order`() {
-        val csv = RawExport.treatments(
-            doses = listOf(
-                InsulinDose(kind = InsulinKind.BASAL, units = 12.0, givenAtMillis = now + minute)
-            ),
-            carbs = listOf(CarbEntry(grams = 40.0, eatenAtMillis = now)),
-            generatedAtMillis = now,
-        )
-
-        assertContains(csv, "# doses,1")
-        assertContains(csv, "# meals,1")
-        assertEquals(listOf("meal", "dose"), rows(csv).map { it.substringBefore(",") })
-        assertTrue("value_mgdl" !in csv, "readings are not this file's subject")
-    }
-
-    @Test
-    fun `every treatment row has as many cells as the header`() {
-        // The two files have different shapes, and reusing the wide row builders
-        // under the narrow header is exactly how a column silently shifts.
-        val csv = RawExport.treatments(
-            doses = listOf(
-                InsulinDose(kind = InsulinKind.BOLUS, units = 4.0, givenAtMillis = now)
-            ),
-            carbs = listOf(CarbEntry(grams = null, eatenAtMillis = now + minute)),
-            generatedAtMillis = now,
-        )
-
-        val columns = csv.lineSequence().first { it.startsWith("section,") }.split(",").size
-        rows(csv).forEach { assertEquals(columns, it.split(",").size, "row: $it") }
-    }
-
-    @Test
-    fun `the file name says which export it is`() {
         assertTrue(RawExport.fileName(now, "readings").startsWith("cgm-readings-"))
-        assertTrue(RawExport.fileName(now, "insulin").startsWith("cgm-insulin-"))
+        assertTrue(RawExport.fileName(now).endsWith(".csv"))
     }
 
     // -- arrival time ------------------------------------------------------
 
     @Test
-    fun `the logbook export states when each reading arrived and how late`() {
+    fun `the export states when each reading arrived and how late`() {
         val csv = RawExport.readings(
             readings = listOf(
                 // Polled live: measured and received in the same minute.
@@ -238,33 +108,31 @@ class RawExportTest {
             generatedAtMillis = now,
         )
 
-        val lags = rows(csv).map { it.split(",")[6] }
-        assertEquals(listOf("1", "40"), lags)
+        assertEquals(listOf("1", "40"), rows(csv).map { it.split(",")[6] })
     }
 
     @Test
     fun `a reading with no recorded arrival exports empty, not zero`() {
         // Rows written before the column existed know nothing about their arrival,
         // and a 0 there would read as having arrived at the moment of measurement.
-        val csv = RawExport.readings(
-            readings = listOf(reading(now, 100.0)),
-            generatedAtMillis = now,
-        )
+        val cells = rows(
+            RawExport.readings(listOf(reading(now, 100.0)), now)
+        ).single().split(",")
 
-        val cells = rows(csv).single().split(",")
         assertEquals("", cells[5])
         assertEquals("", cells[6])
     }
 
     @Test
     fun `arrival lag is never negative`() {
-        // A clock correction can place arrival before measurement; that is a
-        // broken clock, not a reading received before it was taken.
+        // A clock correction can place arrival before measurement; that is a broken
+        // clock, not a reading received before it was taken.
         val r = GlucoseReading(
             valueMgdl = 90.0,
             timestampMillis = now,
             storedAtMillis = now - 10 * minute,
         )
+
         assertEquals(0L, r.arrivalLagMillis())
     }
 
@@ -275,6 +143,7 @@ class RawExportTest {
             GlucoseReading.serializer(),
             GlucoseReading(valueMgdl = 90.0, timestampMillis = now, storedAtMillis = now),
         )
+
         assertTrue("storedAt" !in json, "payload: $json")
     }
 }
