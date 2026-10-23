@@ -611,7 +611,11 @@ class GlucoseRepository(
         // The current reading is not always present in graphData, so add it
         // explicitly. REPLACE on the timestamp key makes the overlap harmless.
         val readings = result.history + result.snapshot.reading
-        dao.insertAll(readings.map(ReadingEntity::from))
+        // Stamped once, here, with the moment of this fetch. The insert ignores
+        // rows that already exist, so a reading keeps the arrival time of the poll
+        // that first saw it rather than being restamped by every later window.
+        val arrivedAt = clock()
+        dao.insertAll(readings.map { ReadingEntity.from(it, arrivedAt) })
         dao.deleteBefore(clock() - HISTORY_RETENTION_MILLIS)
 
         // Refresh the summaries for the hours these readings touched. The writer

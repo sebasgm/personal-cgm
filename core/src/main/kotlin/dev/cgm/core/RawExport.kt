@@ -54,7 +54,10 @@ object RawExport {
         readings.maxOfOrNull { it.timestampMillis }
             ?.let { appendLine("# last_reading,${stamp(it)}") }
         appendLine()
-        appendLine("section,timestamp_utc,epoch_millis,value_mgdl,trend")
+        appendLine(
+            "section,timestamp_utc,epoch_millis,value_mgdl,trend," +
+                "stored_at_utc,arrival_lag_min"
+        )
         readings.sortedBy { it.timestampMillis }.forEach {
             appendLine(
                 listOf(
@@ -63,6 +66,11 @@ object RawExport {
                     it.timestampMillis.toString(),
                     number(it.valueMgdl),
                     it.trend.name,
+                    it.storedAtMillis?.let(::stamp) ?: "",
+                    // Minutes, because that is the scale the question is asked at:
+                    // a lag of 1 means it was polled live, a lag of 40 means it
+                    // was swept up long afterwards.
+                    it.arrivalLagMillis()?.let { lag -> (lag / 60_000).toString() } ?: "",
                 ).joinToString(",")
             )
         }

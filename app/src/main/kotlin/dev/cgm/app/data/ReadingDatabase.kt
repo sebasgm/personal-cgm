@@ -41,6 +41,17 @@ data class ReadingEntity(
     val trend: String,
     val isHigh: Boolean,
     val isLow: Boolean,
+    /**
+     * When this phone first saw the reading, against [timestampMillis] which is
+     * when the sensor measured it. Null for rows written before the column existed.
+     *
+     * The difference between the two is the only way to tell, after the fact, that
+     * a value arrived late — and therefore the only way to tell a poller that was
+     * asleep from one that was awake and being handed nothing new. Without it both
+     * look identical in this table, because a poll that re-reads an unchanged
+     * current value writes no row at all.
+     */
+    val storedAtMillis: Long? = null,
 ) {
     fun toReading() = GlucoseReading(
         valueMgdl = valueMgdl,
@@ -48,15 +59,17 @@ data class ReadingEntity(
         trend = runCatching { TrendArrow.valueOf(trend) }.getOrDefault(TrendArrow.UNKNOWN),
         isHigh = isHigh,
         isLow = isLow,
+        storedAtMillis = storedAtMillis,
     )
 
     companion object {
-        fun from(reading: GlucoseReading) = ReadingEntity(
+        fun from(reading: GlucoseReading, storedAtMillis: Long? = null) = ReadingEntity(
             timestampMillis = reading.timestampMillis,
             valueMgdl = reading.valueMgdl,
             trend = reading.trend.name,
             isHigh = reading.isHigh,
             isLow = reading.isLow,
+            storedAtMillis = storedAtMillis ?: reading.storedAtMillis,
         )
     }
 }
@@ -106,7 +119,23 @@ interface ReadingDao {
         veryHigh: Double,
     ): ReadingAggregate
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * First write wins, deliberately.
+     *
+     * Was REPLACE, for idempotence over the overlapping windows polling fetches
+     * constantly. IGNORE is just as idempotent and does not destroy two things the
+     * first write knew: the trend arrow, and when the reading was first seen.
+     *
+     * The arrow mattered more than it looked. A measurement polled live carries
+     * one; the same measurement re-served later inside the 15-minute history
+     * carries none, because graph points have no arrow. Under REPLACE the later,
+     * poorer copy overwrote the better one — so a reading captured live was being
+     * downgraded to UNKNOWN by its own backfill.
+     *
+     * A reading is immutable anyway: the value the sensor recorded for a given
+     * instant does not change, so there is nothing a second write should update.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(readings: List<ReadingEntity>)
 
     @Query("SELECT * FROM readings WHERE timestampMillis >= :sinceMillis ORDER BY timestampMillis ASC")
@@ -358,7 +387,7 @@ interface SensorDao {
         HourlyRollupEntity::class,
         SensorEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class ReadingDatabase : RoomDatabase() {
@@ -540,6 +569,19 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Records when a reading was first seen, beside when it was measured.
+         *
+         * Nullable rather than defaulted to zero: rows already stored have an
+         * unknown first-seen time, and 0 would claim they arrived in 1970. Code
+         * reading it has to treat null as "not known", which is the truth.
+         */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `readings` ADD COLUMN `storedAtMillis` INTEGER")
+            }
+        }
+
         fun create(context: Context): ReadingDatabase =
             Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db")
                 .addMigrations(
@@ -550,6 +592,7 @@ abstract class ReadingDatabase : RoomDatabase() {
                     MIGRATION_5_6,
                     MIGRATION_6_7,
                     MIGRATION_7_8,
+                    MIGRATION_8_9,
                 )
                 .build()
     }

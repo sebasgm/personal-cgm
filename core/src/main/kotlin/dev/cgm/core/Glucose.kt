@@ -86,7 +86,24 @@ data class GlucoseReading(
     @SerialName("a") val trend: TrendArrow = TrendArrow.UNKNOWN,
     @SerialName("h") val isHigh: Boolean = false,
     @SerialName("l") val isLow: Boolean = false,
+    /**
+     * When this phone first saw the reading, or null if not known.
+     *
+     * Not part of the measurement, and deliberately excluded from the payload sent
+     * to the watch: it is a fact about this phone's fetching, not about the
+     * glucose, and the watch has no use for it.
+     *
+     * Its purpose is diagnostic. [timestampMillis] says when the sensor measured;
+     * this says when we received it, and the lag between them is the only
+     * after-the-fact evidence that a value arrived late rather than on time —
+     * which is what distinguishes a poller that was asleep from one that was awake
+     * and being handed nothing new.
+     */
+    @kotlinx.serialization.Transient val storedAtMillis: Long? = null,
 ) : Comparable<GlucoseReading> {
+
+    /** How long after the measurement this phone received it, if that is known. */
+    fun arrivalLagMillis(): Long? = storedAtMillis?.minus(timestampMillis)?.coerceAtLeast(0)
 
     /**
      * How old this reading is, never negative.

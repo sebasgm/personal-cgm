@@ -11,6 +11,33 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.2] - unreleased
+
+### Added
+
+- **Readings now record when they arrived, not only when they were measured.** The logbook export
+  carries both, plus the lag in minutes. This exists because the readings table could not
+  distinguish the two explanations for a gap: a poller that was asleep, and a poller that was
+  awake and being handed nothing new. Both write no rows — a poll that re-reads an unchanged
+  current value stores nothing — so after the fact they looked identical. A lag of one minute means
+  the value was polled live; a lag of forty means it was swept up long afterwards, which is what a
+  gap being backfilled looks like. The column is excluded from the payload sent to the watch: it is
+  a fact about this phone's fetching, not about the glucose.
+
+### Fixed
+
+- **Backfill was overwriting the trend arrows of readings already captured live.** Readings were
+  inserted with `REPLACE`, for idempotence over the overlapping windows polling fetches
+  constantly. But a measurement polled live carries a trend arrow, and the same measurement
+  re-served inside the vendor's 15-minute history carries none — graph points have no arrow — so
+  the later, poorer copy replaced the better one and a live reading was downgraded to `UNKNOWN` by
+  its own backfill. Inserts now ignore a timestamp already present, which is just as idempotent: a
+  reading is immutable, so there was never anything for a second write to update.
+
+  This also corrected a diagnosis. `UNKNOWN` had looked like a reliable marker of a value that
+  arrived late, and it is not — some of those rows were captured live and then clobbered. The
+  arrival time above is the marker that actually holds.
+
 ## [3.1.1] - unreleased
 
 ### Changed

@@ -155,8 +155,9 @@ class RawExportTest {
 
         assertContains(csv, "# readings,2")
         assertTrue("dose" !in csv && "meal" !in csv)
-        assertEquals("section,timestamp_utc,epoch_millis,value_mgdl,trend", csv.lineSequence()
-            .first { it.startsWith("section,") })
+        val header = csv.lineSequence().first { it.startsWith("section,") }
+        assertTrue("value_mgdl" in header && "trend" in header)
+        assertTrue("units" !in header && "grams" !in header, "header: $header")
     }
 
     @Test
@@ -211,5 +212,69 @@ class RawExportTest {
     fun `the file name says which export it is`() {
         assertTrue(RawExport.fileName(now, "readings").startsWith("cgm-readings-"))
         assertTrue(RawExport.fileName(now, "insulin").startsWith("cgm-insulin-"))
+    }
+
+    // -- arrival time ------------------------------------------------------
+
+    @Test
+    fun `the logbook export states when each reading arrived and how late`() {
+        val csv = RawExport.readings(
+            readings = listOf(
+                // Polled live: measured and received in the same minute.
+                GlucoseReading(
+                    valueMgdl = 90.0,
+                    timestampMillis = now,
+                    trend = TrendArrow.STEADY,
+                    storedAtMillis = now + minute,
+                ),
+                // Swept up forty minutes later, which is what a filled gap looks like.
+                GlucoseReading(
+                    valueMgdl = 95.0,
+                    timestampMillis = now + 5 * minute,
+                    trend = TrendArrow.UNKNOWN,
+                    storedAtMillis = now + 45 * minute,
+                ),
+            ),
+            generatedAtMillis = now,
+        )
+
+        val lags = rows(csv).map { it.split(",")[6] }
+        assertEquals(listOf("1", "40"), lags)
+    }
+
+    @Test
+    fun `a reading with no recorded arrival exports empty, not zero`() {
+        // Rows written before the column existed know nothing about their arrival,
+        // and a 0 there would read as having arrived at the moment of measurement.
+        val csv = RawExport.readings(
+            readings = listOf(reading(now, 100.0)),
+            generatedAtMillis = now,
+        )
+
+        val cells = rows(csv).single().split(",")
+        assertEquals("", cells[5])
+        assertEquals("", cells[6])
+    }
+
+    @Test
+    fun `arrival lag is never negative`() {
+        // A clock correction can place arrival before measurement; that is a
+        // broken clock, not a reading received before it was taken.
+        val r = GlucoseReading(
+            valueMgdl = 90.0,
+            timestampMillis = now,
+            storedAtMillis = now - 10 * minute,
+        )
+        assertEquals(0L, r.arrivalLagMillis())
+    }
+
+    @Test
+    fun `arrival time is not sent to the watch`() {
+        // It is a fact about this phone's fetching, not about the glucose.
+        val json = kotlinx.serialization.json.Json.encodeToString(
+            GlucoseReading.serializer(),
+            GlucoseReading(valueMgdl = 90.0, timestampMillis = now, storedAtMillis = now),
+        )
+        assertTrue("storedAt" !in json, "payload: $json")
     }
 }

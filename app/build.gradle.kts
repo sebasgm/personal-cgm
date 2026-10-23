@@ -54,8 +54,8 @@ android {
         applicationId = "dev.cgm.app"
         minSdk = 29
         targetSdk = 37
-        versionCode = 3101
-        versionName = "3.1.1"
+        versionCode = 3102
+        versionName = "3.1.2"
     }
 
     buildTypes {
