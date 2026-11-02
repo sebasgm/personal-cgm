@@ -202,6 +202,10 @@
     <string name="dose_will_record_at">Se registrará el %1$s</string>
     <string name="dose_invalid">Ingresá una dosis entre 0,5 y %1$s U</string>
     <string name="dose_time_set">Aceptar</string>
+    <string name="dose_glucose_now">Se guardará con tu glucosa de ahora: %1$s %2$s</string>
+    <string name="dose_glucose_then">Se guardará con tu glucosa de ese momento: %1$s %2$s</string>
+    <string name="dose_glucose_none">No hay una lectura cerca de esa hora. Se guarda sin glucosa.</string>
+    <string name="dose_row_glucose">%1$s · %2$s %3$s</string>
     <string name="common_cancel">Cancelar</string>
     <string name="confirm_stop_title">¿Detener el servicio?</string>
     <string name="confirm_stop_body">Mientras esté detenido no se guardará ninguna lectura, y ese hueco no se puede recuperar después: LibreLinkUp solo entrega unas doce horas de historial con puntos cada quince minutos. Las alarmas tampoco sonarán.</string>
@@ -347,7 +351,7 @@
     <string name="log_export_button">CSV</string>
     <string name="export_empty">No hay nada guardado para exportar.</string>
     <string name="diary_export">Exportar diario</string>
-    <string name="diary_export_note">Insulina y comidas como las registraste, en CSV. Sin lecturas: unidades y gramos van en columnas separadas.</string>
+    <string name="diary_export_note">Insulina y comidas como las registraste, en CSV. Cada dosis lleva la glucosa que tenías al aplicarla; unidades y gramos van en columnas separadas.</string>
     <string name="diary_export_from">Desde</string>
     <string name="diary_export_to">Hasta</string>
     <string name="diary_export_pdf">PDF</string>

@@ -205,8 +205,22 @@ class CgmViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
+     * The glucose that will be stored with a dose given at [atMillis], or null when
+     * no reading sits close enough to it.
+     *
+     * Exists so the form can say what it is about to record. It asks the repository
+     * the same question the save does, so what is shown and what is stored cannot
+     * drift apart.
+     */
+    suspend fun glucoseNear(atMillis: Long): Double? = repository.glucoseNear(atMillis)
+
+    /**
      * Records a dose. [onResult] reports whether it was accepted, so the form can
      * keep what was typed if it was not.
+     *
+     * The glucose at the time is not a parameter: the repository attaches it from
+     * the readings it already holds, so a dose entered from anywhere gets one and
+     * no caller has to remember to look it up.
      */
     fun logDose(
         kind: InsulinKind,

@@ -164,15 +164,42 @@ class GlucoseRepository(
         doseDao.observeBetween(startMillis, endMillis).map { rows -> rows.map(DoseEntity::toDose) }
 
     /**
+     * The glucose to record beside a dose given at [atMillis], or null.
+     *
+     * A bounded window out of the readings table and the nearest one inside it,
+     * rather than `ORDER BY ABS(...)` in SQL: the window is minutes wide, so the
+     * query is a short range scan on the primary key and the choosing is left to
+     * the one rule in :core that both this and the form's preview go through.
+     *
+     * Public because the form shows what it is about to save. Asking the same
+     * question the same way means the value on screen is the value stored, not an
+     * estimate of it.
+     */
+    suspend fun glucoseNear(atMillis: Long): Double? {
+        val window = InsulinDose.GLUCOSE_MATCH_WINDOW_MILLIS
+        val near = dao.betweenInclusive(atMillis - window, atMillis + window)
+        return InsulinDose.glucoseNear(near.map(ReadingEntity::toReading), atMillis)
+    }
+
+    /**
      * Stores a dose, or refuses it.
      *
      * Returns false rather than throwing on an implausible dose: this is called from a
      * form, and a form wants to keep what the user typed and say why, not lose it to
      * an exception.
+     *
+     * The glucose at the time is attached here rather than on the form, so that
+     * every path into the diary records it and none can forget to. Only when the
+     * dose arrives without one: a dose that already carries a glucose is being
+     * re-saved, and re-resolving it would let an edit a week later overwrite what
+     * was true at the injection with whatever the readings say now.
      */
     suspend fun saveDose(dose: InsulinDose): Boolean {
         if (!dose.isPlausible) return false
-        doseDao.upsert(DoseEntity.from(dose))
+        val stored =
+            if (dose.glucoseMgdl != null) dose
+            else dose.copy(glucoseMgdl = glucoseNear(dose.givenAtMillis))
+        doseDao.upsert(DoseEntity.from(stored))
         return true
     }
 

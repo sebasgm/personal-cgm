@@ -132,11 +132,20 @@ object TreatmentExport {
         }
         appendLine()
 
-        appendLine("section,date,local_time,epoch_millis,insulin_kind,units,grams,has_photo,note")
+        // The glucose column is in mg/dL, as every stored reading is, rather than in
+        // whatever unit the phone happens to display. A file is read by other
+        // software and months later, and a column whose unit depended on a setting
+        // at the moment of export could not be trusted — so the name says which.
+        appendLine("section,date,local_time,epoch_millis,insulin_kind,units,grams,has_photo," +
+            "glucose_mgdl,note")
         val rows = span.doses.map { d ->
             d.givenAtMillis to listOf(
                 "dose", DAY.format(span.localDate(d.givenAtMillis)), span.time(d.givenAtMillis),
-                d.givenAtMillis.toString(), d.kind.name, number(d.units), "", "", quote(d.note),
+                d.givenAtMillis.toString(), d.kind.name, number(d.units), "", "",
+                // Empty where no reading was near the dose, for the same reason an
+                // uncounted meal's grams are empty: nothing was recorded.
+                d.glucoseMgdl?.let(::number) ?: "",
+                quote(d.note),
             ).joinToString(",")
         } + span.carbs.map { c ->
             c.eatenAtMillis to listOf(
@@ -144,7 +153,7 @@ object TreatmentExport {
                 c.eatenAtMillis.toString(), "", "",
                 // Empty, not zero: an uncounted meal recorded no number.
                 c.grams?.let(::number) ?: "",
-                if (c.photoName != null) "1" else "0", quote(c.note),
+                if (c.photoName != null) "1" else "0", "", quote(c.note),
             ).joinToString(",")
         }
         rows.sortedBy { it.first }.forEach { appendLine(it.second) }
@@ -194,6 +203,10 @@ object TreatmentExport {
                     """"epochMillis": ${d.givenAtMillis}, """ +
                     """"kind": ${jsonString(d.kind.name)}, """ +
                     """"units": ${number(d.units)}, """ +
+                    // null, never 0: a dose given with no reading nearby has no
+                    // glucose, and 0 mg/dL would read as a figure rather than as
+                    // the absence of one.
+                    """"glucoseMgdl": ${d.glucoseMgdl?.let(::number) ?: "null"}, """ +
                     """"note": ${d.note?.let(::jsonString) ?: "null"}}""" +
                     if (i == span.doses.lastIndex) "" else ","
             )
@@ -303,8 +316,13 @@ object TreatmentExport {
             appendLine("<p class=\"muted\">Nothing recorded in this span.</p>")
         } else {
             appendLine("<table><thead><tr><th>Date</th><th>Time</th><th>What</th>")
-            appendLine("<th class=\"n\">Amount</th><th>Note</th></tr></thead><tbody>")
+            appendLine("<th class=\"n\">Amount</th><th class=\"n\">Glucose mg/dL</th>")
+            appendLine("<th>Note</th></tr></thead><tbody>")
             entries.sortedBy { it.first }.forEach { (at, entry) ->
+                // The glucose column is a dose's. A meal's own glucose is not
+                // recorded, and borrowing the nearest reading for it here would
+                // invent a figure in a document someone reads as a record.
+                val glucose = (entry as? InsulinDose)?.glucoseMgdl?.let(::number) ?: ""
                 val (what, amount, note) = when (entry) {
                     is InsulinDose -> Triple(
                         if (entry.kind == InsulinKind.BASAL) "Basal" else "Bolus",
@@ -322,6 +340,7 @@ object TreatmentExport {
                     "<tr><td>${DAY.format(span.localDate(at))}</td>" +
                         "<td>${span.time(at)}</td><td>${escape(what)}</td>" +
                         "<td class=\"n\">${escape(amount)}</td>" +
+                        "<td class=\"n\">${escape(glucose)}</td>" +
                         "<td>${escape(note ?: "")}</td></tr>"
                 )
             }

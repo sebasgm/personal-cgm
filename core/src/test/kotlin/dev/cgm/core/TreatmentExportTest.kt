@@ -25,8 +25,20 @@ class TreatmentExportTest {
         ZonedDateTime.of(LocalDate.parse(date).atTime(hour, minute), zone)
             .toInstant().toEpochMilli()
 
-    private fun dose(date: String, hour: Int, units: Double, kind: InsulinKind, note: String? = null) =
-        InsulinDose(kind = kind, units = units, givenAtMillis = at(date, hour), note = note)
+    private fun dose(
+        date: String,
+        hour: Int,
+        units: Double,
+        kind: InsulinKind,
+        note: String? = null,
+        glucoseMgdl: Double? = null,
+    ) = InsulinDose(
+        kind = kind,
+        units = units,
+        givenAtMillis = at(date, hour),
+        note = note,
+        glucoseMgdl = glucoseMgdl,
+    )
 
     private fun meal(date: String, hour: Int, grams: Double?, photo: String? = null) =
         CarbEntry(grams = grams, eatenAtMillis = at(date, hour), photoName = photo)
@@ -181,6 +193,79 @@ class TreatmentExportTest {
         )
         assertContains(json, """"hasPhoto": true""")
         assertFalse("secret.jpg" in json)
+    }
+
+    // -- the glucose a dose was given at ----------------------------------
+
+    @Test
+    fun `csv carries the dose's glucose in its own mg per dL column`() {
+        val csv = export(
+            doses = listOf(dose("2026-10-21", 13, 6.0, InsulinKind.BOLUS, glucoseMgdl = 184.0))
+        )
+        val header = csv.lineSequence().first { it.startsWith("section,date,local_time") }
+        val doseRow = csv.lineSequence().first { it.startsWith("dose,") }
+        assertEquals("184", doseRow.split(",")[header.split(",").indexOf("glucose_mgdl")])
+    }
+
+    /**
+     * Empty, never zero. A dose given with no reading nearby recorded no glucose,
+     * and 0 mg/dL in that column is a figure a reader would act on.
+     */
+    @Test
+    fun `csv leaves the glucose empty when none was recorded`() {
+        val csv = export(doses = listOf(dose("2026-10-21", 13, 6.0, InsulinKind.BOLUS)))
+        val header = csv.lineSequence().first { it.startsWith("section,date,local_time") }
+        val doseRow = csv.lineSequence().first { it.startsWith("dose,") }
+        assertEquals("", doseRow.split(",")[header.split(",").indexOf("glucose_mgdl")])
+    }
+
+    /**
+     * The note is the last column and the only quoted one. A glucose inserted in
+     * the wrong place would push a comma-bearing note out of its quotes and
+     * silently shift every field after it.
+     */
+    @Test
+    fun `the note stays the last csv column with a glucose beside it`() {
+        val csv = export(
+            doses = listOf(
+                dose(
+                    "2026-10-21", 13, 6.0, InsulinKind.BOLUS,
+                    note = "pizza, half a one", glucoseMgdl = 184.0,
+                )
+            )
+        )
+        assertContains(csv, ",184,\"pizza, half a one\"")
+    }
+
+    @Test
+    fun `json uses null for a dose with no glucose, never zero`() {
+        val json = export(
+            doses = listOf(dose("2026-10-21", 13, 6.0, InsulinKind.BOLUS)),
+            format = ReportFormat.JSON,
+        )
+        assertContains(json, "\"glucoseMgdl\": null")
+        assertFalse("\"glucoseMgdl\": 0" in json)
+    }
+
+    @Test
+    fun `json carries the glucose as a number`() {
+        val json = export(
+            doses = listOf(dose("2026-10-21", 13, 6.0, InsulinKind.BOLUS, glucoseMgdl = 71.5)),
+            format = ReportFormat.JSON,
+        )
+        assertContains(json, "\"glucoseMgdl\": 71.5")
+    }
+
+    @Test
+    fun `html shows the glucose beside the dose and leaves a meal's blank`() {
+        val html = export(
+            doses = listOf(dose("2026-10-21", 13, 6.0, InsulinKind.BOLUS, glucoseMgdl = 184.0)),
+            carbs = listOf(meal("2026-10-21", 13, 60.0)),
+            format = ReportFormat.HTML,
+        )
+        assertContains(html, "Glucose mg/dL")
+        // One dose row carrying the figure, and a meal row that does not borrow it.
+        assertEquals(1, Regex(">184<").findAll(html).count())
     }
 
     @Test

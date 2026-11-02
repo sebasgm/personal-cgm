@@ -202,6 +202,10 @@
     <string name="dose_will_record_at">Will be recorded at %1$s</string>
     <string name="dose_invalid">Enter a dose between 0.5 and %1$s U</string>
     <string name="dose_time_set">Set</string>
+    <string name="dose_glucose_now">Will be saved with your glucose now: %1$s %2$s</string>
+    <string name="dose_glucose_then">Will be saved with your glucose at that time: %1$s %2$s</string>
+    <string name="dose_glucose_none">No reading close to that time. Saved without a glucose.</string>
+    <string name="dose_row_glucose">%1$s · %2$s %3$s</string>
     <string name="common_cancel">Cancel</string>
     <string name="confirm_stop_title">Stop the service?</string>
     <string name="confirm_stop_body">While it is stopped no readings are recorded, and that gap cannot be recovered afterwards: LibreLinkUp only serves about twelve hours of history at fifteen-minute spacing. Alarms will not sound either.</string>
@@ -347,7 +351,7 @@
     <string name="log_export_button">CSV</string>
     <string name="export_empty">There is nothing stored to export.</string>
     <string name="diary_export">Export diary</string>
-    <string name="diary_export_note">Insulin and meals as you recorded them, as CSV. No readings: units and grams stay in separate columns.</string>
+    <string name="diary_export_note">Insulin and meals as you recorded them, as CSV. Each dose carries the glucose you were at when you gave it; units and grams stay in separate columns.</string>
     <string name="diary_export_from">From</string>
     <string name="diary_export_to">To</string>
     <string name="diary_export_pdf">PDF</string>

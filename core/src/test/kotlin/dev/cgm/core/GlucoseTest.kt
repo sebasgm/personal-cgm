@@ -3,6 +3,7 @@ package dev.cgm.core
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.minutes
@@ -529,6 +530,30 @@ class WatchPayloadDosesTest {
             )
         )
         assertTrue(full.encode().size < 10_000, "payload was ${full.encode().size} bytes")
+    }
+
+    /**
+     * The glucose a dose was given at stays on the phone.
+     *
+     * Older watch builds parse this payload strictly, so an unknown key in it is
+     * not a field they ignore — it is a watch that stops showing glucose entirely.
+     * The watch has no use for the figure either: it carries recent doses to answer
+     * "did I already take something", and the glucose it would print beside them is
+     * the number already filling its screen.
+     */
+    @Test
+    fun `a dose's glucose is not sent to the watch`() {
+        val dose = InsulinDose(
+            kind = InsulinKind.BOLUS,
+            units = 4.0,
+            givenAtMillis = now - 900_000,
+            glucoseMgdl = 184.0,
+        )
+        val wire = payload(listOf(dose)).encode().decodeToString()
+
+        assertFalse("glucoseMgdl" in wire)
+        assertFalse("184" in wire)
+        assertNull(WatchPayload.decode(wire.toByteArray()).recentDoses.single().glucoseMgdl)
     }
 
     @Test

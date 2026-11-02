@@ -64,8 +64,10 @@ import dev.cgm.app.data.MealPhotos
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.produceState
+import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.InsulinDay
 import dev.cgm.core.InsulinDayTotals
 import dev.cgm.core.InsulinDiary
@@ -107,6 +109,9 @@ import java.time.format.DateTimeFormatter
 fun DiaryScreen(viewModel: CgmViewModel) {
     val doses by viewModel.doses.collectAsState()
     val carbs by viewModel.carbs.collectAsState()
+    // For the unit the glucose beside a dose is shown in, and so the form's
+    // glucose line refreshes when a new reading lands.
+    val state by viewModel.state.collectAsState()
     // Observed rather than remembered: a day boundary drawn in the zone you
     // left is not a day.
     val zone by ZoneWatcher.zone.collectAsState()
@@ -313,6 +318,55 @@ fun DiaryScreen(viewModel: CgmViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        // Said before saving, not discovered afterwards in the list. The glucose a
+        // dose was given at is the reason the dose was that size, and the person is
+        // the only one who can tell that the figure is wrong — so it has to be on
+        // screen while the entry can still be moved to another time.
+        if (entry == DiaryEntryKind.INSULIN) {
+            // Ticks on the minute, because three of the four time chips are
+            // relative to now: a reading that sat inside the match window when the
+            // screen opened falls out of it as the minutes pass, and a line that
+            // was never asked again would go on promising a glucose that the save
+            // would no longer store.
+            val minute by produceState(System.currentTimeMillis() / 60_000L) {
+                while (true) {
+                    delay(20_000)
+                    value = System.currentTimeMillis() / 60_000L
+                }
+            }
+            val nearby by produceState<NearbyGlucose?>(
+                null,
+                minutesAgo,
+                pickedAtMillis,
+                minute,
+                // A fresh reading changes the answer for "now", so the line must
+                // not be left showing the value the screen opened with.
+                state.snapshot?.reading?.timestampMillis,
+            ) {
+                value = NearbyGlucose(viewModel.glucoseNear(effectiveMillis()))
+            }
+            nearby?.let { found ->
+                val mgdl = found.mgdl
+                Text(
+                    if (mgdl == null) {
+                        stringResource(R.string.dose_glucose_none)
+                    } else {
+                        stringResource(
+                            if (pickedAtMillis == null && minutesAgo == 0) {
+                                R.string.dose_glucose_now
+                            } else {
+                                R.string.dose_glucose_then
+                            },
+                            state.unit.format(mgdl),
+                            state.unit.suffix,
+                        )
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = note,
@@ -397,6 +451,7 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                 is DiaryRow.Dose -> DoseRow(
                     dose = row.dose,
                     zone = zone,
+                    unit = state.unit,
                     onDelete = { viewModel.deleteDose(row.dose) },
                 )
                 is DiaryRow.Carbs -> CarbRow(
@@ -602,18 +657,36 @@ private fun TodayTotals(doses: List<InsulinDose>, carbs: List<CarbEntry>, zone: 
     }
 }
 
+/**
+ * The glucose a dose was given at, as the form looked it up.
+ *
+ * A box rather than a bare `Double?` so that "not looked up yet" and "looked up,
+ * and nothing was near" stay different states. Collapsed into one, the screen would
+ * announce that the dose is about to be saved without a glucose in the moment
+ * before the lookup has answered — which is a sentence the user may act on.
+ */
+private data class NearbyGlucose(val mgdl: Double?)
+
 @Composable
-private fun DoseRow(dose: InsulinDose, zone: ZoneId, onDelete: () -> Unit) {
+private fun DoseRow(dose: InsulinDose, zone: ZoneId, unit: GlucoseUnit, onDelete: () -> Unit) {
     val time = remember(dose.givenAtMillis) {
         Instant.ofEpochMilli(dose.givenAtMillis).atZone(zone).format(DIARY_TIME_FORMAT)
     }
     val kindLabel = stringResource(
         if (dose.kind == InsulinKind.BASAL) R.string.dose_basal else R.string.dose_bolus
     )
+    val amount = "${formatUnits(dose.units)} ${stringResource(R.string.dose_units_suffix)} " +
+        "· $kindLabel"
 
     EntryRow(
-        title = "${formatUnits(dose.units)} ${stringResource(R.string.dose_units_suffix)} " +
-            "· $kindLabel",
+        // Beside the dose rather than below it in the note line: the pair is the
+        // whole point of recording the glucose, and a four-unit bolus at 210 and
+        // the same bolus at 90 are two different decisions.
+        title = dose.glucoseMgdl?.let {
+            stringResource(R.string.dose_row_glucose, amount, unit.format(it), unit.suffix)
+        } ?: amount,
+        // Doses recorded before the glucose was kept simply have none; saying so on
+        // every one of them would be a column of apologies down the old entries.
         subtitle = dose.note?.let { stringResource(R.string.dose_given_at, time, it) } ?: time,
         onDelete = onDelete,
     )

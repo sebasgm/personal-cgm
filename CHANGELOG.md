@@ -11,6 +11,34 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.4] - unreleased
+
+### Added
+
+- **A dose now records the glucose you were at when you gave it.** The diary knew that four units
+  were taken at 13:05 and nothing about why they were four. The glucose at the moment of the
+  injection is the reason for the size of the dose, and without it the insulin history is a column
+  of numbers with their justification removed.
+
+  The form says what it is about to store, before saving and while the entry can still be moved to
+  another time — the person typing is the only one who can tell that the figure is wrong. The value
+  comes from the reading nearest the time the dose was *given*, so a forgotten injection entered an
+  hour later takes the glucose from an hour ago rather than from now.
+
+  Nothing within a quarter of an hour means no glucose is stored, rather than the closest reading
+  however far away. A dose can be entered while a sensor is warming up, inside a gap in the data,
+  or backdated to a day the phone was not polling — and a bolus filed with a value from six hours
+  earlier reads as a fact while being a fiction. Doses recorded before this build keep no glucose
+  for the same reason: backfilling them would write a number the user was never shown.
+
+  It is copied onto the dose rather than looked up when the diary is read. Readings are pruned
+  after a year and a sensor's history cannot be re-fetched, so the pair only survives as a copy.
+
+  The diary's three exports carry it: a `glucose_mgdl` column in the CSV, `glucoseMgdl` in the
+  JSON, and a column beside the amount in the PDF. Always in mg/dL, whatever the phone is
+  displaying, because a file is read by other software months later and a column whose unit
+  depended on a setting at the time of export could not be trusted.
+
 ## [3.1.3] - unreleased
 
 ### Added

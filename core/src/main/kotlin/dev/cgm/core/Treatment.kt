@@ -34,6 +34,31 @@ data class InsulinDose(
     val units: Double,
     val givenAtMillis: Long,
     val note: String? = null,
+    /**
+     * Glucose at the moment of the dose, in mg/dL, or null when nothing is known.
+     *
+     * Recorded *with* the dose rather than looked up when the diary is read, and the
+     * difference matters: readings are pruned after a year and a sensor's history is
+     * not re-fetchable, so a dose from eighteen months ago would silently lose the
+     * one number that says why it was taken. Stored as a copy, which is the only way
+     * the pair survives.
+     *
+     * In mg/dL like every other reading in this app, converted for display at the
+     * edge. Null is "no reading close enough to that time" — which is an ordinary
+     * state, not a failure: a dose can be entered while the sensor is warming up,
+     * during a gap in the data, or backdated to a day the phone was not polling.
+     * Nothing here invents a value to fill it, because an invented glucose beside a
+     * real dose is the kind of record that gets shown to a doctor.
+     *
+     * Left out of the payload sent to the watch, exactly as a reading's
+     * `storedAtMillis` is. The watch carries recent doses only to answer "did I
+     * already take something for this", and the glucose it would show beside them
+     * is the number already filling its screen. Keeping it off the wire also keeps
+     * the payload byte-identical to the one older watch builds parse, and they
+     * parse it strictly — an unknown key there is a watch that stops showing
+     * glucose at all, which is a steep price for a field it would not draw.
+     */
+    @kotlinx.serialization.Transient val glucoseMgdl: Double? = null,
 ) {
 
     /**
@@ -72,6 +97,38 @@ data class InsulinDose(
 
         /** Trims and drops an empty note, so blank and absent are the same thing. */
         fun cleanNote(note: String?): String? = TypedAmount.cleanNote(note)
+
+        /**
+         * How far from a dose a reading may sit and still be called its glucose.
+         *
+         * Fifteen minutes because that is roughly the span over which a value still
+         * describes the moment you injected: a sensor reports every few minutes, so
+         * a normal dose finds something within one or two of them, and anything
+         * beyond this window is a different state of the body rather than a slightly
+         * stale copy of the same one. Wider would quietly attach a breakfast reading
+         * to a lunchtime bolus; narrower would leave the common case — a dose given
+         * in a short gap between readings — with no glucose at all.
+         */
+        const val GLUCOSE_MATCH_WINDOW_MILLIS: Long = 15 * 60 * 1000L
+
+        /**
+         * The glucose to record beside a dose given at [atMillis], or null.
+         *
+         * Nearest in either direction rather than the last reading before the dose.
+         * Both are a few minutes from the injection, and preferring the earlier one
+         * only because it is earlier would hand back a value from before a correction
+         * when one from after it sits closer in time.
+         *
+         * Returns null when nothing lands within [GLUCOSE_MATCH_WINDOW_MILLIS]. The
+         * alternative — the closest reading however far away — is how a dose comes to
+         * be filed with the glucose from six hours earlier, which reads as a fact and
+         * is a fiction.
+         */
+        fun glucoseNear(readings: List<GlucoseReading>, atMillis: Long): Double? =
+            readings
+                .minByOrNull { Math.abs(it.timestampMillis - atMillis) }
+                ?.takeIf { Math.abs(it.timestampMillis - atMillis) <= GLUCOSE_MATCH_WINDOW_MILLIS }
+                ?.valueMgdl
     }
 }
 

@@ -118,6 +118,14 @@ That describes the choice, not anyone else's product.
   either of them "the log" would blur the only distinction that matters about them.
 
 - **Insulin logging** for basal and bolus doses, entered on a numeric keypad.
+- **Each dose keeps the glucose you were at when you gave it**, matched to the reading nearest the
+  time the dose was given and copied onto the row.
+
+  **Unusual:** copied, not looked up when the diary is read. Readings are pruned after a year and
+  a sensor's history cannot be re-fetched, so a dose from eighteen months ago would otherwise lose
+  the one number that says why it was that size. A dose with no reading within a quarter of an
+  hour keeps no glucose at all — null, never a nearest-available figure, because a bolus filed
+  with a value from six hours away looks exactly like one filed with the right value.
 - **Carbohydrate logging** in grams, with chips for the amounts people actually estimate in.
 
   **Unusual:** grams only — no food database, no portion picker. Grams are the part of a meal

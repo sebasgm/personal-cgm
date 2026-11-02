@@ -195,6 +195,14 @@ data class DoseEntity(
     val units: Double,
     val givenAtMillis: Long,
     val note: String?,
+    /**
+     * Glucose at the time of the dose in mg/dL, or null when none was known.
+     *
+     * Nullable rather than defaulted, and for the usual reason: doses recorded
+     * before this column existed have an unknown glucose, and a zero there would
+     * claim a reading of 0 mg/dL — a figure that is not merely wrong but alarming.
+     */
+    val glucoseMgdl: Double? = null,
 ) {
     fun toDose() = InsulinDose(
         id = id,
@@ -202,6 +210,7 @@ data class DoseEntity(
         units = units,
         givenAtMillis = givenAtMillis,
         note = note,
+        glucoseMgdl = glucoseMgdl,
     )
 
     companion object {
@@ -211,6 +220,7 @@ data class DoseEntity(
             units = dose.units,
             givenAtMillis = dose.givenAtMillis,
             note = dose.note,
+            glucoseMgdl = dose.glucoseMgdl,
         )
     }
 }
@@ -387,7 +397,7 @@ interface SensorDao {
         HourlyRollupEntity::class,
         SensorEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class ReadingDatabase : RoomDatabase() {
@@ -582,6 +592,22 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Records the glucose a dose was given at, beside the dose.
+         *
+         * Left null on every existing row rather than filled in from the readings
+         * table. The reading is probably still there for the recent ones, but
+         * backfilling would write a value the user never saw at a moment they were
+         * not asked about — and for older doses, whose readings have been pruned,
+         * it would write nothing anyway. A column that is null for everything
+         * before the upgrade says exactly what happened.
+         */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `doses` ADD COLUMN `glucoseMgdl` REAL")
+            }
+        }
+
         fun create(context: Context): ReadingDatabase =
             Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db")
                 .addMigrations(
@@ -593,6 +619,7 @@ abstract class ReadingDatabase : RoomDatabase() {
                     MIGRATION_6_7,
                     MIGRATION_7_8,
                     MIGRATION_8_9,
+                    MIGRATION_9_10,
                 )
                 .build()
     }

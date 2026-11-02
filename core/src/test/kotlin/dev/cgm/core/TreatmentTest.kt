@@ -78,6 +78,90 @@ class InsulinDoseTest {
         assertNull(InsulinDose.cleanNote("   "))
         assertEquals("pizza", InsulinDose.cleanNote("  pizza "))
     }
+
+    @Test
+    fun `a dose with no glucose is still a dose`() {
+        assertNull(dose(6.0).glucoseMgdl)
+        assertTrue(dose(6.0).isPlausible)
+    }
+}
+
+/**
+ * Picking the glucose to file beside a dose.
+ *
+ * The failure this guards against is not an empty column, it is a plausible wrong
+ * number: a dose filed with a reading from hours away looks exactly like a dose
+ * filed with the right one, and nothing downstream can tell them apart.
+ */
+class DoseGlucoseTest {
+
+    private val now = 1_800_000_000_000L
+
+    private fun reading(mgdl: Double, at: Long) =
+        GlucoseReading(valueMgdl = mgdl, timestampMillis = at)
+
+    private val minute = 60_000L
+
+    @Test
+    fun `the nearest reading is the dose's glucose`() {
+        val readings = listOf(
+            reading(180.0, now - 10 * minute),
+            reading(150.0, now - 4 * minute),
+            reading(120.0, now + 9 * minute),
+        )
+
+        assertEquals(150.0, InsulinDose.glucoseNear(readings, now))
+    }
+
+    /**
+     * Either direction, not merely the last reading before the dose: both are
+     * minutes away, and preferring the earlier one only for being earlier would
+     * return a staler value than the one sitting closer in time.
+     */
+    @Test
+    fun `a reading after the dose can be the nearest one`() {
+        val readings = listOf(
+            reading(200.0, now - 8 * minute),
+            reading(96.0, now + 2 * minute),
+        )
+
+        assertEquals(96.0, InsulinDose.glucoseNear(readings, now))
+    }
+
+    @Test
+    fun `nothing within the window means no glucose, not the closest far one`() {
+        val far = InsulinDose.GLUCOSE_MATCH_WINDOW_MILLIS + minute
+        val readings = listOf(reading(210.0, now - far), reading(70.0, now + far))
+
+        assertNull(InsulinDose.glucoseNear(readings, now))
+    }
+
+    @Test
+    fun `a reading exactly at the edge of the window still counts`() {
+        val edge = InsulinDose.GLUCOSE_MATCH_WINDOW_MILLIS
+        assertEquals(133.0, InsulinDose.glucoseNear(listOf(reading(133.0, now - edge)), now))
+    }
+
+    @Test
+    fun `no readings at all is no glucose rather than a failure`() {
+        assertNull(InsulinDose.glucoseNear(emptyList(), now))
+    }
+
+    /**
+     * A dose entered for yesterday takes yesterday's glucose, not today's. The
+     * timestamp a dose carries is when it was *given*, and the glucose has to be
+     * matched to the same instant or the pair describes two different moments.
+     */
+    @Test
+    fun `a backdated dose matches the readings around that time`() {
+        val yesterday = now - 24 * 60 * minute
+        val readings = listOf(
+            reading(142.0, yesterday + 3 * minute),
+            reading(88.0, now),
+        )
+
+        assertEquals(142.0, InsulinDose.glucoseNear(readings, yesterday))
+    }
 }
 
 class InsulinDayTotalsTest {
