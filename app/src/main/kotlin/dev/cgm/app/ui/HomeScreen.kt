@@ -626,6 +626,15 @@ private fun StatStrip(
         // printing a day above the lifetime produced "day 15/14", which states a
         // contradiction and buries the one fact that matters: it is over.
         val expired = sensor?.isExpired(now) == true
+        // Red for the last three days, and only there. A day number is the one
+        // figure on this strip that carries a deadline, and until now it stated
+        // the deadline without ever drawing attention to it — day 12 of 14 looked
+        // exactly like day 3. The warning stops at expiry rather than continuing
+        // past it: by then the cell says "expired", and a word is stronger than a
+        // colour. The theme's error red is used rather than a zone colour because
+        // this is not a zone — a sensor running out says nothing about glucose,
+        // and borrowing the low-reading red would make it look like it did.
+        val endingSoon = sensor?.isEndingSoon(now) == true
         StatCell(
             label = stringResource(R.string.home_stat_sensor),
             value = when {
@@ -638,6 +647,7 @@ private fun StatStrip(
                 )
             },
             muted = expired,
+            valueColor = if (endingSoon) MaterialTheme.colorScheme.error else null,
             onClick = onSensorClick,
         )
     }
@@ -807,9 +817,17 @@ private fun SensorDialog(
                             sensor.lifetimeDays,
                         ),
                     )
+                    // The same red as the figure that was tapped to get here. A
+                    // cell that warns and a detail view that does not would read
+                    // as the detail disagreeing with the warning.
                     SensorRow(
                         stringResource(R.string.sensor_remaining),
                         remainingLabel(sensor, now),
+                        valueColor = if (sensor.isEndingSoon(now)) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            null
+                        },
                     )
                     // Shown only when the account gave one. It is Abbott's own
                     // code and we do not interpret it; it is here so that a
@@ -844,8 +862,63 @@ private fun SensorDialog(
     )
 }
 
+/**
+ * The sensor's last day, said once when the app opens.
+ *
+ * The strip's red figure is enough warning for the three days before this one —
+ * it is on screen every time the app is opened, and it costs the reader nothing.
+ * The final day is different in kind: it is the last point at which a gap can
+ * still be avoided, and a cell that has to be looked at is the wrong instrument
+ * for a deadline that expires while you are not looking.
+ *
+ * Stated, not instructed. It says how long is left and what stops when it runs
+ * out, because that is a fact about this app; it does not tell anyone to fit a
+ * sensor, and the official app is where a new session actually begins.
+ *
+ * Shown over whichever screen is open rather than only on Home, and once per run
+ * — see CgmViewModel.sensorEndingNotice for why it is neither persisted nor
+ * remembered per sensor.
+ */
 @Composable
-private fun SensorRow(label: String, value: String) {
+fun SensorEndingDialog(sensor: SensorInfo, onDismiss: () -> Unit) {
+    // Read once. The notice is read and dismissed in seconds, and a figure that
+    // counted down inside a dialog would invite watching it rather than acting.
+    val openedAt = remember { System.currentTimeMillis() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.sensor_ending_title)) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.sensor_ending_dismiss))
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    stringResource(
+                        R.string.sensor_ending_body,
+                        remainingLabel(sensor, openedAt),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(10.dp))
+                // The same caveat the lifetime picker carries. This figure rests
+                // on an activation instant the vendor's cloud can move and on a
+                // lifetime the wearer picked, so it is reported as an estimate
+                // rather than as the moment the sensor stops.
+                Text(
+                    stringResource(R.string.sensor_ending_note, sensor.lifetimeDays),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun SensorRow(label: String, value: String, valueColor: Color? = null) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -856,7 +929,11 @@ private fun SensorRow(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.width(12.dp))
-        Text(value, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = valueColor ?: Color.Unspecified,
+        )
     }
     Spacer(Modifier.height(6.dp))
 }
@@ -869,7 +946,7 @@ private fun SensorRow(label: String, value: String) {
  * no time left, and "-3 h" invites the reading that it has some.
  */
 @Composable
-private fun remainingLabel(sensor: SensorInfo, now: Long): String {
+internal fun remainingLabel(sensor: SensorInfo, now: Long): String {
     val remaining = sensor.remainingMillis(now) ?: return stringResource(R.string.sensor_unknown)
     if (remaining <= 0) return stringResource(R.string.sensor_ended)
     if (!sensor.isFinalDay(now)) {

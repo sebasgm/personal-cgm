@@ -50,6 +50,10 @@
     <string name="sensor_unknown">Desconocido</string>
     <string name="sensor_none">Todavía no hay datos del sensor.</string>
     <string name="sensor_close">Cerrar</string>
+    <string name="sensor_ending_title">El sensor termina hoy</string>
+    <string name="sensor_ending_body">Le queda %1$s de vida útil. Cuando se agote, esta app deja de recibir valores: no hay lecturas hasta que actives el sensor siguiente y la app lo vea.</string>
+    <string name="sensor_ending_note">Calculado desde la activación que informa la nube y la duración que elegiste (%1$d días), así que puede diferir unos minutos del aviso de la app oficial.</string>
+    <string name="sensor_ending_dismiss">Entendido</string>
     <string name="home_coverage_none">sin datos</string>
     <string name="home_coverage_under_one">&lt;1% de la ventana</string>
     <string name="home_coverage_percent">%1$d%% de la ventana</string>

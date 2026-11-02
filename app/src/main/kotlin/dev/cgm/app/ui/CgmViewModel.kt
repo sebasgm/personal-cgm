@@ -597,6 +597,41 @@ class CgmViewModel(
         viewModelScope.launch { settings.setSensorLifetimeDays(days) }
     }
 
+    /**
+     * Whether the notice about the sensor's last day has been dismissed **this
+     * run**.
+     *
+     * Not persisted, and deliberately not per sensor either. The thing being
+     * announced is that a replacement is needed today, which stays true until the
+     * sensor is actually replaced — so it is worth saying once every time the app
+     * is opened, and never twice in the same sitting.
+     */
+    private val _sensorNoticeDismissed = MutableStateFlow(false)
+
+    /**
+     * The sensor that ends within the day, or null when there is nothing to say.
+     *
+     * The sensor itself rather than a boolean, so the dialog can state how long is
+     * actually left: "ends today" and "ends in 40 minutes" call for different
+     * decisions, and the second is the one that has to be acted on now.
+     *
+     * Carries the chosen lifetime for the same reason Home does — the stored
+     * record keeps whatever lifetime was in force when it was written, and a
+     * warning computed against the wrong one would fire a day early.
+     */
+    val sensorEndingNotice: StateFlow<SensorInfo?> = combine(
+        state,
+        sensorLifetimeDays,
+        _sensorNoticeDismissed,
+    ) { cgm, lifetime, dismissed ->
+        val sensor = cgm.sensor?.copy(lifetimeDays = lifetime)
+        if (!dismissed && sensor?.isFinalDay(clock()) == true) sensor else null
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun dismissSensorNotice() {
+        _sensorNoticeDismissed.value = true
+    }
+
     // -- forecast -----------------------------------------------------------
 
     /**

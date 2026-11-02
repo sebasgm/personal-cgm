@@ -22,6 +22,19 @@ That describes the choice, not anyone else's product.
 - The value in the **status bar**, drawn into the ongoing notification's icon.
 - A stale value is **withheld** from the status bar and replaced with a question mark — there
   is no room beside an icon to say "17 minutes ago", so a number there would be read as now.
+- **The sensor's day count beside the glucose figures**, tapped for the serial, the activation
+  time and the time left. It turns **red for the final three days**, and on the last day the app
+  says so once on opening, whichever screen it opens to.
+
+  **Unusual:** three days of warning rather than a few hours. What a wearer can actually do about
+  a sensor running out is have the next one to hand, and that has a day or two of lead time in
+  it — a notice on the final evening arrives after the point where anything can be done with it.
+  The colour stops at expiry instead of continuing past it, because by then the figure says
+  "expired" in words and a word is stronger than a colour.
+
+  Both the colour and the notice are computed against the lifetime the wearer picked, since
+  14-day and 15-day sensors arrive through the same account: a shared constant would warn a day
+  early on half of them.
 
 ## 2. The chart
 

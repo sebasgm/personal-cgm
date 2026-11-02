@@ -231,6 +231,14 @@ private fun MainScaffold(
         PeriodicReminder(onDismiss = viewModel::dismissReminder)
     }
 
+    // Hosted here rather than on Home because it is about opening the app, not
+    // about looking at the chart: the sensor's last day is worth saying whichever
+    // screen the app happens to come back to.
+    val endingSensor by viewModel.sensorEndingNotice.collectAsState()
+    endingSensor?.let {
+        SensorEndingDialog(sensor = it, onDismiss = viewModel::dismissSensorNotice)
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar {

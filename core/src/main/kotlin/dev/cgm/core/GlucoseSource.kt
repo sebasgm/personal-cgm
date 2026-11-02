@@ -123,6 +123,21 @@ data class SensorInfo(
         remainingMillis(nowMillis)?.let { it > 0 && it <= DAY_MILLIS } == true
 
     /**
+     * Inside the last [ENDING_SOON_DAYS] days of designed life.
+     *
+     * Where the question stops being "how long have I worn this" and becomes
+     * "when do I need the next one", which is why it is the window the figure on
+     * Home turns red in. Three days is roughly the notice a replacement needs —
+     * finding the box, or ordering one — and a warning that arrives on the final
+     * morning is a warning too late to act on.
+     *
+     * False once expired, like [isFinalDay]: past the end there is no time left
+     * to be running short of, and the figure says "expired" in words instead.
+     */
+    fun isEndingSoon(nowMillis: Long): Boolean =
+        remainingMillis(nowMillis)?.let { it > 0 && it <= ENDING_SOON_DAYS * DAY_MILLIS } == true
+
+    /**
      * Whether [other] is the same physical sensor.
      *
      * Serial only. Activation time is not an identity: LibreLinkUp moves it when
@@ -146,6 +161,15 @@ data class SensorInfo(
 
         /** The lengths Abbott actually ships, for the picker to offer. */
         val LIFETIME_CHOICES = listOf(14, 15)
+
+        /**
+         * How much warning the end of a sensor gets, in days.
+         *
+         * Three rather than one: the last day is too late to do anything about,
+         * and a wearer who finds out then is the wearer who spends a morning
+         * without a sensor. See [isEndingSoon].
+         */
+        const val ENDING_SOON_DAYS = 3
 
         private const val DAY_MILLIS = 24L * 60 * 60 * 1000
     }

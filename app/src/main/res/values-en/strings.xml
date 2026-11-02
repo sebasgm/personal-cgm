@@ -50,6 +50,10 @@
     <string name="sensor_unknown">Unknown</string>
     <string name="sensor_none">No sensor data yet.</string>
     <string name="sensor_close">Close</string>
+    <string name="sensor_ending_title">Your sensor ends today</string>
+    <string name="sensor_ending_body">It has %1$s of its life left. Once that runs out this app stops receiving values: there are no readings until the next sensor is activated and this app has seen it.</string>
+    <string name="sensor_ending_note">Computed from the activation the cloud reports and the lifetime you picked (%1$d days), so it can differ by a few minutes from what the official app says.</string>
+    <string name="sensor_ending_dismiss">Got it</string>
     <string name="home_coverage_none">no data</string>
     <string name="home_coverage_under_one">&lt;1% of window</string>
     <string name="home_coverage_percent">%1$d%% of window</string>

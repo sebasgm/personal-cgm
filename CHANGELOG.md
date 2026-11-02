@@ -11,6 +11,38 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.5] - 2026-11-02
+
+### Added
+
+- **The sensor figure warns for its last three days, and says so out loud on the final one.** The
+  day count on Home has always carried a deadline and never looked like it: day 12 of 14 was drawn
+  exactly like day 3, in the same colour, in a cell shared with two statistics that change every
+  few minutes. It now turns red for the last three days.
+
+  Three days rather than a few hours, because what a wearer can actually do about a sensor running
+  out is have the next one to hand, and that decision has a day or two of lead time in it. A
+  warning that first appears on the final evening arrives after the point where anything can be
+  done with it.
+
+  On the last day the app also says it once, in a dialog, when it is opened — over whichever
+  screen it opens to, since this is about opening the app rather than about looking at the chart.
+  It states how long is left and that readings stop when the sensor does; it does not tell anyone
+  to fit a new one, and the official app is still where a session actually begins. Once per run,
+  not persisted and not remembered per sensor: a replacement being needed today stays true until
+  the sensor is replaced, which makes it worth repeating the next time the app opens and not worth
+  repeating twice in a sitting.
+
+  The colour stops at expiry instead of continuing past it. By then the cell reads "expired", and
+  a word is stronger than a colour.
+
+  Both the colour and the notice are computed against the lifetime the wearer picked, like every
+  other sensor figure here — Abbott ships 14-day and 15-day sensors through the same account, and
+  a shared constant would have warned a day early on half of them.
+
+  The red is the theme's error colour rather than a zone colour. A sensor running out says nothing
+  about glucose, and borrowing the low-reading red would make it look like it did.
+
 ## [3.1.4] - unreleased
 
 ### Added

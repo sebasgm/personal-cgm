@@ -68,6 +68,50 @@ class SensorSessionTest {
     }
 
     @Test
+    fun `the warning window opens three days before the end`() {
+        val s = sensor(lifetime = 15)
+
+        assertFalse(s.isEndingSoon(started + 12 * day - 1), "four days left is not soon")
+        assertTrue(s.isEndingSoon(started + 12 * day), "exactly three days left")
+        assertTrue(s.isEndingSoon(started + 14 * day + 23 * 60 * 60 * 1000))
+    }
+
+    @Test
+    fun `the warning window closes at expiry rather than staying open`() {
+        // Past the end the figure reads "expired", which says more than a colour.
+        val s = sensor(lifetime = 15)
+
+        assertFalse(s.isEndingSoon(started + 15 * day))
+        assertFalse(s.isEndingSoon(started + 20 * day))
+    }
+
+    @Test
+    fun `the warning window follows the chosen lifetime`() {
+        // The whole point of the per-sensor lifetime: the same instant is the
+        // fourth-to-last day of a 15-day sensor and the third of a 14-day one.
+        val instant = started + 11 * day + 1_000
+
+        assertTrue(sensor(lifetime = 14).isEndingSoon(instant))
+        assertFalse(sensor(lifetime = 15).isEndingSoon(instant))
+    }
+
+    @Test
+    fun `the last day is inside the warning window`() {
+        // Two thresholds, one ordering: nothing may be in its final day without
+        // also being about to end, or the colour would clear as the notice fires.
+        val s = sensor(lifetime = 15)
+        val finalDay = started + 14 * day + 1_000
+
+        assertTrue(s.isFinalDay(finalDay))
+        assertTrue(s.isEndingSoon(finalDay))
+    }
+
+    @Test
+    fun `a sensor with no activation is never about to end`() {
+        assertFalse(sensor(startedAt = null).isEndingSoon(started))
+    }
+
+    @Test
     fun `remaining time is negative once past the end`() {
         val s = sensor(lifetime = 15)
         assertEquals(-day, s.remainingMillis(started + 16 * day))
