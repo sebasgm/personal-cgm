@@ -78,6 +78,18 @@ in `core/…/Freshness.kt` should be tuned against.
 ~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+For a build to keep rather than develop against:
+
+```bash
+./gradlew :app:versionedApkRelease
+~/Android/Sdk/platform-tools/adb install -r build/apks/cgm-3.1.5.apk
+```
+
+The task copies the APK to `build/apks` named after `versionName` — `cgm-3.1.5.apk` — so a
+sideloaded file still says which build it is once it is off the machine that built it. Release
+builds are signed with the debug key on purpose, so one installs over another without uninstalling
+and losing the reading history; `app/build.gradle.kts` says why, and what that costs.
+
 Toolchain: Gradle 9.7.1, AGP 9.4.1, Kotlin 2.4.20, `compileSdk = 37`, `minSdk = 29`. Gradle
 fetches the JDK 17 toolchain itself. AGP 8.x will not work — it relies on a Gradle internal API
 removed in 9.6.

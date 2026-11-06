@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     // AGP 9 has built-in Kotlin support, so org.jetbrains.kotlin.android is gone
     // (and is actively rejected). Only the compiler plugins are declared here.
@@ -35,12 +37,71 @@ val copyChangelog = tasks.register<CopyChangelog>("copyChangelog") {
     source.set(rootProject.layout.projectDirectory.file("CHANGELOG.md"))
 }
 
+/**
+ * Copies a built APK to `build/apks` under a name that carries the version.
+ *
+ * AGP names its own output `app-release.apk`, which says nothing about what is
+ * inside it: once a handful have been sideloaded onto a phone or attached to a
+ * release, there is no telling one build from another by looking at it. The version
+ * is in `output-metadata.json` beside the APK and nowhere else — not in the file
+ * name a download folder shows, which is the one place it is read.
+ *
+ * A copy rather than a rename, so the canonical paths the README and the
+ * field-testing checklist install from keep working.
+ */
+abstract class VersionedApk : DefaultTask() {
+    @get:org.gradle.api.tasks.InputFiles
+    abstract val apkDirectory: DirectoryProperty
+
+    @get:org.gradle.api.tasks.OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @get:org.gradle.api.tasks.Input
+    abstract val apkName: Property<String>
+
+    /**
+     * The loader is how the APK's real file name is read out of the variant's
+     * `output-metadata.json`; it is not itself an input to anything.
+     */
+    @get:org.gradle.api.tasks.Internal
+    abstract val builtArtifacts: Property<com.android.build.api.variant.BuiltArtifactsLoader>
+
+    @org.gradle.api.tasks.TaskAction
+    fun copy() {
+        val built = builtArtifacts.get().load(apkDirectory.get())
+            ?: error("No APK was built to name ${apkName.get()}")
+        val target = outputDirectory.get().asFile.resolve(apkName.get())
+        target.parentFile.mkdirs()
+        File(built.elements.single().outputFile).copyTo(target, overwrite = true)
+        logger.lifecycle("APK: $target")
+    }
+}
+
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(
             copyChangelog,
             CopyChangelog::outputDirectory,
         )
+
+        tasks.register<VersionedApk>(
+            "versionedApk${variant.name.replaceFirstChar(Char::uppercase)}",
+        ) {
+            apkDirectory.set(variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.APK))
+            builtArtifacts.set(variant.artifacts.getBuiltArtifactsLoader())
+            outputDirectory.set(rootProject.layout.buildDirectory.dir("apks"))
+            // A release build is the thing that gets handed out, so its name is
+            // just the version; anything else says which build type it came from.
+            apkName.set(
+                variant.outputs.single().versionName.map { version ->
+                    if (variant.buildType == "release") {
+                        "cgm-$version.apk"
+                    } else {
+                        "cgm-$version-${variant.buildType}.apk"
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -61,6 +122,22 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+
+            /**
+             * Signed with the debug key, deliberately.
+             *
+             * These builds are sideloaded one at a time onto the developer's own
+             * phone, and an APK signed with a key other than the installed one
+             * cannot be installed over it — the app would have to be uninstalled
+             * first, taking the local reading history with it. There is no Play
+             * listing and no upload key here to protect, so the key every build so
+             * far has carried is the one to keep carrying.
+             *
+             * The cost is that the debug key is the public, well-known one: a
+             * release published anywhere is a release anyone can build an update
+             * for. That is a real property of these builds, not a signing accident.
+             */
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
