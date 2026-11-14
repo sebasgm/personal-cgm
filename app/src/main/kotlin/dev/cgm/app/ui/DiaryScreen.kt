@@ -895,16 +895,6 @@ private fun EntryRow(
  */
 private val COMMON_GRAMS = listOf(15, 30, 45, 60)
 
-/**
- * Drops the decimal when there isn't one, so "6 U" rather than "6.0 U" and "45 g"
- * rather than "45.0 g".
- *
- * Uses the default locale, so a Spanish UI shows "6,5" — the same separator the rest
- * of the screen uses.
- */
-private fun formatUnits(units: Double): String =
-    if (units % 1.0 == 0.0) units.toInt().toString() else String.format("%.1f", units)
-
 private val DIARY_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM HH:mm")
 
 /**

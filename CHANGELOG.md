@@ -11,6 +11,64 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.6] - unreleased
+
+### Added
+
+- **Insulin per day on Trends, as stacked bars.** The diary could say what today came to and
+  list the last fortnight as figures. Neither answers whether a fortnight is drifting upward,
+  whether weekends dose differently, or whether a change made three weeks ago moved anything at
+  all. Those are questions about a series, and a series has to be drawn.
+
+  Basal sits at the bottom of each bar with bolus stacked on it, so a bar's height is the day's
+  total and the join in it is the split. Two bars per day side by side would make each kind easy
+  to follow on its own and make the total — the figure a day is actually reasoned about in —
+  something to add up by eye. Stacking keeps both: the whole is the height, the parts are the
+  segments.
+
+  The axis starts at zero and always will. A trace is read as a shape, so its axis can start
+  wherever the readings happen to be; a bar is read as a height, and an axis starting at thirty
+  units draws a 34-unit day at three times the height of a 32-unit one. On a quantity someone
+  injects, exaggerating a two-unit difference into a tripling is not a cosmetic choice.
+
+  A day nobody logged is a gap rather than a bar of no height. That is the diary's existing rule
+  and it matters more here: in a row of bars, a zero is a loud claim that no insulin was taken,
+  where a gap says only that nothing was written down. The caption says how many of the window's
+  days carry anything at all, because four logged days out of thirty should not be read as a
+  month of dosing.
+
+  Today is drawn faintly and left out of the averages until it is over. At nine in the morning
+  today's bar holds the morning basal and nothing else; averaged as though it were a finished day
+  it reports a fall in dosing that is only the time of day. It comes back into the average when
+  it is the only logged day there is — on the first day of use the alternative is a chart with a
+  bar on it and a dash where the average should be, which reads as a bug rather than as a caveat.
+
+  Sliding across the chart reports one day's total, its split, and how many injections it came
+  from: eight units in one dose and eight in four are the same bar and not the same day. A tap
+  opens it full screen, where ninety bars have the room to be touched individually, and turning
+  the phone sideways gives them considerably more.
+
+  The two kinds are one violet hue in two tones rather than two colours, because they are two
+  parts of one quantity. Every other meaning in this app is already spoken for — red is "this may
+  not be true", amber and green are zones, the forecast's blue-violet is "not a measurement", the
+  teal is the interface — and separating the tones by lightness rather than by hue means the
+  stack survives colour-blind vision and greyscale without a second palette.
+
+  The card sits outside the "nothing recorded in this window" branch of the screen, because a
+  dose is not a reading. The diary keeps working through a sensor change, a warm-up, or a week
+  the phone was not polling, and a window with no readings in it can still have every injection
+  of that week written down.
+
+### Changed
+
+- **The chart callout and the axis gutter are written once now.** The panel of figures that
+  appears when a chart is slid across, and the width of the strip the value labels sit in, were a
+  copy per chart file. Both are promises to the reader — that sliding any chart here gives
+  figures the same way, and that two charts stacked on one screen have axes that line up — and a
+  promise kept in three copies is one that eventually is not. The formatter behind "6 U" rather
+  than "6.0 U" moved the same way, from a copy on each screen that prints an amount to one for
+  all of them.
+
 ## [3.1.5] - 2026-11-02
 
 ### Added

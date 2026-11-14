@@ -405,6 +405,37 @@ class CgmViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimeOfDayProfile.Empty)
 
+    /**
+     * The doses inside the Trends window, for the daily totals chart.
+     *
+     * The doses themselves rather than a finished series, because the grouping is by
+     * calendar day in the *display* zone and that zone is observed in the UI — it
+     * moves when the person flies, and a day boundary drawn in the zone they left is
+     * not a day. The screen groups; this only decides which doses it may group.
+     *
+     * Keyed on [statsKey] like the figures above, so the window follows "now" rather
+     * than freezing where it was when the screen was first built. The period is the
+     * only part of the key this uses; it rides along with the rest because recomputing
+     * a few hundred doses when a reading arrives costs nothing, and a second key that
+     * tracked only the period would be a second thing to keep correct.
+     *
+     * A day of slack at each end, deliberately. The window the chart draws is calendar
+     * days in a zone this flow does not know, so a span of exactly `period.millis`
+     * back from a 14:00 "now" starts in the middle of the oldest day and stops short
+     * of anything logged in the next few minutes. Slack means the screen can trim to
+     * real day boundaries instead of being handed a window that has already lost the
+     * edges — [dev.cgm.core.InsulinTrend.of] drops whatever falls outside.
+     */
+    val periodDoses: StateFlow<List<InsulinDose>> = statsKey
+        .flatMapLatest { key ->
+            val now = clock()
+            repository.dosesBetween(
+                startMillis = now - key.period.millis - DOSE_WINDOW_SLACK_MILLIS,
+                endMillis = now + DOSE_WINDOW_SLACK_MILLIS,
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     // -- tour --------------------------------------------------------------------
 
     /**
@@ -867,6 +898,14 @@ class CgmViewModel(
 
         /** Meals outnumber doses only slightly; the same few weeks either way. */
         const val CARB_LIMIT = 300
+
+        /**
+         * How far past each end of the Trends window doses are loaded.
+         *
+         * A day, which is the largest amount a calendar day boundary can sit away
+         * from a rolling window's edge once a time zone has been applied to it.
+         */
+        const val DOSE_WINDOW_SLACK_MILLIS = 24L * 60 * 60 * 1000
 
         fun factory(
                 repository: GlucoseRepository,

@@ -116,6 +116,22 @@ That describes the choice, not anyone else's product.
 
 - The least predictable three-hour slice is named, since that is usually the one worth looking
   at.
+- **Insulin per day, as stacked bars** over the same window: basal at the bottom, bolus stacked
+  on it, so a bar's height is the day's total and the join in it is the split. The average day is
+  drawn across the chart as a line and printed under it as figures, and sliding across gives one
+  day's total, split and number of injections.
+
+  **Unusual:** a day nobody logged is a gap, not a bar of no height. A zero claims that no
+  insulin was taken; a gap says only that nothing was written down — which is also why the
+  averages divide by the days that carry something rather than by the length of the window.
+
+  **Unusual:** today is drawn faintly and left out of the averages until it is over. At nine in
+  the morning today's bar holds the morning basal and nothing else, and counted as a finished day
+  it reports a fall in dosing that is only the time of day.
+
+  **Unusual:** the axis starts at zero, always. A bar is read as a height, so an axis starting at
+  thirty units would draw an ordinary two-unit difference as a tripling.
+
 - **Every statistic states its coverage**, and below a reliability threshold is shown muted
   with an explanation rather than presented confidently.
 

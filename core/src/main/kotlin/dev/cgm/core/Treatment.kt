@@ -321,3 +321,139 @@ object InsulinDiary {
             }
     }
 }
+
+/**
+ * One calendar day of the daily-insulin chart: the two kinds, kept apart.
+ *
+ * Basal and bolus are carried separately rather than as a total and a split,
+ * because the split is the interesting half. Two days that both come to 40 units —
+ * one 30 basal and 10 bolus, the other 20 and 20 — describe different weeks, and a
+ * chart that drew them as the same bar would hide exactly what it was asked to show.
+ */
+data class InsulinDayBar(
+    val date: LocalDate,
+    val basalUnits: Double,
+    val bolusUnits: Double,
+    val doseCount: Int,
+    /**
+     * Whether this is the day still being lived.
+     *
+     * Today's figure is not a day's insulin, it is a day's insulin so far: at
+     * 09:00 it holds the morning basal and nothing else. The chart draws it faintly
+     * and the averages leave it out, because an average that counts a half-finished
+     * day as a whole one reports a drop in dosing that is really just the clock.
+     */
+    val isToday: Boolean = false,
+) {
+    val totalUnits: Double get() = basalUnits + bolusUnits
+
+    /**
+     * Whether anything was logged that day.
+     *
+     * Not `totalUnits > 0`, and the difference is the point: a day nobody wrote
+     * anything down for is unknown, while a day with doses in it is measured. The
+     * chart draws the first as a gap and the second as a bar, and the averages
+     * below it divide by the days that were logged — a forgotten day counted as
+     * zero would drag a 40-unit average down for no reason but the forgetting.
+     */
+    val isLogged: Boolean get() = doseCount > 0
+}
+
+/**
+ * Insulin per calendar day across a window, with the days nobody logged left in.
+ *
+ * Left in as gaps, where [InsulinDiary] drops them: a diary is a list of what
+ * happened and a chart is an axis, and on an axis a missing Tuesday has to occupy
+ * Tuesday's width or every bar after it slides a day to the left. What a gap must
+ * never become is a zero-height bar, which is a claim that no insulin was taken.
+ *
+ * Grouped in [ZoneId] like the diary, because "how much do I take in a day" is a
+ * question about the calendar the person lives in, not about UTC.
+ */
+data class InsulinTrend(val bars: List<InsulinDayBar>) {
+
+    /** Days with something written down, as against days that merely exist. */
+    val loggedDays: Int get() = bars.count { it.isLogged }
+
+    val hasData: Boolean get() = loggedDays > 0
+
+    /** The tallest bar, which is what the axis has to hold. */
+    val peakUnits: Double get() = bars.maxOfOrNull { it.totalUnits } ?: 0.0
+
+    /** How many days the averages divide by, which is not always [loggedDays]. */
+    val averagedDays: Int get() = averaged().size
+
+    /**
+     * The average day, over the logged days that have finished.
+     *
+     * Null rather than zero when nothing was logged at all: "you average nothing"
+     * and "there is nothing to average" are different sentences, and only one of
+     * them is true of an empty window.
+     */
+    val meanTotalUnits: Double? get() = meanOf { it.totalUnits }
+    val meanBasalUnits: Double? get() = meanOf { it.basalUnits }
+    val meanBolusUnits: Double? get() = meanOf { it.bolusUnits }
+
+    /**
+     * The days an average may rest on: logged, and over.
+     *
+     * Today falls back in when it is the only logged day there is. On the first day
+     * of use the alternative is a chart with a bar on it and a dash where the
+     * average should be, which reads as a bug rather than as a caveat — and the
+     * figure it would be hiding is one the person entered minutes ago.
+     */
+    private fun averaged(): List<InsulinDayBar> {
+        val logged = bars.filter { it.isLogged }
+        return logged.filterNot { it.isToday }.ifEmpty { logged }
+    }
+
+    private fun meanOf(amount: (InsulinDayBar) -> Double): Double? {
+        val days = averaged()
+        return if (days.isEmpty()) null else days.sumOf(amount) / days.size
+    }
+
+    companion object {
+
+        /**
+         * The last [days] calendar days ending on [today], oldest first.
+         *
+         * Oldest first because that is the direction a chart reads; the diary's
+         * list is newest first because that is the direction a list is read. Both
+         * orders are deliberate and neither is the other's bug.
+         *
+         * Doses outside the window are ignored rather than folded into the edge
+         * days. [doses] is whatever the caller happened to load — the query behind
+         * it is widened by a day at each end so a dose logged a minute ago is in
+         * it whatever the time zone does — and a chart of the last seven days that
+         * quietly piled an eighth day onto the first bar would be wrong in the one
+         * place nobody would look.
+         */
+        fun of(
+            doses: List<InsulinDose>,
+            zone: ZoneId,
+            today: LocalDate,
+            days: Int,
+        ): InsulinTrend {
+            val span = days.coerceAtLeast(1)
+            val start = today.minusDays((span - 1).toLong())
+
+            val byDay = doses
+                .groupBy { Instant.ofEpochMilli(it.givenAtMillis).atZone(zone).toLocalDate() }
+
+            return InsulinTrend(
+                (0 until span).map { offset ->
+                    val date = start.plusDays(offset.toLong())
+                    val forDay = byDay[date].orEmpty()
+                    val totals = InsulinDayTotals.of(forDay)
+                    InsulinDayBar(
+                        date = date,
+                        basalUnits = totals.basalUnits,
+                        bolusUnits = totals.bolusUnits,
+                        doseCount = forDay.size,
+                        isToday = date == today,
+                    )
+                }
+            )
+        }
+    }
+}

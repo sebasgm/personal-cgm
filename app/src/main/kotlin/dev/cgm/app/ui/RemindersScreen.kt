@@ -268,9 +268,6 @@ private fun ReminderEditor(
     )
 }
 
-private fun formatUnits(units: Double): String =
-    if (units % 1.0 == 0.0) units.toInt().toString() else "%.1f".format(units)
-
 private val whenFormatter = DateTimeFormatter.ofPattern("EEE HH:mm")
 
 private fun formatWhen(millis: Long): String =

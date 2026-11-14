@@ -186,6 +186,51 @@ object ChartColors {
 }
 
 /**
+ * The two kinds of insulin, as one hue in two tones.
+ *
+ * One hue because they are two parts of one quantity: a day's insulin, split by
+ * what the dose was for. Two unrelated colours would read as two unrelated
+ * measurements, and the thing the chart is about is a total made of two pieces.
+ *
+ * Violet because every other meaning in this app is already spoken for. Red says
+ * "what you are looking at may not be true", amber and green and orange are zones,
+ * the blue-violet of a forecast is "not a measurement", and the teal accent is the
+ * interface itself. A dose is none of those: it is the most certain number on the
+ * phone, because a person typed it in.
+ *
+ * The two tones are separated by lightness rather than by hue, which is why there is
+ * no colour-blind variant here as there is for the zones: a deep tone under a pale
+ * one survives any colour deficiency, and survives greyscale. Only the high-contrast
+ * palette gets its own pair, pushed further apart for low vision and for sunlight.
+ *
+ * The deep tone is basal and the pale one bolus, with basal at the bottom of the
+ * stack. Basal is the floor a day is built on — the part that is the same every day
+ * — so it reads as the base of the bar, and the part that moves with meals and
+ * corrections sits on top where its variation is what changes the bar's height.
+ */
+object InsulinColors {
+
+    /** One palette: the deep tone for basal, the pale one for bolus. */
+    data class Tones(val basal: Color, val bolus: Color)
+
+    private val light = Tones(basal = Color(0xFF4F3B93), bolus = Color(0xFFB6A4E8))
+    private val dark = Tones(basal = Color(0xFF8E7BD6), bolus = Color(0xFFD5CBF4))
+
+    private val lightHighContrast = Tones(basal = Color(0xFF2B1B63), bolus = Color(0xFF8E79CF))
+    private val darkHighContrast = Tones(basal = Color(0xFFAB97F0), bolus = Color(0xFFE6DEFF))
+
+    fun of(vision: ColorVision, dark: Boolean): Tones = when {
+        vision == ColorVision.HIGH_CONTRAST && dark -> darkHighContrast
+        vision == ColorVision.HIGH_CONTRAST -> lightHighContrast
+        dark -> this.dark
+        else -> light
+    }
+
+    val tones: Tones
+        @Composable get() = of(LocalColorVision.current, isDarkTheme)
+}
+
+/**
  * The app's palette, seeded from #42B28E.
  *
  * A mid-tone teal-green, which decides how it can be used. It is light enough that

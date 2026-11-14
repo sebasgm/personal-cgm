@@ -610,7 +610,6 @@ private fun DrawScope.drawCurrentPoint(
     )
 }
 
-private val AXIS_GUTTER = 34.dp
 private val LABEL_GAP = 6.dp
 
 /**

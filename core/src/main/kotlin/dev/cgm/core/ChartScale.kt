@@ -240,3 +240,70 @@ object ChartHistory {
 
     private const val DAY_MILLIS = 24L * 60 * 60 * 1000
 }
+
+/**
+ * Where a bar chart of insulin units stops.
+ *
+ * Zero at the baseline, always, and that is the whole reason this is not
+ * [ValueAxis]. A trace is read as a *shape*, so its axis can start wherever the
+ * readings are; a bar is read as a *height*, and an axis starting at 30 units draws
+ * a 34-unit day at three times the height of a 32-unit one. On a quantity someone
+ * injects, an axis that exaggerates a two-unit difference into a tripling is not a
+ * cosmetic choice.
+ *
+ * The top is the peak rounded up to the next step — a peak that is already round
+ * sits on the top line — and the step is chosen to leave three or four labelled
+ * lines: enough to read a height against, few enough that they stay lines rather
+ * than texture.
+ *
+ * Nothing here snaps against jitter the way [ValueAxis] does. This axis is rebuilt
+ * when a dose is logged or the window changes, which is a handful of times a day,
+ * not once a minute.
+ */
+data class UnitsAxis(val topUnits: Double, val stepUnits: Double) {
+
+    /** 0 at the baseline, 1 at the top. Clamped, so no bar can leave the plot. */
+    fun fraction(units: Double): Float = (units / topUnits).coerceIn(0.0, 1.0).toFloat()
+
+    /** The lines to draw, from the first step above zero up to the top. */
+    fun gridLines(): List<Double> = buildList {
+        var level = stepUnits
+        while (level <= topUnits + EPSILON) {
+            add(level)
+            level += stepUnits
+        }
+    }
+
+    companion object {
+        /**
+         * Steps insulin is actually counted in.
+         *
+         * Two units at the bottom because a child's or a very insulin-sensitive
+         * day's total can be single digits, and a 10-unit grid over an 8-unit day
+         * is one line. Nothing finer than two: doses come in half units, but an
+         * axis labelled every half unit is a ruler.
+         *
+         * The top of the list is far past any real day — a single dose is refused
+         * above 100 units as a typo — but it is what stops a day that got there by
+         * some other route from being drawn with a line every hundred units.
+         */
+        private val STEPS = listOf(2.0, 5.0, 10.0, 20.0, 25.0, 50.0, 100.0, 200.0, 500.0)
+
+        private const val TARGET_LINES = 4
+        private const val EPSILON = 1e-9
+
+        /**
+         * An axis that holds [peakUnits].
+         *
+         * A peak of zero or of nothing at all still gets a real axis rather than a
+         * degenerate one, so a window with nothing logged draws as an empty chart
+         * with its lines in place instead of as a blank box — and so no caller has
+         * to guard against dividing by a zero span.
+         */
+        fun of(peakUnits: Double): UnitsAxis {
+            val peak = if (peakUnits.isFinite() && peakUnits > 0) peakUnits else STEPS.first()
+            val step = STEPS.firstOrNull { peak / it <= TARGET_LINES } ?: STEPS.last()
+            return UnitsAxis(topUnits = ceil(peak / step) * step, stepUnits = step)
+        }
+    }
+}

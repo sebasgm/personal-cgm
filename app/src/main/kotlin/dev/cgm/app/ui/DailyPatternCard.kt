@@ -533,64 +533,6 @@ private fun calloutLines(slice: TimeOfDayBucket, unit: GlucoseUnit): List<String
 }
 
 /**
- * The tapped slice's figures, in a box beside a line marking it.
- *
- * Deliberately the same idiom as the callout on the main chart — a full-height line
- * through the moment, a rounded panel of text on whichever side has room. Someone who
- * has learned that tapping the trace gives numbers should not have to discover a
- * second convention here.
- */
-private fun DrawScope.drawCallout(
-    lines: List<String>,
-    anchorX: Float,
-    plotHeight: Float,
-    accent: Color,
-    surface: Color,
-    titleStyle: TextStyle,
-    bodyStyle: TextStyle,
-    measurer: TextMeasurer,
-) {
-    if (lines.isEmpty()) return
-
-    drawLine(
-        color = accent.copy(alpha = 0.55f),
-        start = Offset(anchorX, 0f),
-        end = Offset(anchorX, plotHeight),
-        strokeWidth = 1.dp.toPx(),
-    )
-
-    val measured = lines.mapIndexed { index, line ->
-        measurer.measure(line, if (index == 0) titleStyle else bodyStyle)
-    }
-    val padding = 8.dp.toPx()
-    val boxWidth = measured.maxOf { it.size.width } + padding * 2
-    val boxHeight = measured.sumOf { it.size.height } + padding * 2
-
-    // Prefer the right of the line, flip when that would run off the chart: the slice
-    // worth inspecting is often the one at the edge of the day.
-    val gap = CALLOUT_GAP.toPx()
-    val left = if (anchorX + gap + boxWidth <= size.width) anchorX + gap
-    else anchorX - gap - boxWidth
-    val clampedLeft = left.coerceIn(0f, (size.width - boxWidth).coerceAtLeast(0f))
-    // Vertically centred rather than tied to the median: the panel is five lines tall
-    // and would cover the band it is describing.
-    val top = ((plotHeight - boxHeight) / 2f).coerceAtLeast(0f)
-
-    drawRoundRect(
-        color = surface,
-        topLeft = Offset(clampedLeft, top),
-        size = Size(boxWidth, boxHeight),
-        cornerRadius = CornerRadius(8.dp.toPx()),
-    )
-
-    var lineTop = top + padding
-    measured.forEach { text ->
-        drawText(text, topLeft = Offset(clampedLeft + padding, lineTop))
-        lineTop += text.size.height
-    }
-}
-
-/**
  * Splits the day wherever a slice has nothing behind it.
  *
  * The same rule as [dev.cgm.core.ChartSeries.segments] on the live trace, for the same
@@ -772,11 +714,8 @@ private fun DrawScope.drawSlice(
     )
 }
 
-/** Matches the main chart's gutter, so the two charts' value axes line up. */
-private val AXIS_GUTTER = 34.dp
 private val HOUR_LABEL_GAP = 2.5.dp
 private val MEDIAN_STROKE = 2.5.dp
-private val CALLOUT_GAP = 10.dp
 
 private const val HOURS_IN_DAY = 24.0
 

@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import dev.cgm.app.Features
+import dev.cgm.app.data.ZoneWatcher
 import dev.cgm.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.window.Dialog
@@ -69,6 +70,10 @@ fun TrendsScreen(viewModel: CgmViewModel) {
     val period by viewModel.period.collectAsState()
     val timeOfDay by viewModel.timeOfDay.collectAsState()
     val state by viewModel.state.collectAsState()
+    val doses by viewModel.periodDoses.collectAsState()
+    // Observed rather than read once: the chart groups by calendar day, and a day
+    // boundary drawn in the zone you left is not a day.
+    val zone by ZoneWatcher.zone.collectAsState()
 
     Column(
         Modifier
@@ -121,6 +126,12 @@ fun TrendsScreen(viewModel: CgmViewModel) {
             ForecastReliabilityCard(viewModel)
             SummaryCard(stats)
         }
+
+        // Insulin outside the readings branch above, because a dose is not a
+        // reading: the diary keeps working through a sensor change, a warm-up or a
+        // week the phone was not polling, and a window with no readings in it can
+        // still have every injection of the week written down.
+        InsulinTrendCard(doses = doses, period = period, zone = zone)
 
         // The report last, and on its own period rather than the chips above.
         // Everything over it answers "how is it going"; this answers "write that
@@ -638,8 +649,9 @@ private fun SummaryCard(stats: GlucoseStatistics) {
     }
 }
 
+/** Shared with the insulin card below, so a figure is laid out one way on this screen. */
 @Composable
-private fun Metric(label: String, value: String) {
+internal fun Metric(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, style = MaterialTheme.typography.headlineSmall)
         Text(
