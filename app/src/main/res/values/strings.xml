@@ -80,7 +80,7 @@
     <string name="trends_gmi">GMI</string>
     <string name="trends_a1c">A1C est.</string>
     <string name="trends_what_are_these">¿Qué son estos valores?</string>
-    <string name="trends_formula_explanation">GMI = 3,31 + 0,02392 × glucosa media (mg/dL). A1C estimada = (glucosa media + 46,7) / 28,7. Ambas son estimaciones calculadas a partir de las lecturas del sensor, no mediciones de laboratorio, y es normal que no coincidan entre sí ni con un análisis de sangre.</string>
+    <string name="trends_formula_explanation">GMI = 3,31 + 0,02392 × glucosa media (mg/dL). A1C estimada = (glucosa media + 46,7) / 28,7. Ambas son estimaciones calculadas a partir de las lecturas del sensor, no mediciones de laboratorio, y es normal que no coincidan entre sí ni con un análisis de sangre. Los pinchazos no entran en ninguna de las dos cifras, a propósito: son la referencia contra la que se mide el sensor en esta pantalla, y un puñado de valores sueltos por día no es el registro continuo para el que se derivaron estas fórmulas. Sumarlos cambiaría lo que describe el número sin cambiarle el nombre.</string>
     <string name="trends_readings">Lecturas</string>
     <string name="set_alerts">Alertas y rangos</string>
     <string name="set_alarms">Alarmas</string>

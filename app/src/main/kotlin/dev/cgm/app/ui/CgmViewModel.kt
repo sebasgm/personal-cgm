@@ -507,8 +507,15 @@ class CgmViewModel(
      * reopened. `WhileSubscribed`, because it runs a query per test and nothing wants
      * that while the screen is closed.
      */
-    val sensorAgreement: StateFlow<SensorAgreement> = statsKey
-        .mapLatest { key ->
+    val sensorAgreement: StateFlow<SensorAgreement> = combine(statsKey, bloodTests) { key, tests ->
+        // Both, because either moves the answer. The window and the readings come from
+        // the key; the tests are the other half of every comparison, and keying on the
+        // readings alone meant a strip typed in a moment ago did not appear on this card
+        // until the next reading landed — which looks exactly like the entry not having
+        // been saved.
+        key to tests
+    }
+        .mapLatest { (key, _) ->
             val now = clock()
             withContext(Dispatchers.IO) {
                 repository.sensorAgreement(now - key.period.millis, now)

@@ -80,7 +80,7 @@
     <string name="trends_gmi">GMI</string>
     <string name="trends_a1c">Est. A1C</string>
     <string name="trends_what_are_these">What are these?</string>
-    <string name="trends_formula_explanation">GMI = 3.31 + 0.02392 × mean glucose (mg/dL). Estimated A1C = (mean glucose + 46.7) / 28.7. Both are estimates calculated from sensor readings, not laboratory measurements, and they legitimately disagree with each other and with a blood test.</string>
+    <string name="trends_formula_explanation">GMI = 3.31 + 0.02392 × mean glucose (mg/dL). Estimated A1C = (mean glucose + 46.7) / 28.7. Both are estimates calculated from sensor readings, not laboratory measurements, and they legitimately disagree with each other and with a blood test. Finger-prick results are in neither figure, deliberately: they are the reference the sensor is measured against on this screen, and a handful of spot values a day is not the continuous record these formulas were derived for. Adding them would change what the number describes without changing its name.</string>
     <string name="trends_readings">Readings</string>
     <string name="set_alerts">Alerts and ranges</string>
     <string name="set_alarms">Alarms</string>

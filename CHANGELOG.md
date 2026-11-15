@@ -11,6 +11,29 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.9] - unreleased
+
+### Fixed
+
+- **A finger prick did not reach the comparison card until the next sensor reading.** The
+  card on Trends recomputed when the window changed or a reading landed, and a reading
+  lands every few minutes — so a strip typed in just now sat invisible for up to five of
+  them. Which looks exactly like the entry not having been saved, and was reported as
+  precisely that. It now recomputes when the tests change as well, because both halves of
+  a comparison move it.
+
+### Changed
+
+- **"How these are calculated" now says what is not in the calculation.** The tooltip said
+  GMI and estimated A1C come from sensor readings. That was true before this app held any
+  other kind of glucose; now that it holds finger pricks, "from sensor readings" stops
+  being a complete answer and starts being one the reader has to infer the rest of.
+
+  They are not in either figure, and the reason is worth the sentence it takes: a handful
+  of spot values a day is not the continuous record those formulas were derived for.
+  Adding them would change what the number describes without changing its name — which is
+  the failure mode this whole feature was built to avoid.
+
 ## [3.1.8] - unreleased
 
 ### Fixed
