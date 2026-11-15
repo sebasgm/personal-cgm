@@ -80,6 +80,7 @@ sealed interface Destination {
     data object Ranges : Destination
     data object Accessibility : Destination
     data object Reminders : Destination
+    data object Meter : Destination
     data object Relay : Destination
     data object Tour : Destination
     data object ReleaseNotes : Destination
@@ -120,6 +121,7 @@ enum class Tab(@StringRes val labelRes: Int, val root: Destination) {
             Destination.Ranges,
             Destination.Accessibility,
             Destination.Reminders,
+            Destination.Meter,
             Destination.Relay,
             Destination.Tour,
             Destination.ReleaseNotes,

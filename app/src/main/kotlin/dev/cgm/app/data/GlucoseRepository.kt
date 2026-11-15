@@ -311,6 +311,10 @@ class GlucoseRepository(
 
     suspend fun deleteBloodTest(test: BloodTest) = bloodTestDao.delete(BloodTestEntity.from(test))
 
+    /** How far a meter's numbering has got, as the stored rows know it. */
+    suspend fun highestMeterSequence(meterName: String): Int? =
+        bloodTestDao.highestSequence(meterName)
+
     /**
      * How this sensor has agreed with the meter over a window.
      *

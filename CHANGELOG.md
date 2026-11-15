@@ -11,6 +11,73 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.2.0] - unreleased
+
+### Added
+
+- **The app reads a finger-prick meter over Bluetooth.** Phase 1 of
+  `docs/12-finger-prick-meter.md`: Settings → Medidor de tiras lists the meters Android
+  has already bonded, and reading one pulls every result it holds that is not already
+  stored. No account, no network, nothing leaving the phone — the first new radio this app
+  drives itself, after three versions in which the only Bluetooth was the watch's.
+
+  **Through the Bluetooth SIG's Glucose Service, not through anything Roche-specific.**
+  That is what makes the work transferable: the same code reads an Accu-Chek Guide, an
+  Instant, an Aviva or Performa Connect, a Contour Next One, a CareSens. A meter that does
+  not speak it announces itself by not having the service, and that case is handled by
+  printing what it *does* expose — the GATT dump the plan called for, taken on the owner's
+  own meter, which is the difference between "this meter cannot work" and "this meter
+  needs a quirk writing".
+
+  **No scanning, and therefore no location permission.** Pairing happens in Android's own
+  Bluetooth settings — the meter into pairing mode, the six-digit PIN from the back of it
+  — and the app connects to an already-bonded device by address. Scanning is the half that
+  needs `ACCESS_FINE_LOCATION` on this `minSdk`, and a glucose monitor asking for location
+  in order to read a meter is a permission nobody should grant. The bill is
+  `BLUETOOTH_CONNECT` on Android 12 and up, asked for once, and the legacy pair capped at
+  API 30.
+
+  **The protocol lives in `:core`, with twenty tests and no device.** Flags, a 12-bit
+  signed mantissa with a 4-bit signed exponent, kg/L and mol/L, the sequence number, base
+  time plus a signed offset, the sample-type nibble. Every vector is written out by hand
+  from the specification, because a record misread by a factor of ten is not a visible
+  failure: it is a plausible-looking glucose, stored as the reference that every other
+  figure in the app is now judged against. The five reserved float encodings — NaN, NRes,
+  the infinities — come back as "no reading" rather than as 2047.
+
+  **One operation in flight at a time, each with a deadline.** Android's GATT stack
+  silently drops a second write issued before the first completes, which is the single
+  most common way this kind of code fails: it works in testing and then fails on a busier
+  phone. Every step suspends on its own callback rather than blocking the binder thread it
+  arrives on, and a meter that stops answering halfway produces a reported failure instead
+  of a button that never comes back.
+
+  **It asks for what it does not have.** The first read takes the meter's whole history;
+  every read after it asks for records above the highest already stored, so a meter
+  unsynced for a fortnight fills in at once and one synced ten minutes ago answers
+  "nothing newer" and costs a second. The highest is derived from the stored rows rather
+  than remembered in a setting — delete a row by hand and the next read fetches it again,
+  instead of skipping it forever. Which record number to ask from can only be decided once
+  the meter has named itself, since sequence 41 means nothing without knowing whose 41 it
+  is, so that decision happens mid-conversation.
+
+  **Control solution tests are dropped and counted.** They are deliberately off-scale, so
+  one stored among real results would be the worst point in every comparison the sensor is
+  scored by. Counted rather than silently discarded, because a read that found four
+  records and stored none should say which four.
+
+  **The meter's clock is measured, corrected and reported.** A meter keeps its own wall
+  clock; the difference against the phone's is measured once per connection and applied to
+  every record, and the screen says which way and by how much. A meter two hours out would
+  otherwise file every result two hours early with nothing on screen to explain it. Drift
+  and daylight saving between reads are not corrected — the measurement is of one moment,
+  and nothing here can know about the rest.
+
+  **Nothing has talked to a real meter yet.** The protocol is tested to the byte and the
+  session logic is not: no device has been on the other end of it. The screen is built to
+  be the test — it reports what was found, what was stored, what was already there and
+  what the clock said, rather than reporting success.
+
 ## [3.1.9] - unreleased
 
 ### Fixed

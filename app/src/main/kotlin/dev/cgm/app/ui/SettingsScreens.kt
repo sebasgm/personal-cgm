@@ -115,6 +115,14 @@ fun SettingsScreen(
                 subtitle = stringResource(R.string.set_reminders_subtitle),
             ) { onOpen(Destination.Reminders) }
 
+            // Next to the reminders rather than near the sensor settings: both are
+            // about the owner's own actions reaching the app, where everything above is
+            // about the sensor's readings reaching it.
+            SettingsRow(
+                title = stringResource(R.string.set_meter),
+                subtitle = stringResource(R.string.set_meter_subtitle),
+            ) { onOpen(Destination.Meter) }
+
             SettingsRow(
                 title = stringResource(R.string.set_system_notifications),
                 subtitle = stringResource(R.string.set_system_notifications_subtitle),

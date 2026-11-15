@@ -304,10 +304,17 @@ it from quietly becoming a fact.
    manual entry on the Diary, a diamond on the chart, and "the sensor against the strip"
    on Trends. Useful alone, and it is the whole data model. The paired points it starts
    collecting are what phase 2's weighting will eventually be derived from.
-1. **The spike.** Bond the Guide in Android settings, connect by address, dump the GATT
-   tree, confirm `0x1808`. One evening; it settles the only open question that matters.
-2. **The collector.** Bond-aware connect, RACP history pull, the parse, control-solution
-   filtering, meter-clock correction. Lands in `PollingService`.
+1. **The spike. ✅ built into the app** in 3.2.0, rather than run as a throwaway: the
+   meter screen connects to a bonded device and, when the glucose service is absent,
+   prints what the device does expose. The dump is now a button, which also means it
+   stays useful for the next meter.
+2. **The collector. ✅ built** in 3.2.0 — bond-aware connect by address, incremental RACP
+   pull by sequence, the parse in `:core` with twenty tests of hand-written vectors,
+   control-solution filtering, meter-clock correction. It lives in its own session class
+   rather than in `PollingService`: a meter is awake for seconds after a test and asleep
+   the rest of the day, so there is nothing to hold a connection open for.
+
+   **Unconfirmed on hardware.** No device has been on the other end of it.
 3. **Phase 2.** The weighted value, under the rules above.
 
 ## Open questions

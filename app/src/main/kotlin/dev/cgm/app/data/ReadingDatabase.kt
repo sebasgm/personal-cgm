@@ -439,6 +439,16 @@ interface BloodTestDao {
             "AND meterSequence = :meterSequence LIMIT 1"
     )
     suspend fun byMeterRecord(meterName: String, meterSequence: Int): BloodTestEntity?
+
+    /**
+     * The highest record number stored for a meter, or null for one never read.
+     *
+     * Derived from the rows rather than remembered in a setting, so there is one answer
+     * rather than two that can disagree: a row deleted by hand moves the mark back, and
+     * the next sync fetches that record again instead of skipping it forever.
+     */
+    @Query("SELECT MAX(meterSequence) FROM blood_tests WHERE meterName = :meterName")
+    suspend fun highestSequence(meterName: String): Int?
 }
 
 /**

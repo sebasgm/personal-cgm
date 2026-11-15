@@ -19,6 +19,22 @@
       awake. Without a wake lock, the poll loop's delay does not fire while the
       device is in deep sleep, which is most of the night - see PollingService.
     -->
+    <!--
+        Reading a finger-prick meter over Bluetooth LE.
+
+        Pairing happens in Android's own settings and the app connects to an
+        already-bonded device by address, which is why there is no BLUETOOTH_SCAN and no
+        location permission here: scanning is what needs those, and a glucose monitor
+        asking for location to read a meter would be a permission nobody should grant.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!--
       Reminders fire at a wall-clock time. From Android 12 an exact alarm needs

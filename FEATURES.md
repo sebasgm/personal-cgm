@@ -174,6 +174,22 @@ That describes the choice, not anyone else's product.
   series describe something nobody asked about. The comparison between them is computed
   instead, on Trends.
 
+- **Reading the meter over Bluetooth**, through the Bluetooth SIG's standard Glucose
+  Service: the whole stored history on the first read, then only what is new, with the
+  meter's clock measured against the phone's and every result corrected by the difference.
+
+  **Unusual:** no scanning, so no location permission. Pairing is done in Android's own
+  Bluetooth settings and the app connects to a bonded device by address — scanning is the
+  half that needs location, and a glucose monitor asking for it to read a meter is a
+  permission nobody should grant.
+
+  **Unusual:** a device that does not speak the standard service gets its service list
+  printed rather than a failure message. That list is the diagnosis, and it separates a
+  meter that cannot work from one that needs a quirk writing.
+
+  Control solution tests are dropped and counted — they measure the strips, not a person,
+  and one stored among real results would be the worst point in every comparison.
+
 - **Carbohydrate logging** in grams, with chips for the amounts people actually estimate in.
 
   **Unusual:** grams only — no food database, no portion picker. Grams are the part of a meal

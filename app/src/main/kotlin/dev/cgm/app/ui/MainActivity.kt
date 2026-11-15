@@ -268,6 +268,7 @@ private fun MainScaffold(
                 Destination.Ranges -> RangesScreen(viewModel)
                 Destination.Accessibility -> AccessibilityScreen(viewModel)
                 Destination.Reminders -> RemindersScreen(viewModel)
+                Destination.Meter -> MeterScreen(viewModel)
                 Destination.Relay -> RelayScreen(viewModel)
                 Destination.Tour -> TourScreen(
                     viewModel = viewModel,

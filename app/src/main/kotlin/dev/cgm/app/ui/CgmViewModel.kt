@@ -8,6 +8,10 @@ import java.time.ZoneId
 import dev.cgm.core.SensorInfo
 import dev.cgm.core.InsulinReminder
 import dev.cgm.core.InsulinReminders
+import android.content.Context
+import dev.cgm.app.meter.BondedDevice
+import dev.cgm.app.meter.MeterState
+import dev.cgm.app.meter.MeterSync
 import dev.cgm.app.reminder.ReminderScheduler
 import dev.cgm.app.service.RelayConfig
 import dev.cgm.app.Features
@@ -358,6 +362,42 @@ class CgmViewModel(
         viewModelScope.launch { repository.deleteBloodTest(test) }
     }
 
+
+    // -- the finger-prick meter -----------------------------------------------
+
+    private val _meterState = MutableStateFlow<MeterState>(MeterState.Idle)
+    val meterState: StateFlow<MeterState> = _meterState.asStateFlow()
+
+    /**
+     * The meters Android has bonded.
+     *
+     * A [Context] per call rather than one held in the view model: this is read when a
+     * screen opens and never again, and a view model that keeps a context outlives the
+     * one it was given.
+     */
+    fun bondedMeters(context: Context): List<BondedDevice> =
+        MeterSync(context, repository).bonded()
+
+    /**
+     * Reads a meter and stores what is new.
+     *
+     * Ignored while one read is already running: a second connection to the same device
+     * does not go faster, and the meter is awake for seconds rather than minutes.
+     *
+     * The zone is passed in because the meter states a wall clock with no zone attached,
+     * and the only zone that can be meant is the one the phone is in — which is observed
+     * rather than fixed, since the owner travels.
+     */
+    fun syncMeter(context: Context, address: String, zone: ZoneId) {
+        if (_meterState.value is MeterState.Reading) return
+        viewModelScope.launch {
+            _meterState.value = MeterState.Reading
+            val result = withContext(Dispatchers.IO) {
+                MeterSync(context, repository).sync(address, zone)
+            }
+            _meterState.value = MeterState.Done(result)
+        }
+    }
 
     // -- language -----------------------------------------------------------
 
