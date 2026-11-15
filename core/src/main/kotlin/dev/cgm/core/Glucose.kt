@@ -10,7 +10,7 @@ enum class GlucoseUnit(val suffix: String) {
 
     fun from(mgdl: Double): Double = when (this) {
         MGDL -> mgdl
-        MMOLL -> mgdl / MMOL_PER_MGDL
+        MMOLL -> mgdl / MGDL_PER_MMOLL
     }
 
     /**
@@ -23,7 +23,7 @@ enum class GlucoseUnit(val suffix: String) {
      */
     fun toMgdl(value: Double): Double = when (this) {
         MGDL -> value
-        MMOLL -> value * MMOL_PER_MGDL
+        MMOLL -> value * MGDL_PER_MMOLL
     }
 
     /** Decimal places appropriate for this unit. */
@@ -35,7 +35,17 @@ enum class GlucoseUnit(val suffix: String) {
     }
 
     companion object {
-        const val MMOL_PER_MGDL = 18.0182
+        /**
+         * Milligrams per decilitre in one millimole per litre.
+         *
+         * Named the way it is used, which it was not: as `MMOL_PER_MGDL` it claimed to
+         * be the reciprocal of what it holds, and every conversion in this file read as
+         * though it were multiplying by the wrong one. The arithmetic was right and the
+         * name was wrong, which is the harder kind of wrong to notice — the next person
+         * to write a conversion would have copied the name's logic rather than the
+         * code's.
+         */
+        const val MGDL_PER_MMOLL = 18.0182
     }
 }
 

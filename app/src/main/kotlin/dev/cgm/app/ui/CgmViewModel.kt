@@ -21,6 +21,7 @@ import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
 import dev.cgm.core.BloodTest
 import dev.cgm.core.BloodTestOrigin
+import dev.cgm.core.BloodTestOutcome
 import dev.cgm.core.CarbEntry
 import dev.cgm.core.ChartHistory
 import dev.cgm.core.ChartZoom
@@ -338,16 +339,18 @@ class CgmViewModel(
         onResult: (Boolean) -> Unit = {},
     ) {
         viewModelScope.launch {
-            onResult(
-                repository.saveBloodTest(
-                    BloodTest(
-                        mgdl = mgdl,
-                        takenAtMillis = takenAtMillis,
-                        origin = BloodTestOrigin.MANUAL,
-                        note = BloodTest.cleanNote(note),
-                    )
+            val outcome = repository.saveBloodTest(
+                BloodTest(
+                    mgdl = mgdl,
+                    takenAtMillis = takenAtMillis,
+                    origin = BloodTestOrigin.MANUAL,
+                    note = BloodTest.cleanNote(note),
                 )
             )
+            // A typed test carries no meter record, so it cannot be a duplicate and the
+            // form only has two states to show. Collapsed here rather than in the
+            // repository, so the caller that does care keeps the distinction.
+            onResult(outcome == BloodTestOutcome.STORED)
         }
     }
 

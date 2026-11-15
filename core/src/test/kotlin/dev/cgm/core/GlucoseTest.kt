@@ -18,7 +18,7 @@ class GlucoseUnitTest {
     @Test
     fun `mgdl is the storage unit and round trips`() {
         val mmol = GlucoseUnit.MMOLL.from(180.0)
-        assertEquals(180.0, mmol * GlucoseUnit.MMOL_PER_MGDL, 0.01)
+        assertEquals(180.0, mmol * GlucoseUnit.MGDL_PER_MMOLL, 0.01)
     }
 }
 

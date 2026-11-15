@@ -13,6 +13,31 @@ enum class BloodTestOrigin {
 }
 
 /**
+ * What became of a finger-prick result handed to storage.
+ *
+ * Three outcomes rather than a boolean, because the three are acted on differently
+ * and two of them were previously indistinguishable. A form that typed something
+ * implausible must keep what was typed and say why; a collector that re-read a record
+ * the database already holds has not failed at anything and must still advance past
+ * it; and only [STORED] means there is a new row.
+ *
+ * The one that matters is [DUPLICATE]. A meter numbers its own records and hands them
+ * out again on every connection, so re-reading one is the normal case, not an error —
+ * and reporting it as a success would have a collector believe it had stored something
+ * it had not.
+ */
+enum class BloodTestOutcome {
+    /** A new row. */
+    STORED,
+
+    /** This meter record is already stored, and the stored one was kept. */
+    DUPLICATE,
+
+    /** Not a plausible result; nothing was written. */
+    REFUSED,
+}
+
+/**
  * A finger-prick result: blood on a strip, read by a meter.
  *
  * Kept apart from [GlucoseReading] on purpose, and the separation is the whole point
@@ -62,6 +87,15 @@ data class BloodTest(
      * error code or a control solution, and a human who types a figure outside them
      * has mistyped it.
      */
+    /**
+     * Whether this result identifies itself as a particular record on a particular
+     * meter, which is what makes it possible to recognise it arriving twice.
+     *
+     * Both halves or neither: a sequence number without the meter it came from cannot
+     * be compared with anything, since every meter numbers from one.
+     */
+    val hasMeterRecord: Boolean get() = meterName != null && meterSequence != null
+
     val isPlausible: Boolean
         get() = takenAtMillis > 0 &&
             mgdl.isFinite() &&

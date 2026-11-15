@@ -3,7 +3,9 @@ package dev.cgm.app.data
 import androidx.annotation.StringRes
 import dev.cgm.app.R
 
+import android.database.sqlite.SQLiteConstraintException
 import dev.cgm.core.BloodTest
+import dev.cgm.core.BloodTestOutcome
 import dev.cgm.core.CarbEntry
 import dev.cgm.core.ContinuityAnalyzer
 import dev.cgm.core.ContinuityReport
@@ -262,16 +264,49 @@ class GlucoseRepository(
         bloodTestDao.observeBetween(startMillis, endMillis).map { rows -> rows.map(BloodTestEntity::toTest) }
 
     /**
-     * Stores a finger-prick test, or refuses it.
+     * Stores a finger-prick test, reporting what became of it.
      *
-     * Returns false rather than throwing, for the same reason [saveDose] does: this is
-     * called from a form, and a form wants to keep what the user typed and say why it
-     * was refused, not lose it to an exception.
+     * An outcome rather than a boolean, and never an exception, for the reason
+     * [saveDose] returns false: one caller is a form, which wants to keep what was
+     * typed and say why it was refused.
+     *
+     * The other caller will be a meter, and that is what the third outcome is for. A
+     * meter hands out its whole numbered history on every connection, so a record
+     * already stored arrives again as a matter of routine. Room's upsert resolves the
+     * unique index by updating the row with the matching primary key — and a record
+     * arriving from a meter has no id yet, so the update matches nothing and the write
+     * quietly does nothing at all. Reported as success, that is a collector told it
+     * stored something it did not.
+     *
+     * So the existing row is looked up first and kept when it is there, rather than
+     * overwritten: the two copies carry the same reading, and the stored one may have
+     * had a note added to it by hand since. The constraint is caught as well as
+     * checked, because the check and the write are not one statement — nothing in this
+     * app writes tests concurrently today, and a backstop that costs one `runCatching`
+     * is cheaper than the assumption.
      */
-    suspend fun saveBloodTest(test: BloodTest): Boolean {
-        if (!test.isPlausible) return false
-        bloodTestDao.upsert(BloodTestEntity.from(test))
-        return true
+    suspend fun saveBloodTest(test: BloodTest): BloodTestOutcome {
+        if (!test.isPlausible) return BloodTestOutcome.REFUSED
+
+        val meterName = test.meterName
+        val sequence = test.meterSequence
+        if (test.hasMeterRecord && meterName != null && sequence != null) {
+            if (bloodTestDao.byMeterRecord(meterName, sequence) != null) {
+                return BloodTestOutcome.DUPLICATE
+            }
+        }
+
+        return runCatching { bloodTestDao.upsert(BloodTestEntity.from(test)) }
+            .fold(
+                onSuccess = { BloodTestOutcome.STORED },
+                onFailure = { error ->
+                    if (error is SQLiteConstraintException && test.hasMeterRecord) {
+                        BloodTestOutcome.DUPLICATE
+                    } else {
+                        throw error
+                    }
+                },
+            )
     }
 
     suspend fun deleteBloodTest(test: BloodTest) = bloodTestDao.delete(BloodTestEntity.from(test))

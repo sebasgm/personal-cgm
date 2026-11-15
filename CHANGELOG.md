@@ -11,6 +11,37 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.8] - unreleased
+
+### Fixed
+
+- **Storing a meter's record twice would have reported success and stored nothing.** The
+  `blood_tests` table has a unique index over the meter's name and its own record number,
+  so a second copy of one record cannot be written. What was not right was what happened
+  when something tried: Room's upsert resolves that conflict by updating the row whose
+  primary key matches, and a result arriving from a meter has no id yet — so the update
+  matched nothing, the write quietly did nothing, and the caller was told it had been
+  stored.
+
+  Nothing could hit this yet, because nothing reads a meter. It is fixed now rather than
+  in phase 1 because the collector will be built on top of this answer: a meter hands out
+  its whole numbered history on every connection, so a record already held arrives again
+  as a matter of routine, and a collector that cannot tell "already have it" from "stored
+  it" cannot decide what to ask for next.
+
+  `saveBloodTest` now reports one of three outcomes rather than a boolean. The row that is
+  already there is kept rather than overwritten: both copies carry the same reading, and
+  the stored one may have had a note added to it by hand since. The constraint is caught as
+  well as checked, since the check and the write are two statements.
+
+### Changed
+
+- **`GlucoseUnit.MMOL_PER_MGDL` is now `MGDL_PER_MMOLL`.** The value is 18.0182 — the
+  milligrams per decilitre in one millimole per litre — and the old name claimed to be its
+  reciprocal. Every conversion using it was correct, which is what made it worth renaming:
+  the arithmetic read as though it were multiplying by the wrong quantity, and the next
+  person to write a conversion would have followed the name rather than the code.
+
 ## [3.1.7] - unreleased
 
 ### Added

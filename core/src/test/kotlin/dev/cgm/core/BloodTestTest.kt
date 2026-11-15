@@ -56,7 +56,7 @@ class BloodTestTest {
         val point = BloodTest.parse("5.8", GlucoseUnit.MMOLL)
         assertEquals(comma, point, "a comma and a point must mean the same figure")
 
-        val expected = 5.8 * GlucoseUnit.MMOL_PER_MGDL
+        val expected = 5.8 * GlucoseUnit.MGDL_PER_MMOLL
         assertTrue(
             kotlin.math.abs(requireNotNull(point) - expected) < 0.01,
             "5.8 mmol/L should be about 104.5 mg/dL, was $point",
@@ -73,7 +73,7 @@ class BloodTestTest {
     @Test
     fun `a parsed figure keeps its fraction and is not rounded`() {
         val mmol = BloodTest.parse("5.83", GlucoseUnit.MMOLL)
-        assertEquals(5.83 * GlucoseUnit.MMOL_PER_MGDL, requireNotNull(mmol), 1e-9,
+        assertEquals(5.83 * GlucoseUnit.MGDL_PER_MMOLL, requireNotNull(mmol), 1e-9,
             "5.83 mmol/L must not be rounded away")
 
         val mgdl = BloodTest.parse("105.5", GlucoseUnit.MGDL)
@@ -266,5 +266,29 @@ class BloodTestTest {
             "one short of the minimum is thin")
         assertFalse(agreementOf(SensorAgreement.MIN_PAIRS).isThin,
             "exactly the minimum is not thin")
+    }
+
+    // -- the identity of a meter's record ---------------------------------
+
+    @Test
+    fun `a result identifies a meter record only with both halves of it`() {
+        val typed = BloodTest(mgdl = 105.0, takenAtMillis = 1)
+        assertFalse(typed.hasMeterRecord, "a typed result has no meter record")
+
+        val full = typed.copy(
+            origin = BloodTestOrigin.METER,
+            meterName = "Accu-Chek Guide",
+            meterSequence = 41,
+        )
+        assertTrue(full.hasMeterRecord)
+
+        assertFalse(
+            full.copy(meterName = null).hasMeterRecord,
+            "a sequence with no meter cannot be compared with anything: every meter numbers from one",
+        )
+        assertFalse(
+            full.copy(meterSequence = null).hasMeterRecord,
+            "a meter with no sequence identifies no particular record",
+        )
     }
 }

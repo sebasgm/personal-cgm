@@ -426,6 +426,19 @@ interface BloodTestDao {
     /** Every test, for the raw export. */
     @Query("SELECT * FROM blood_tests ORDER BY takenAtMillis ASC")
     suspend fun all(): List<BloodTestEntity>
+
+    /**
+     * The stored row for one record of one meter, or null.
+     *
+     * The unique index makes storing a second copy impossible; this is how the layer
+     * above finds out *before* trying, so that re-reading a meter is reported as the
+     * ordinary event it is rather than as a write that silently did nothing.
+     */
+    @Query(
+        "SELECT * FROM blood_tests WHERE meterName = :meterName " +
+            "AND meterSequence = :meterSequence LIMIT 1"
+    )
+    suspend fun byMeterRecord(meterName: String, meterSequence: Int): BloodTestEntity?
 }
 
 /**
