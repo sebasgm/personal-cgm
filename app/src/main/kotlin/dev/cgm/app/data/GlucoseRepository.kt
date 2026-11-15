@@ -3,6 +3,7 @@ package dev.cgm.app.data
 import androidx.annotation.StringRes
 import dev.cgm.app.R
 
+import dev.cgm.core.BloodTest
 import dev.cgm.core.CarbEntry
 import dev.cgm.core.ContinuityAnalyzer
 import dev.cgm.core.ContinuityReport
@@ -24,6 +25,7 @@ import dev.cgm.core.ThresholdOverrides
 import dev.cgm.core.Zone
 import dev.cgm.core.GlucoseSourceException
 import dev.cgm.core.PollOutcome
+import dev.cgm.core.SensorAgreement
 import dev.cgm.core.SensorIdentity
 import dev.cgm.core.SensorInfo
 import dev.cgm.core.RawExport
@@ -114,6 +116,7 @@ class GlucoseRepository(
     private val rollupDao: HourlyRollupDao? = null,
     private val doseDao: DoseDao,
     private val carbDao: CarbDao,
+    private val bloodTestDao: BloodTestDao,
     /** Where sensor identity is kept, so it survives a restart. */
     private val sensorDao: SensorDao,
     /**
@@ -247,6 +250,48 @@ class GlucoseRepository(
             carbDao.clearPhotosBefore(cutoff)
             MealPhotos.deleteOrphans(mealPhotoDir, carbDao.allPhotoNames().toSet())
         }
+    }
+
+    // -- finger-prick tests -------------------------------------------------
+
+    fun recentBloodTests(limit: Int): Flow<List<BloodTest>> =
+        bloodTestDao.observeRecent(limit).map { rows -> rows.map(BloodTestEntity::toTest) }
+
+    /** Tests in a window, for the sensor comparison and the chart later. */
+    fun bloodTestsBetween(startMillis: Long, endMillis: Long): Flow<List<BloodTest>> =
+        bloodTestDao.observeBetween(startMillis, endMillis).map { rows -> rows.map(BloodTestEntity::toTest) }
+
+    /**
+     * Stores a finger-prick test, or refuses it.
+     *
+     * Returns false rather than throwing, for the same reason [saveDose] does: this is
+     * called from a form, and a form wants to keep what the user typed and say why it
+     * was refused, not lose it to an exception.
+     */
+    suspend fun saveBloodTest(test: BloodTest): Boolean {
+        if (!test.isPlausible) return false
+        bloodTestDao.upsert(BloodTestEntity.from(test))
+        return true
+    }
+
+    suspend fun deleteBloodTest(test: BloodTest) = bloodTestDao.delete(BloodTestEntity.from(test))
+
+    /**
+     * How this sensor has agreed with the meter over a window.
+     *
+     * Queries per test, not the whole window's readings. Ninety days of readings is six
+     * figures of rows, and the card needs only the few hundred that sit within the match
+     * window of a test. Loading the window and filtering in memory would read all six
+     * figures to keep a few hundred, every time the card is drawn.
+     */
+    suspend fun sensorAgreement(fromMillis: Long, toMillis: Long): SensorAgreement {
+        val window = SensorAgreement.MATCH_WINDOW_MILLIS
+        val tests = bloodTestDao.between(fromMillis, toMillis).map(BloodTestEntity::toTest)
+        val readings = tests
+            .flatMap { dao.betweenInclusive(it.takenAtMillis - window, it.takenAtMillis + window) }
+            .distinctBy { it.timestampMillis }
+            .map(ReadingEntity::toReading)
+        return SensorAgreement.of(tests, readings)
     }
 
     /**
@@ -656,6 +701,7 @@ class GlucoseRepository(
         // that first saw it rather than being restamped by every later window.
         val arrivedAt = clock()
         dao.insertAll(readings.map { ReadingEntity.from(it, arrivedAt) })
+        // Blood tests are deliberately not pruned: a handful a day, and the only reference there is.
         dao.deleteBefore(clock() - HISTORY_RETENTION_MILLIS)
 
         // Refresh the summaries for the hours these readings touched. The writer

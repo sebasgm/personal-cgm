@@ -80,6 +80,7 @@ import kotlin.math.roundToInt
 fun HomeScreen(viewModel: CgmViewModel) {
     val state by viewModel.state.collectAsState()
     val history by viewModel.history.collectAsState()
+    val bloodTests by viewModel.historyBloodTests.collectAsState()
     val forecast by viewModel.forecast.collectAsState()
     val alarmLevels by viewModel.alarmLevels.collectAsState()
     val forecastWarningDue by viewModel.forecastWarningDue.collectAsState()
@@ -162,6 +163,7 @@ fun HomeScreen(viewModel: CgmViewModel) {
                 isLive = isLive,
                 forecast = forecast,
                 alarmLevels = alarmLevels,
+                bloodTests = bloodTests,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(vertical = 12.dp),

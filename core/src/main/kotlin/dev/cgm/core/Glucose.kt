@@ -13,6 +13,19 @@ enum class GlucoseUnit(val suffix: String) {
         MMOLL -> mgdl / MMOL_PER_MGDL
     }
 
+    /**
+     * The other direction: a figure someone typed in this unit, as mg/dL.
+     *
+     * Needed because one thing in this app is entered as a glucose rather than
+     * displayed as one — a finger-prick result — and it is typed in whatever unit
+     * the screen is showing. Storage is mg/dL for everything, so the conversion has
+     * to exist on the way in as well as on the way out.
+     */
+    fun toMgdl(value: Double): Double = when (this) {
+        MGDL -> value
+        MMOLL -> value * MMOL_PER_MGDL
+    }
+
     /** Decimal places appropriate for this unit. */
     val decimals: Int get() = if (this == MMOLL) 1 else 0
 

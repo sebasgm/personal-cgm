@@ -41,6 +41,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import dev.cgm.core.ChartSeries
 import dev.cgm.core.ColorVision
+import dev.cgm.core.BloodTest
 import dev.cgm.core.Forecast
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseThresholds
@@ -76,6 +77,16 @@ fun GlucoseChart(
      * last Tuesday is what your glucose is now.
      */
     isLive: Boolean = true,
+    /**
+     * Finger-prick results inside the same window, drawn as markers on the trace.
+     *
+     * On the chart rather than only in the diary because the comparison is the point:
+     * a strip sitting a long way off the line it crosses is the one way this app can
+     * show that the sensor was wrong, and a figure in a list on another screen cannot
+     * be read against a curve. They are never joined to the trace and never part of
+     * it — a different instrument measured a different fluid, and the drawing says so.
+     */
+    bloodTests: List<BloodTest> = emptyList(),
     /**
      * Where the trace is projected to go next, or null when the projection is off.
      *
@@ -237,6 +248,19 @@ fun GlucoseChart(
                 )
             }
 
+            // Over the trace, under the current point: a marker must not be buried by
+            // the line it is there to be compared against, and nothing may bury the
+            // reading that says what glucose is now.
+            bloodTests.forEach { test ->
+                drawBloodTest(
+                    test = test,
+                    colour = ZoneColors.of(thresholds.classify(test.mgdl), vision),
+                    outline = trace,
+                    x = ::x,
+                    y = ::y,
+                )
+            }
+
             if (isLive) {
                 drawCurrentPoint(
                     vision = vision,
@@ -249,6 +273,39 @@ fun GlucoseChart(
             }
         }
     }
+}
+
+/**
+ * One finger-prick result: a diamond, outlined.
+ *
+ * A diamond because every other mark on this chart is round — the trace's dots, the
+ * current reading, the inspected point. Shape is the only channel left that does not
+ * already mean something here: colour is the zone, dashes are the forecast, and size
+ * is emphasis. Someone who sees one of these has to be able to tell at a glance that
+ * it is not a sensor reading, and a differently-sized dot would not say that.
+ *
+ * Filled in its own zone colour, because it is a measurement and this app colours
+ * measurements by where they fall. Outlined in the trace's colour so it stays legible
+ * sitting on top of the line, which is exactly where an accurate sensor puts it.
+ */
+private fun DrawScope.drawBloodTest(
+    test: BloodTest,
+    colour: Color,
+    outline: Color,
+    x: (Long) -> Float,
+    y: (Double) -> Float,
+) {
+    val centre = Offset(x(test.takenAtMillis), y(test.mgdl))
+    val radius = BLOOD_TEST_RADIUS.toPx()
+    val diamond = Path().apply {
+        moveTo(centre.x, centre.y - radius)
+        lineTo(centre.x + radius, centre.y)
+        lineTo(centre.x, centre.y + radius)
+        lineTo(centre.x - radius, centre.y)
+        close()
+    }
+    drawPath(diamond, color = colour)
+    drawPath(diamond, color = outline, style = Stroke(width = BLOOD_TEST_STROKE.toPx()))
 }
 
 /**
@@ -643,6 +700,15 @@ private val GRID_STROKE = 1.dp
  * 3.5dp against a 2.25dp stroke it is over three times the width of the line.
  */
 private val DOT_RADIUS = 3.5.dp
+
+/**
+ * Bigger than a measured dot, smaller than the current reading.
+ *
+ * It has to be findable among a hundred dots without becoming the thing the eye lands
+ * on first — the current value keeps that job.
+ */
+private val BLOOD_TEST_RADIUS = 5.dp
+private val BLOOD_TEST_STROKE = 1.5.dp
 
 /** The current reading stays unmistakably the largest thing on the trace. */
 private val CURRENT_RADIUS = 6.dp

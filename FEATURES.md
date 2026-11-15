@@ -132,6 +132,16 @@ That describes the choice, not anyone else's product.
   **Unusual:** the axis starts at zero, always. A bar is read as a height, so an axis starting at
   thirty units would draw an ordinary two-unit difference as a tripling.
 
+- **"The sensor against the strip"**: finger-prick results paired with the sensor reading
+  nearest them, reported as the number of comparisons, the mean difference between the two
+  instruments, and the Clarke error grid zones — in words, with the hazardous ones in red.
+
+  **Unusual:** an app that scores its own data source. The figures are n=1 on the arm the
+  sensor is actually on, which makes them far less reliable than a manufacturer's and far
+  more relevant. The card states the sensor's lean as a sentence, says when it rests on too
+  few comparisons, and carries the physiological caveat permanently: interstitial fluid lags
+  blood, so a comparison taken mid-rise overstates the disagreement.
+
 - **Every statistic states its coverage**, and below a reliability threshold is shown muted
   with an explanation rather than presented confidently.
 
@@ -155,6 +165,15 @@ That describes the choice, not anyone else's product.
   the one number that says why it was that size. A dose with no reading within a quarter of an
   hour keeps no glucose at all — null, never a nearest-available figure, because a bolus filed
   with a value from six hours away looks exactly like one filed with the right value.
+- **Finger-prick results**, typed in whichever unit the screen shows and drawn on the chart
+  as a diamond among the sensor's round dots.
+
+  **Unusual:** they are stored in their own table and never join the reading series. A
+  capillary measurement and a sensor estimate are different kinds of fact, and three spot
+  values a day among the five-minute ones would make every statistic computed over that
+  series describe something nobody asked about. The comparison between them is computed
+  instead, on Trends.
+
 - **Carbohydrate logging** in grams, with chips for the amounts people actually estimate in.
 
   **Unusual:** grams only — no food database, no portion picker. Grams are the part of a meal

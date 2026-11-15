@@ -71,6 +71,7 @@ fun TrendsScreen(viewModel: CgmViewModel) {
     val timeOfDay by viewModel.timeOfDay.collectAsState()
     val state by viewModel.state.collectAsState()
     val doses by viewModel.periodDoses.collectAsState()
+    val agreement by viewModel.sensorAgreement.collectAsState()
     // Observed rather than read once: the chart groups by calendar day, and a day
     // boundary drawn in the zone you left is not a day.
     val zone by ZoneWatcher.zone.collectAsState()
@@ -132,6 +133,11 @@ fun TrendsScreen(viewModel: CgmViewModel) {
         // week the phone was not polling, and a window with no readings in it can
         // still have every injection of the week written down.
         InsulinTrendCard(doses = doses, period = period, zone = zone)
+
+        // Beside the insulin card for the same reason: both are about what the owner
+        // did rather than what the sensor said — and this one is the only card here
+        // that judges the sensor instead of reporting it.
+        SensorAccuracyCard(agreement = agreement, unit = state.unit)
 
         // The report last, and on its own period rather than the chips above.
         // Everything over it answers "how is it going"; this answers "write that

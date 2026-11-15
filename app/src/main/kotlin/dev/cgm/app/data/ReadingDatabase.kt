@@ -15,6 +15,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import dev.cgm.core.BloodTest
+import dev.cgm.core.BloodTestOrigin
 import dev.cgm.core.CarbEntry
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.InsulinDose
@@ -335,6 +337,98 @@ interface CarbDao {
 }
 
 /**
+ * A finger-prick result the user or a meter recorded.
+ *
+ * Its own table, and not a column on [ReadingEntity], for the reason [BloodTest] gives
+ * at length: a strip is a measurement of blood and a reading is an estimate of
+ * interstitial fluid, and a row of the first kind in the readings table would be read
+ * as the second by every query written against that table.
+ *
+ * The generated key is deliberate. A meter's record is identified by the meter, not
+ * by when it was read, so the identity lives in the unique index below rather than in
+ * the primary key.
+ */
+@Entity(
+    tableName = "blood_tests",
+    indices = [
+        Index("takenAtMillis"),
+        /**
+         * One row per record on each meter.
+         *
+         * A meter numbers its own records, so re-reading a meter must not duplicate the
+         * ones already stored: the same (name, sequence) pair is the same test, and this
+         * index is what makes a second copy impossible rather than merely unlikely.
+         *
+         * SQLite treats NULLs as distinct in a unique index, so a test typed in by hand,
+         * which has neither a name nor a sequence, never collides with another one.
+         */
+        Index(value = ["meterName", "meterSequence"], unique = true),
+    ],
+)
+data class BloodTestEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val mgdl: Double,
+    val takenAtMillis: Long,
+    /** [BloodTestOrigin] by name. Stored as text, as the other enums in this file are. */
+    val origin: String,
+    val meterSequence: Int?,
+    val meterName: String?,
+    val note: String?,
+) {
+    fun toTest() = BloodTest(
+        id = id,
+        mgdl = mgdl,
+        takenAtMillis = takenAtMillis,
+        origin = runCatching { BloodTestOrigin.valueOf(origin) }.getOrDefault(BloodTestOrigin.MANUAL),
+        meterSequence = meterSequence,
+        meterName = meterName,
+        note = note,
+    )
+
+    companion object {
+        fun from(test: BloodTest) = BloodTestEntity(
+            id = test.id,
+            mgdl = test.mgdl,
+            takenAtMillis = test.takenAtMillis,
+            origin = test.origin.name,
+            meterSequence = test.meterSequence,
+            meterName = test.meterName,
+            note = test.note,
+        )
+    }
+}
+
+@Dao
+interface BloodTestDao {
+
+    @Upsert
+    suspend fun upsert(test: BloodTestEntity)
+
+    @Delete
+    suspend fun delete(test: BloodTestEntity)
+
+    @Query("SELECT * FROM blood_tests ORDER BY takenAtMillis DESC LIMIT :limit")
+    fun observeRecent(limit: Int): Flow<List<BloodTestEntity>>
+
+    @Query(
+        "SELECT * FROM blood_tests WHERE takenAtMillis >= :startMillis " +
+            "AND takenAtMillis <= :endMillis ORDER BY takenAtMillis ASC"
+    )
+    fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<BloodTestEntity>>
+
+    /** The same window as [observeBetween], read once rather than observed. */
+    @Query(
+        "SELECT * FROM blood_tests WHERE takenAtMillis >= :startMillis " +
+            "AND takenAtMillis <= :endMillis ORDER BY takenAtMillis ASC"
+    )
+    suspend fun between(startMillis: Long, endMillis: Long): List<BloodTestEntity>
+
+    /** Every test, for the raw export. */
+    @Query("SELECT * FROM blood_tests ORDER BY takenAtMillis ASC")
+    suspend fun all(): List<BloodTestEntity>
+}
+
+/**
  * One row per physical sensor this phone has seen.
  *
  * Exists so that sensor identity survives a restart, and so a change of sensor is
@@ -396,8 +490,9 @@ interface SensorDao {
         CarbEntity::class,
         HourlyRollupEntity::class,
         SensorEntity::class,
+        BloodTestEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class ReadingDatabase : RoomDatabase() {
@@ -406,6 +501,7 @@ abstract class ReadingDatabase : RoomDatabase() {
     abstract fun carbs(): CarbDao
     abstract fun rollups(): HourlyRollupDao
     abstract fun sensors(): SensorDao
+    abstract fun bloodTests(): BloodTestDao
 
     companion object {
         /**
@@ -608,6 +704,43 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds the blood tests table.
+         *
+         * Its own table rather than columns on `readings`, because a finger-prick result
+         * and a sensor estimate are different kinds of fact. Filed into the readings
+         * table, a strip would be one more value in the series, and every statistic
+         * computed over that series — time in range, GMI, the daily pattern, coverage —
+         * would silently begin to include capillary measurements taken a few times a day
+         * beside interstitial estimates taken every few minutes.
+         *
+         * Created empty: nothing before the upgrade has a blood test to backfill.
+         */
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    // Spelled the way Room generates it; see MIGRATION_5_6 for why the
+                    // cosmetic details matter when the database opens.
+                    "CREATE TABLE IF NOT EXISTS `blood_tests` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`mgdl` REAL NOT NULL, " +
+                        "`takenAtMillis` INTEGER NOT NULL, " +
+                        "`origin` TEXT NOT NULL, " +
+                        "`meterSequence` INTEGER, " +
+                        "`meterName` TEXT, " +
+                        "`note` TEXT)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_blood_tests_takenAtMillis` " +
+                        "ON `blood_tests` (`takenAtMillis`)"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_blood_tests_meterName_meterSequence` " +
+                        "ON `blood_tests` (`meterName`, `meterSequence`)"
+                )
+            }
+        }
+
         fun create(context: Context): ReadingDatabase =
             Room.databaseBuilder(context, ReadingDatabase::class.java, "readings.db")
                 .addMigrations(
@@ -620,6 +753,7 @@ abstract class ReadingDatabase : RoomDatabase() {
                     MIGRATION_7_8,
                     MIGRATION_8_9,
                     MIGRATION_9_10,
+                    MIGRATION_10_11,
                 )
                 .build()
     }

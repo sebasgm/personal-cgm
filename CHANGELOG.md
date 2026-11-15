@@ -11,6 +11,77 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.1.7] - unreleased
+
+### Added
+
+- **Finger-prick results are recorded, and the sensor is scored against them.** This app
+  has had one measurement and no way to check it: everything on every screen came from one
+  sensor read through one cloud service, and when that number was wrong nothing here could
+  notice. The disclaimer already sent the owner to a fingerstick for any decision that
+  mattered, and the app never heard the answer. Now it does, and the answer is the only
+  reference measurement it has ever held.
+
+  **A strip is its own table, not a row in the reading series.** Three capillary values a
+  day filed among the sensor's five-minute estimates would not give the record a reference,
+  it would quietly wreck it — time in range, GMI, the daily pattern and the coverage figure
+  all mean "of the sensor series", and none of them would have meant that afterwards. So
+  `blood_tests` sits beside the diary's doses and meals (Room 11), and the comparison
+  between the two instruments is computed rather than baked in.
+
+  **Entered on the Diary, as a third kind of entry.** In whichever unit the screen is
+  showing and stored in mg/dL like every other glucose here, with both decimal separators
+  accepted — "5,8" is five point eight millimoles and must never read as fifty-eight.
+  Nothing is rounded: 5.8 mmol/L is 104.5 mg/dL and stays there, because rounding it to 104
+  for tidiness would be this app editing someone else's measurement.
+
+  **A diamond on the chart.** Every other mark there is round — the trace's dots, the
+  current value, the inspected point — and shape was the only channel left that did not
+  already mean something: colour is the zone, dashes are the forecast, size is emphasis.
+  Filled in its own zone colour because it is a measurement, outlined in the trace's colour
+  so it stays legible sitting exactly on the line, which is where an accurate sensor puts
+  it. It is never joined to the trace and never part of it.
+
+  **"The sensor against the strip" on Trends** reports how many comparisons there are, the
+  mean difference between the two instruments (MARD, the figure a CGM's accuracy is actually
+  quoted in), and how many comparisons fall in the two Clarke zones that would not have led
+  anyone astray. Underneath, the zones in words rather than letters — "D" means nothing to
+  the person holding the phone and "would miss what needed detecting" means everything —
+  with the hazardous three in the error colour, which in this app has always meant "what you
+  are looking at may not be true". Here it means that about the sensor.
+
+  Which way the sensor leans is a sentence rather than a tile, because a signed median in a
+  tile is a minus sign with no statement of what it is a minus of. A lean smaller than the
+  display's own resolution is reported as no lean at all, rather than as "0 above the
+  strip", which is a sentence that says a thing and unsays it.
+
+  **A comparison needs the two measurements within five minutes of each other**, nearest in
+  either direction, and a test with nothing that close is dropped rather than paired with
+  whatever was nearest. Five rather than the fifteen minutes the diary uses to attach a
+  glucose to a dose: that window asks what the context was when something was injected,
+  where a value from twelve minutes earlier is still context. This one asks whether two
+  instruments measured the same blood, and glucose can move sixty mg/dL in fifteen minutes.
+
+  Below ten comparisons the card says so in the error colour. Ten is not a defensible
+  sample for an accuracy claim — the literature uses hundreds — and it is not meant to be;
+  it is the point at which a figure stops being one bad strip and starts being a pattern,
+  which is the only claim the card ever makes. The caveat that matters more is on the card
+  permanently: a sensor reads interstitial fluid, which lags blood and lags further the
+  faster glucose moves, so every figure here slightly overstates how wrong the sensor is.
+
+  Blood tests are deliberately never pruned, where readings are dropped after a year. There
+  are a handful a day, they are the only reference measurements in the database, and the
+  comparison they feed is worth more the longer it runs. The table also carries a unique
+  index over the meter's name and its own record number, so that when something does read a
+  meter, re-reading it cannot store the same result twice.
+
+  This is phase 0 of `docs/12-finger-prick-meter.md`, and nothing in it talks to a meter
+  yet: results are typed in by hand, which is deliberate — the radio is an input method
+  rather than the feature, and building the model first means a failed Bluetooth spike costs
+  a weekend instead of a feature. Reading an Accu-Chek Guide over the standard Bluetooth
+  Glucose Service is phase 1; weighting a strip against a sensor for the same instant is
+  phase 2. The diary's exports do not yet include finger pricks.
+
 ## [3.1.6] - unreleased
 
 ### Added

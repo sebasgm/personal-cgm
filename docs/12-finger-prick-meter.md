@@ -300,9 +300,10 @@ it from quietly becoming a fact.
 
 ## Build order
 
-0. **No radio.** `BloodTest`, the `blood_tests` table (Room 11), manual entry on the
-   Diary, a marker on the chart, and the Clarke grid card on Trends. Useful alone, and
-   it is the whole data model.
+0. **No radio. ✅ built** in 3.1.7 — `BloodTest`, the `blood_tests` table (Room 11),
+   manual entry on the Diary, a diamond on the chart, and "the sensor against the strip"
+   on Trends. Useful alone, and it is the whole data model. The paired points it starts
+   collecting are what phase 2's weighting will eventually be derived from.
 1. **The spike.** Bond the Guide in Android settings, connect by address, dump the GATT
    tree, confirm `0x1808`. One evening; it settles the only open question that matters.
 2. **The collector.** Bond-aware connect, RACP history pull, the parse, control-solution

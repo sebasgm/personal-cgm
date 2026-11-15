@@ -19,6 +19,8 @@ import dev.cgm.core.AccessibilityPreferences
 import dev.cgm.core.AlarmKind
 import dev.cgm.core.AlarmSetting
 import dev.cgm.core.AlarmSettings
+import dev.cgm.core.BloodTest
+import dev.cgm.core.BloodTestOrigin
 import dev.cgm.core.CarbEntry
 import dev.cgm.core.ChartHistory
 import dev.cgm.core.ChartZoom
@@ -37,6 +39,7 @@ import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.InsulinDose
 import dev.cgm.core.InsulinKind
+import dev.cgm.core.SensorAgreement
 import dev.cgm.core.SourceKind
 import dev.cgm.core.StatisticsCalculator
 import dev.cgm.core.TimeOfDayProfile
@@ -296,6 +299,63 @@ class CgmViewModel(
         viewModelScope.launch { repository.deleteCarbs(entry) }
     }
 
+    // -- finger-prick tests ---------------------------------------------------
+
+    val bloodTests: StateFlow<List<BloodTest>> = repository.recentBloodTests(BLOOD_TEST_LIMIT)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * The tests inside the chart's window, for the markers on it.
+     *
+     * Keyed exactly as [history] is, so a marker cannot sit on a window the trace is
+     * no longer showing. Open-ended at the top while the window is live: a test logged
+     * ten seconds ago belongs on the chart, and a window that ended at the moment the
+     * query was built would hold it back until something else moved.
+     */
+    val historyBloodTests: StateFlow<List<BloodTest>> =
+        combine(_spanMillis, _endMillis) { span, end -> span to end }
+            .flatMapLatest { (span, end) ->
+                if (end == null) {
+                    repository.bloodTestsBetween(clock() - span, Long.MAX_VALUE)
+                } else {
+                    repository.bloodTestsBetween(end - span, end)
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Records a finger-prick result. [onResult] reports whether it was accepted, so
+     * the form can keep what was typed when it was not.
+     *
+     * [mgdl] rather than the figure that was typed: the form converts from whatever
+     * unit the screen is showing, because storage is mg/dL for every glucose in this
+     * app and the conversion belongs at the edge rather than in the database.
+     */
+    fun logBloodTest(
+        mgdl: Double,
+        takenAtMillis: Long,
+        note: String?,
+        onResult: (Boolean) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            onResult(
+                repository.saveBloodTest(
+                    BloodTest(
+                        mgdl = mgdl,
+                        takenAtMillis = takenAtMillis,
+                        origin = BloodTestOrigin.MANUAL,
+                        note = BloodTest.cleanNote(note),
+                    )
+                )
+            )
+        }
+    }
+
+    fun deleteBloodTest(test: BloodTest) {
+        viewModelScope.launch { repository.deleteBloodTest(test) }
+    }
+
+
     // -- language -----------------------------------------------------------
 
     /** The chosen language tag, or null while following the device. */
@@ -435,6 +495,27 @@ class CgmViewModel(
             )
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * How far the sensor has been from the meter, over the Trends window.
+     *
+     * On [statsKey] like every other figure on that screen, so it moves with the
+     * chips and refreshes when a reading lands rather than when the screen is
+     * reopened. `WhileSubscribed`, because it runs a query per test and nothing wants
+     * that while the screen is closed.
+     */
+    val sensorAgreement: StateFlow<SensorAgreement> = statsKey
+        .mapLatest { key ->
+            val now = clock()
+            withContext(Dispatchers.IO) {
+                repository.sensorAgreement(now - key.period.millis, now)
+            }
+        }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            SensorAgreement(emptyList()),
+        )
 
     // -- tour --------------------------------------------------------------------
 
@@ -898,6 +979,13 @@ class CgmViewModel(
 
         /** Meals outnumber doses only slightly; the same few weeks either way. */
         const val CARB_LIMIT = 300
+
+        /**
+         * Fewer than doses or meals, because there are fewer: a few strips a day at
+         * most, and the diary only shows the recent ones. The comparison on Trends
+         * does not read this list — it queries its own window.
+         */
+        const val BLOOD_TEST_LIMIT = 200
 
         /**
          * How far past each end of the Trends window doses are loaded.

@@ -30,6 +30,7 @@ class CgmApplication : Application() {
             database.rollups(),
             database.doses(),
             database.carbs(),
+            database.bloodTests(),
             database.sensors(),
             MealPhotos.directoryIn(this),
         )

@@ -59,6 +59,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.ui.text.input.KeyboardType
 import java.time.ZoneOffset
 import dev.cgm.app.R
+import dev.cgm.core.BloodTest
 import dev.cgm.core.CarbEntry
 import dev.cgm.app.data.MealPhotos
 import kotlinx.coroutines.withContext
@@ -109,6 +110,7 @@ import java.time.format.DateTimeFormatter
 fun DiaryScreen(viewModel: CgmViewModel) {
     val doses by viewModel.doses.collectAsState()
     val carbs by viewModel.carbs.collectAsState()
+    val tests by viewModel.bloodTests.collectAsState()
     // For the unit the glucose beside a dose is shown in, and so the form's
     // glucose line refreshes when a new reading lands.
     val state by viewModel.state.collectAsState()
@@ -121,6 +123,7 @@ fun DiaryScreen(viewModel: CgmViewModel) {
     var kind by remember { mutableStateOf(InsulinKind.BOLUS) }
     var unitsText by remember { mutableStateOf("") }
     var gramsText by remember { mutableStateOf("") }
+    var testText by remember { mutableStateOf("") }
     // The chosen image is copied into app storage as soon as it is picked, so the
     // transient read permission on the picker's Uri cannot expire before saving.
     var photoName by remember { mutableStateOf<String?>(null) }
@@ -135,6 +138,10 @@ fun DiaryScreen(viewModel: CgmViewModel) {
 
     val units = InsulinDose.parseUnits(unitsText)
     val grams = CarbEntry.parseGrams(gramsText)
+    // Parsed in the unit on screen and stored as mg/dL, because a glucose is the one
+    // amount here that is entered in whichever unit the reader happens to be using.
+    val testMgdl = BloodTest.parse(testText, state.unit)
+
     val acceptable = when (entry) {
         DiaryEntryKind.INSULIN -> units != null &&
             InsulinDose(kind = kind, units = units, givenAtMillis = 1).isPlausible
@@ -143,6 +150,10 @@ fun DiaryScreen(viewModel: CgmViewModel) {
         // unparseable in it is still refused: that is a typo, not an omission.
         DiaryEntryKind.FOOD -> (gramsText.isBlank() || grams != null) &&
             CarbEntry(grams = grams, eatenAtMillis = 1).isPlausible
+        // Gated on a number, unlike food: a meal with no count is a real entry and a
+        // finger prick with no result is not an entry at all.
+        DiaryEntryKind.TEST -> testMgdl != null &&
+            BloodTest(mgdl = testMgdl, takenAtMillis = 1).isPlausible
     }
     // Resolved at save time when no explicit instant was picked, so a form left open
     // for ten minutes still records "now" as now.
@@ -177,6 +188,7 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                 when (entry) {
                     DiaryEntryKind.INSULIN -> R.string.dose_log_title
                     DiaryEntryKind.FOOD -> R.string.diary_food_title
+                    DiaryEntryKind.TEST -> R.string.diary_test_title
                 }
             ),
             style = MaterialTheme.typography.titleMedium,
@@ -204,7 +216,7 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                     value = unitsText,
                     onValueChange = { unitsText = it },
                     labelRes = R.string.dose_units,
-                    suffixRes = R.string.dose_units_suffix,
+                    suffix = stringResource(R.string.dose_units_suffix),
                     isError = unitsText.isNotEmpty() && !acceptable,
                 )
                 if (unitsText.isNotEmpty() && !acceptable) {
@@ -223,7 +235,7 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                     value = gramsText,
                     onValueChange = { gramsText = it },
                     labelRes = R.string.carb_grams,
-                    suffixRes = R.string.carb_grams_suffix,
+                    suffix = stringResource(R.string.carb_grams_suffix),
                     isError = gramsText.isNotBlank() && !acceptable,
                 )
                 if (gramsText.isNotBlank() && !acceptable) {
@@ -277,6 +289,33 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                         )
                     }
                 }
+            }
+
+            DiaryEntryKind.TEST -> {
+                Spacer(Modifier.height(16.dp))
+                AmountField(
+                    value = testText,
+                    onValueChange = { testText = it },
+                    labelRes = R.string.test_value,
+                    suffix = state.unit.suffix,
+                    isError = testText.isNotBlank() && !acceptable,
+                )
+                if (testText.isNotBlank() && !acceptable) {
+                    FieldError(
+                        stringResource(
+                            R.string.test_invalid,
+                            state.unit.format(BloodTest.MIN_MGDL),
+                            state.unit.format(BloodTest.MAX_MGDL),
+                            state.unit.suffix,
+                        )
+                    )
+                }
+                Text(
+                    stringResource(R.string.test_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
 
@@ -393,11 +432,17 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                         note = note,
                         photoName = photoName,
                     )
+                    DiaryEntryKind.TEST -> viewModel.logBloodTest(
+                        mgdl = testMgdl ?: return@Button,
+                        takenAtMillis = at,
+                        note = note,
+                    )
                 }
                 // Reset only what should not carry over. The kind usually repeats —
                 // a bolus is followed by another bolus — so it stays.
                 unitsText = ""
                 gramsText = ""
+                testText = ""
                 // Handed to the saved entry, so it must not be deleted here.
                 photoName = null
                 minutesAgo = 0
@@ -436,7 +481,7 @@ fun DiaryScreen(viewModel: CgmViewModel) {
         // One list, in time order, rather than a column each. A bolus at 13:05 and the
         // 60 g it covered at 13:00 only make sense beside each other, and that is also
         // how you spot the meal you forgot to dose for.
-        val recent = remember(doses, carbs) { merged(doses, carbs) }
+        val recent = remember(doses, carbs, tests) { merged(doses, carbs, tests) }
         if (recent.isEmpty()) {
             Text(
                 stringResource(R.string.diary_empty),
@@ -459,6 +504,12 @@ fun DiaryScreen(viewModel: CgmViewModel) {
                     zone = zone,
                     onDelete = { viewModel.deleteCarbs(row.entry) },
                     onViewPhoto = { viewingPhoto = it },
+                )
+                is DiaryRow.Test -> TestRow(
+                    test = row.test,
+                    zone = zone,
+                    unit = state.unit,
+                    onDelete = { viewModel.deleteBloodTest(row.test) },
                 )
             }
             HorizontalDivider()
@@ -505,9 +556,10 @@ fun DiaryScreen(viewModel: CgmViewModel) {
 private enum class DiaryEntryKind(val labelRes: Int) {
     INSULIN(R.string.diary_insulin),
     FOOD(R.string.diary_food),
+    TEST(R.string.diary_test),
 }
 
-/** A row in the history: whichever of the two things happened at that moment. */
+/** A row in the history: whichever of the three things happened at that moment. */
 private sealed interface DiaryRow {
     val atMillis: Long
 
@@ -518,11 +570,25 @@ private sealed interface DiaryRow {
     data class Carbs(val entry: CarbEntry) : DiaryRow {
         override val atMillis: Long get() = entry.eatenAtMillis
     }
+
+    data class Test(val test: BloodTest) : DiaryRow {
+        override val atMillis: Long get() = test.takenAtMillis
+    }
 }
 
-/** Both records interleaved, newest first. */
-private fun merged(doses: List<InsulinDose>, carbs: List<CarbEntry>): List<DiaryRow> =
-    (doses.map(DiaryRow::Dose) + carbs.map(DiaryRow::Carbs))
+/**
+ * All three records interleaved, newest first.
+ *
+ * A finger prick belongs in the same list rather than in a section of its own: it is
+ * usually taken *because* of something else in the list — before a meal, or to check
+ * a correction — and the pair only reads as a decision when they sit together.
+ */
+private fun merged(
+    doses: List<InsulinDose>,
+    carbs: List<CarbEntry>,
+    tests: List<BloodTest>,
+): List<DiaryRow> =
+    (doses.map(DiaryRow::Dose) + carbs.map(DiaryRow::Carbs) + tests.map(DiaryRow::Test))
         .sortedByDescending { it.atMillis }
 
 /**
@@ -537,7 +603,13 @@ private fun AmountField(
     value: String,
     onValueChange: (String) -> Unit,
     labelRes: Int,
-    suffixRes: Int,
+    /**
+     * The unit, as text rather than a resource id.
+     *
+     * Units and grams are fixed words; a glucose is shown in whichever unit the user
+     * reads in, and that is a runtime value rather than a string in the table.
+     */
+    suffix: String,
     isError: Boolean,
 ) {
     OutlinedTextField(
@@ -546,7 +618,7 @@ private fun AmountField(
             onValueChange(typed.filter { it.isDigit() || it == '.' || it == ',' }.take(6))
         },
         label = { Text(stringResource(labelRes)) },
-        suffix = { Text(stringResource(suffixRes)) },
+        suffix = { Text(suffix) },
         singleLine = true,
         isError = isError,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -688,6 +760,32 @@ private fun DoseRow(dose: InsulinDose, zone: ZoneId, unit: GlucoseUnit, onDelete
         // Doses recorded before the glucose was kept simply have none; saying so on
         // every one of them would be a column of apologies down the old entries.
         subtitle = dose.note?.let { stringResource(R.string.dose_given_at, time, it) } ?: time,
+        onDelete = onDelete,
+    )
+}
+
+/**
+ * A finger-prick result in the history.
+ *
+ * Says that it is a finger prick, every time. It sits in a list beside doses and
+ * meals, and the one thing a reader must never have to infer is which of these
+ * numbers came from blood and which from the sensor.
+ */
+@Composable
+private fun TestRow(test: BloodTest, zone: ZoneId, unit: GlucoseUnit, onDelete: () -> Unit) {
+    val time = remember(test.takenAtMillis) {
+        Instant.ofEpochMilli(test.takenAtMillis).atZone(zone).format(DIARY_TIME_FORMAT)
+    }
+    val whenText = if (test.meterName != null) {
+        stringResource(R.string.test_from_meter, time)
+    } else {
+        time
+    }
+
+    EntryRow(
+        title = stringResource(R.string.test_row, unit.format(test.mgdl), unit.suffix),
+        subtitle = test.note?.let { stringResource(R.string.dose_given_at, whenText, it) }
+            ?: whenText,
         onDelete = onDelete,
     )
 }
