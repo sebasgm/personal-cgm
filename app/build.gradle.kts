@@ -115,8 +115,9 @@ android {
         applicationId = "dev.cgm.app"
         minSdk = 29
         targetSdk = 37
-        versionCode = 3400
-        versionName = "3.4.0"
+        // Shared with :wear, from the root build. See the note there.
+        versionCode = rootProject.extra["cgmVersionCode"] as Int
+        versionName = rootProject.extra["cgmVersionName"] as String
     }
 
     buildTypes {

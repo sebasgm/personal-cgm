@@ -11,7 +11,7 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
-## [3.4.0] - unreleased
+## [3.4.0] - 2026-11-16
 
 ### Added
 
@@ -109,6 +109,34 @@ been built carries `unreleased` in place of a date, and the number is still ther
 - **The comparison loads more sensor history per strip**, 25 minutes before each rather
   than 5, because a slope is measured against what came before. Still a query per strip
   rather than the whole window: ninety days of readings is six figures of rows.
+
+- **The watch carries the phone's version number**, because it carried nothing useful
+  before. `:wear` set its own, and it was then left at 3.0.0 across every change the watch
+  received — the complication itself among them, and the fix for a watch that froze on a
+  stale payload and never recovered. A wrist showing "3.0.0" therefore meant nothing at
+  all, which is precisely the failure the numbered headings in this file exist to prevent
+  on the phone.
+
+  The number now lives in the root build and both modules read it, and the `versionCode`
+  is derived from it rather than written beside it: `major * 1000 + minor * 100 + patch`,
+  which is what every version in this repository's history already used, so nothing
+  downgrades across the change. Two numbers that must agree are two numbers that
+  eventually will not, and a `versionCode` left behind is an APK Android silently refuses
+  to install over the one already there.
+
+### Fixed
+
+- **The watch had a release build that could never be installed.** `:wear` set no signing
+  config, so its release variant came out unsigned — and an unsigned APK cannot be
+  installed on anything. It is signed with the debug key now, for the reason the phone is:
+  these are two APKs of one application id, sideloaded one at a time, and a build signed
+  with a different key could not be installed over the one already there.
+
+  The watch APK is also copied to `build/apks` under a name carrying the version, as the
+  phone's has been since 3.1.6. The name shouts about not installing it on the phone
+  because the two share an application id — the watch build will install cleanly over the
+  phone app and replace it, and the file name is the only warning present at the moment
+  that mistake would be made.
 
 ## [3.2.1] - unreleased
 

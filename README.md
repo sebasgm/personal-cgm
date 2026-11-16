@@ -28,7 +28,7 @@ Alarm behaviour: [docs/04-alarms.md](docs/04-alarms.md) · Wear OS plan: [docs/0
 | 0 | Validate with existing apps (GlucoDataHandler, Gluroo) | not done — still worth doing |
 | 1 | LibreLinkUp API probe (Python) | built |
 | 2 | Android phone app | built and running on device |
-| 3 | Wear Data Layer + complication | not started |
+| 3 | Wear Data Layer + complication | built |
 | 4 | Watch Face Format watch face | not started |
 | 5 | Full-screen bitmap face with graph | not started |
 | 6 | Alarms, standalone fallback, Nightscout export | not started |
@@ -73,7 +73,7 @@ in `core/…/Freshness.kt` should be tuned against.
 ## Stage 2 — build and install the phone app
 
 ```bash
-./gradlew test           # 34 tests, no device needed
+./gradlew test           # 509 tests, no device needed
 ./gradlew :app:assembleDebug
 ~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -82,13 +82,32 @@ For a build to keep rather than develop against:
 
 ```bash
 ./gradlew :app:versionedApkRelease
-~/Android/Sdk/platform-tools/adb install -r build/apks/cgm-3.1.5.apk
+~/Android/Sdk/platform-tools/adb install -r build/apks/cgm-3.4.0.apk
 ```
 
-The task copies the APK to `build/apks` named after `versionName` — `cgm-3.1.5.apk` — so a
+The task copies the APK to `build/apks` named after `versionName` — `cgm-3.4.0.apk` — so a
 sideloaded file still says which build it is once it is off the machine that built it. Release
 builds are signed with the debug key on purpose, so one installs over another without uninstalling
 and losing the reading history; `app/build.gradle.kts` says why, and what that costs.
+
+## Stage 3 — build and install the watch app
+
+```bash
+./gradlew :wear:versionedApkRelease
+# with the watch paired over adb, on its own transport
+~/Android/Sdk/platform-tools/adb -s <watch> install -r \
+  build/apks/cgm-WATCH-do-not-install-on-phone-3.4.0.apk
+```
+
+**Do not install that APK on the phone.** The two modules share an application id — the Data
+Layer only delivers to the same id on the other device, so they have to — which means the watch
+build installs cleanly over the phone app and replaces it. The file name is the warning, because
+it is the only one present at the moment the mistake would be made.
+
+The watch takes its version from the phone's, in the root `build.gradle.kts`: they are installed
+as a pair, and a watch that reports a version of its own drifts from the phone silently. It was
+left at 3.0.0 through four changes before that number was shared, so a wrist reporting "3.0.0"
+said nothing about what it was running.
 
 Toolchain: Gradle 9.7.1, AGP 9.4.1, Kotlin 2.4.20, `compileSdk = 37`, `minSdk = 29`. Gradle
 fetches the JDK 17 toolchain itself. AGP 8.x will not work — it relies on a Gradle internal API
