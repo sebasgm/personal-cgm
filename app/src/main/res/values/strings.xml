@@ -15,6 +15,8 @@
     <string name="zone_very_high">Muy alto</string>
     <string name="zone_signal_loss">Pérdida de señal</string>
     <string name="home_no_reading">sin lecturas todavía</string>
+    <string name="home_fused_blend">Pinchazo %1$s · sensor %2$s, ponderado %3$d/%4$d</string>
+    <string name="home_fused_strip">Pinchazo %1$s · sensor %2$s, que va atrasado respecto de la sangre mientras la glucosa se mueve</string>
     <string name="home_no_signal">SIN SEÑAL</string>
     <string name="home_no_signal_stale">%1$d min — el valor de arriba no es actual</string>
     <string name="home_no_signal_aging">%1$d min sin datos</string>
@@ -391,6 +393,13 @@
     <string name="trends_accuracy_gap">Las dos mediciones estaban a %1$d min una de otra, en la mediana.</string>
     <string name="trends_accuracy_thin">Con menos de %1$d comparaciones esto es una anécdota y no un patrón: un pinchazo raro decide la cifra.</string>
     <string name="trends_accuracy_note">La tira es la referencia y el sensor es lo que se mide contra ella. El sensor lee líquido intersticial, que va atrasado respecto de la sangre y más atrasado cuanto más rápido se mueve la glucosa, así que una comparación hecha en plena subida exagera la diferencia.</string>
+    <string name="trends_accuracy_by_trend">Según lo que hacía la glucosa</string>
+    <string name="trends_accuracy_by_trend_note">Las mismas comparaciones, agrupadas por lo que hacía la curva en ese momento: cantidad · diferencia mediana · diferencia media. La mediana lleva signo: el sensor menos la tira, así que un más significa que el sensor leyó más alto. El sensor va atrasado respecto de la sangre, así que un sensor exacto lee alto mientras la glucosa baja y bajo mientras sube; un sesgo que sobrevive en la fila plana es del instrumento y no del atraso. Plano es menos de %1$s %2$s por minuto. Tres grupos son una división fina de una muestra ya pequeña.</string>
+    <string name="trends_accuracy_trend_falling">Bajando</string>
+    <string name="trends_accuracy_trend_flat">Plano</string>
+    <string name="trends_accuracy_trend_rising">Subiendo</string>
+    <string name="trends_accuracy_trend_row">%1$d · %2$s · %3$s</string>
+    <string name="trends_accuracy_trend_unknown">%1$d no se pudieron agrupar: no hay una lectura del sensor lo bastante anterior como para medir una pendiente.</string>
     <string name="clarke_a">A — clínicamente exacto</string>
     <string name="clarke_b">B — no llevaría a un tratamiento inadecuado</string>
     <string name="clarke_c">C — llevaría a corregir de más</string>

@@ -142,6 +142,15 @@ That describes the choice, not anyone else's product.
   few comparisons, and carries the physiological caveat permanently: interstitial fluid lags
   blood, so a comparison taken mid-rise overstates the disagreement.
 
+  **Unusual:** the comparisons are also split by what glucose was doing — falling, flat,
+  rising — because that is what separates a sensor reading high from a sensor reading late.
+  Both produce the same pooled median and call for opposite responses: a lean that survives
+  in the flat row is the instrument, where one that appears only while glucose falls is the
+  lag. The slope comes from the sensor's own readings rather than a trend arrow, so the
+  breakdown works over every pair already stored rather than starting from the day it
+  shipped, and pairs with too little history behind them to slope on are counted and named
+  instead of being filed as flat.
+
 - **Every statistic states its coverage**, and below a reliability threshold is shown muted
   with an explanation rather than presented confidently.
 
@@ -197,6 +206,24 @@ That describes the choice, not anyone else's product.
 
   Control solution tests are dropped and counted — they measure the strips, not a person,
   and one stored among real results would be the worst point in every comparison.
+
+- **The strip moves the number on Home**, for the few minutes it and a sensor reading
+  describe the same moment: the strip at 60% and the sensor at 40%, with a line
+  underneath naming both measurements and the split.
+
+  **Unusual:** the blend only happens on a flat trace. A strip reads capillary blood and
+  a sensor reads interstitial fluid, which lags blood and lags further the faster glucose
+  moves — so above one mg/dL per minute the two are honestly describing different moments
+  and the strip stands alone. No usable delta counts as moving, not as flat.
+
+  **Unusual:** no alarm ever judges the blend. A strip of 55 against a sensor of 75 blends
+  to 63 — above the reference measurement, in the one direction where being wrong is
+  dangerous. The engine is handed the worse of the two real measurements instead, and an
+  alarm raised by a strip shows the strip's number.
+
+  **Unusual:** nothing is stored and nothing is overwritten. The fused figure is derived
+  at read time from the two tables, so when the 60/40 prior is replaced by a measured
+  weighting every past moment re-derives. Statistics and the chart stay sensor-only.
 
 - **Carbohydrate logging** in grams, with chips for the amounts people actually estimate in.
 

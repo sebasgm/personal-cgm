@@ -15,6 +15,8 @@
     <string name="zone_very_high">Very high</string>
     <string name="zone_signal_loss">Signal loss</string>
     <string name="home_no_reading">no reading yet</string>
+    <string name="home_fused_blend">Finger prick %1$s · sensor %2$s, weighted %3$d/%4$d</string>
+    <string name="home_fused_strip">Finger prick %1$s · sensor %2$s, which lags blood while glucose moves</string>
     <string name="home_no_signal">NO SIGNAL</string>
     <string name="home_no_signal_stale">%1$d min — value above is not current</string>
     <string name="home_no_signal_aging">%1$d min without data</string>
@@ -391,6 +393,13 @@
     <string name="trends_accuracy_gap">The two measurements were %1$d min apart, at the median.</string>
     <string name="trends_accuracy_thin">Under %1$d comparisons this is an anecdote rather than a pattern: one odd strip decides the figure.</string>
     <string name="trends_accuracy_note">The strip is the reference and the sensor is what gets measured against it. A sensor reads interstitial fluid, which lags blood — and lags further the faster glucose moves — so a comparison taken mid-rise overstates the difference.</string>
+    <string name="trends_accuracy_by_trend">By what glucose was doing</string>
+    <string name="trends_accuracy_by_trend_note">The same comparisons, grouped by the trace at the time, as count · median difference · mean difference. The median is signed: the sensor minus the strip, so a plus means the sensor read higher. A sensor lags blood, so an accurate sensor reads high while glucose falls and low while it rises — a lean that survives in the flat row is the instrument rather than the lag. Flat is under %1$s %2$s a minute. Three groups is a thin split of an already small sample.</string>
+    <string name="trends_accuracy_trend_falling">Falling</string>
+    <string name="trends_accuracy_trend_flat">Flat</string>
+    <string name="trends_accuracy_trend_rising">Rising</string>
+    <string name="trends_accuracy_trend_row">%1$d · %2$s · %3$s</string>
+    <string name="trends_accuracy_trend_unknown">%1$d could not be grouped: no sensor reading far enough before them to measure a slope.</string>
     <string name="clarke_a">A — clinically accurate</string>
     <string name="clarke_b">B — would not lead to inappropriate treatment</string>
     <string name="clarke_c">C — would lead to overcorrection</string>

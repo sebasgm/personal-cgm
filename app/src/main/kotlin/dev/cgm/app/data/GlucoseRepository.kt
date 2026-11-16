@@ -6,6 +6,7 @@ import dev.cgm.app.R
 import android.database.sqlite.SQLiteConstraintException
 import dev.cgm.core.BloodTest
 import dev.cgm.core.BloodTestOutcome
+import dev.cgm.core.GlucoseFusion
 import dev.cgm.core.CarbEntry
 import dev.cgm.core.ContinuityAnalyzer
 import dev.cgm.core.ContinuityReport
@@ -264,6 +265,22 @@ class GlucoseRepository(
         bloodTestDao.observeBetween(startMillis, endMillis).map { rows -> rows.map(BloodTestEntity::toTest) }
 
     /**
+     * The strips close enough to [atMillis] to describe the same moment as a reading
+     * taken then, read once.
+     *
+     * For the alarm path, which runs in a service with no flows collected and must not
+     * hold one open: a poll asks the question, gets an answer, and is done. The window
+     * is the fusion window on both sides, because a strip either side of the reading
+     * can be the nearest one.
+     */
+    suspend fun bloodTestsNear(
+        atMillis: Long,
+        windowMillis: Long = GlucoseFusion.MATCH_WINDOW_MILLIS,
+    ): List<BloodTest> =
+        bloodTestDao.between(atMillis - windowMillis, atMillis + windowMillis)
+            .map(BloodTestEntity::toTest)
+
+    /**
      * Stores a finger-prick test, reporting what became of it.
      *
      * An outcome rather than a boolean, and never an exception, for the reason
@@ -325,9 +342,16 @@ class GlucoseRepository(
      */
     suspend fun sensorAgreement(fromMillis: Long, toMillis: Long): SensorAgreement {
         val window = SensorAgreement.MATCH_WINDOW_MILLIS
+        // Deeper on the early side than the match window, because each pair also needs
+        // the slope at its reading, and a slope is measured against what came before.
+        // Fetching only the window would pair every strip correctly and bucket none of
+        // them.
+        val lookback = window + SensorAgreement.SLOPE_LOOKBACK_MILLIS
         val tests = bloodTestDao.between(fromMillis, toMillis).map(BloodTestEntity::toTest)
         val readings = tests
-            .flatMap { dao.betweenInclusive(it.takenAtMillis - window, it.takenAtMillis + window) }
+            .flatMap {
+                dao.betweenInclusive(it.takenAtMillis - lookback, it.takenAtMillis + window)
+            }
             .distinctBy { it.timestampMillis }
             .map(ReadingEntity::toReading)
         return SensorAgreement.of(tests, readings)

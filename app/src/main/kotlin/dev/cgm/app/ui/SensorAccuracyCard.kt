@@ -19,8 +19,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.cgm.app.R
 import dev.cgm.core.ClarkeZone
+import dev.cgm.core.GlucoseFusion
 import dev.cgm.core.GlucoseUnit
 import dev.cgm.core.SensorAgreement
+import dev.cgm.core.TrendBucket
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -136,6 +138,8 @@ fun SensorAccuracyCard(agreement: SensorAgreement, unit: GlucoseUnit) {
                 )
             }
 
+            TrendBreakdown(agreement, unit)
+
             if (agreement.isThin) {
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -154,6 +158,115 @@ fun SensorAccuracyCard(agreement: SensorAgreement, unit: GlucoseUnit) {
         }
     }
 }
+
+/**
+ * The same comparison again, grouped by what the trace was doing.
+ *
+ * This is the part of the card that can tell a sensor reading high from a sensor
+ * reading late. Both produce the same pooled median and call for opposite responses:
+ * a lean that survives in the flat row is the instrument; a lean that appears only in
+ * the falling row is physiology, and the honest conclusion is that the sensor is
+ * accurate and behind.
+ *
+ * Signed figures here, where the headline bias is a sentence — three rows of prose
+ * would be unreadable, so the note above them carries what the sign means and the
+ * rows carry the numbers. That note is not optional decoration: a bare "+18" with no
+ * statement of which instrument is which is the kind of number this card exists to
+ * avoid printing.
+ */
+@Composable
+private fun TrendBreakdown(agreement: SensorAgreement, unit: GlucoseUnit) {
+    val buckets = agreement.byTrend
+    // Nothing to compare against nothing. One bucket is not a breakdown either: it
+    // would restate the headline figure under a second heading and imply a contrast
+    // that the data has not got.
+    if (buckets.size < 2) return
+
+    Spacer(Modifier.height(14.dp))
+    Text(
+        stringResource(R.string.trends_accuracy_by_trend),
+        style = MaterialTheme.typography.titleSmall,
+    )
+    Text(
+        stringResource(
+            R.string.trends_accuracy_by_trend_note,
+            unit.format(GlucoseFusion.FLAT_RATE_MGDL_PER_MINUTE),
+            unit.suffix,
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
+    )
+
+    TREND_ORDER.forEach { (bucket, labelRes) ->
+        val slice = buckets[bucket] ?: return@forEach
+        TrendRow(
+            label = stringResource(labelRes),
+            value = stringResource(
+                R.string.trends_accuracy_trend_row,
+                slice.count,
+                signed(slice.medianDifferenceMgdl, unit),
+                slice.meanAbsoluteRelativeDifference
+                    ?.let { "%.0f%%".format(it * 100) } ?: "—",
+            ),
+        )
+    }
+
+    if (agreement.unknownTrendCount > 0) {
+        Text(
+            stringResource(
+                R.string.trends_accuracy_trend_unknown,
+                agreement.unknownTrendCount,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun TrendRow(label: String, value: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.fillMaxWidth(0.4f),
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * A signed difference, with the plus kept.
+ *
+ * [GlucoseUnit.format] drops a leading plus, which is right for a reading and wrong
+ * for a difference: "8" in a column of differences reads as a magnitude, and the whole
+ * point of this column is the direction.
+ */
+private fun signed(mgdl: Double?, unit: GlucoseUnit): String {
+    if (mgdl == null) return "—"
+    val magnitude = unit.format(abs(mgdl))
+    // Below the display's own resolution there is no direction to report, and "+0"
+    // would claim one. Same floor the headline sentence uses.
+    if (abs(unit.from(mgdl)) < leanFloor(unit)) return magnitude
+    return if (mgdl > 0) "+$magnitude" else "\u2212$magnitude"
+}
+
+/** Falling first: it is the row where an accurate sensor looks worst. */
+private val TREND_ORDER = listOf(
+    TrendBucket.FALLING to R.string.trends_accuracy_trend_falling,
+    TrendBucket.FLAT to R.string.trends_accuracy_trend_flat,
+    TrendBucket.RISING to R.string.trends_accuracy_trend_rising,
+)
 
 @Composable
 private fun ZoneRow(label: String, count: Int, fraction: Double, unsafe: Boolean) {

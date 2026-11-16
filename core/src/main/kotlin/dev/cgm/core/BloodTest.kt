@@ -137,9 +137,30 @@ data class PairedReading(
     val test: BloodTest,
     val sensorMgdl: Double,
     val gapMillis: Long,
+    /**
+     * How fast glucose was moving when this pair was taken, in mg/dL per minute, or
+     * null when the readings around it could not say.
+     *
+     * Measured from the sensor's own series rather than taken from a trend arrow: the
+     * arrow exists only on the live reading and is the vendor's opinion, where a slope
+     * computed from the surrounding readings can be recovered for every pair already
+     * collected. It is the same arithmetic the live display uses for its delta, so a
+     * pair the app blended at the time lands in the bucket that says so.
+     */
+    val ratePerMinute: Double? = null,
 ) {
     /** Signed, sensor minus strip: positive means the sensor read higher. */
     val differenceMgdl: Double get() = sensorMgdl - test.mgdl
+
+    /**
+     * What the trace was doing, or null when there was no usable delta.
+     *
+     * This is what separates a sensor that reads high from a sensor that is merely
+     * late. On a falling trace an accurate sensor still reads above the strip, because
+     * interstitial fluid is behind blood; grouping by this is how that shows up as a
+     * pattern rather than as noise in a pooled average.
+     */
+    val trendBucket: TrendBucket? get() = TrendBucket.of(ratePerMinute)
 
     /** |difference| as a fraction of the reference, which is what MARD averages. */
     val absoluteRelativeDifference: Double get() = abs(differenceMgdl) / test.mgdl
@@ -170,12 +191,13 @@ data class PairedReading(
  * Median rather than mean, because a handful of pairs is exactly the sample size where
  * one bad strip decides a mean.
  *
- * Nothing here filters by how fast glucose was moving, and it should eventually: a
- * sensor reads interstitial fluid, which lags blood by five to fifteen minutes and
- * lags further the faster the trace moves, so a pair taken mid-rise reports a
- * disagreement that is partly just physiology. Until that is modelled, every figure
- * here is a slight overstatement of how wrong the sensor is, in a known direction.
- * See `docs/12-finger-prick-meter.md`.
+ * The headline figures still pool every pair regardless of how fast glucose was
+ * moving, and they therefore still overstate how wrong the sensor is: a sensor reads
+ * interstitial fluid, which lags blood by five to fifteen minutes and lags further the
+ * faster the trace moves, so a pair taken mid-rise reports a disagreement that is
+ * partly just physiology. [byTrend] is where that is separated out — it does not
+ * correct the pooled figures, it shows what they are made of, which is the step that
+ * has to come first. See `docs/12-finger-prick-meter.md`.
  */
 data class SensorAgreement(val pairs: List<PairedReading>) {
 
@@ -205,6 +227,38 @@ data class SensorAgreement(val pairs: List<PairedReading>) {
 
     val zoneCounts: Map<ClarkeZone, Int>
         get() = pairs.groupingBy { it.zone }.eachCount()
+
+    /**
+     * The same figures again, split by what the trace was doing.
+     *
+     * Each bucket is a whole [SensorAgreement], so every figure defined above is
+     * available per bucket for free and none of them can be computed two different ways
+     * in two places.
+     *
+     * This is the breakdown that tells a biased sensor from a late one, which a pooled
+     * figure cannot. A sensor that reads ten high on a flat trace is genuinely reading
+     * high. A sensor that agrees when flat and reads twenty high while glucose falls is
+     * accurate and behind — the same disagreement, an entirely different conclusion,
+     * and a different answer to whether anything should be done about it.
+     *
+     * Buckets with no pairs are absent rather than empty, so a caller can show what
+     * happened rather than a list of three rows of which two say zero.
+     */
+    val byTrend: Map<TrendBucket, SensorAgreement>
+        get() = pairs
+            .mapNotNull { pair -> pair.trendBucket?.let { it to pair } }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, grouped) -> SensorAgreement(grouped) }
+
+    /**
+     * Pairs that could not be bucketed because no delta could be computed for them.
+     *
+     * Reported rather than dropped quietly. A breakdown whose parts do not add up to
+     * the whole is a breakdown the reader is entitled to be told about, and a large
+     * count here is itself a finding: it means the sensor series has gaps around the
+     * moments the strips were taken.
+     */
+    val unknownTrendCount: Int get() = pairs.count { it.trendBucket == null }
 
     /**
      * The fraction in zones A and B — the clinical reading of the grid.
@@ -254,6 +308,17 @@ data class SensorAgreement(val pairs: List<PairedReading>) {
         const val MIN_PAIRS = 10
 
         /**
+         * How far back of a pair's reading the sensor series must be loaded for the
+         * slope at that pair to be computable.
+         *
+         * [DeltaCalculator] measures against the reading nearest five minutes earlier
+         * and gives up past twenty, so twenty is the whole of what it can use. A caller
+         * that fetches only the match window gets a breakdown in which every pair is
+         * unbucketed — correct, and useless.
+         */
+        val SLOPE_LOOKBACK_MILLIS: Long = DeltaCalculator.MAX_USABLE_SPAN_MILLIS
+
+        /**
          * Pairs each test with its nearest reading, dropping the tests that have none.
          *
          * Dropped rather than paired with the closest reading however far away, for
@@ -285,6 +350,15 @@ data class SensorAgreement(val pairs: List<PairedReading>) {
                                 test = test,
                                 sensorMgdl = reading.valueMgdl,
                                 gapMillis = abs(reading.timestampMillis - test.takenAtMillis),
+                                // The slope at the paired reading, not at the strip:
+                                // the delta is defined between readings, and the two
+                                // are minutes apart at most. Null when [ordered] holds
+                                // nothing far enough back, which is why the caller has
+                                // to fetch more than the match window. See
+                                // [SLOPE_LOOKBACK_MILLIS].
+                                ratePerMinute = GlucoseFusion.ratePerMinute(
+                                    DeltaCalculator.compute(reading, ordered)
+                                ),
                             )
                         }
                 }

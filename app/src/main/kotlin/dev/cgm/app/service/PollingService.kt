@@ -25,6 +25,8 @@ import dev.cgm.app.data.TimeChangeReceiver
 import dev.cgm.app.data.SecureSettings
 import dev.cgm.app.meter.MeterWatcher
 import dev.cgm.core.AlarmEngine
+import dev.cgm.core.GlucoseFusion
+import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.Freshness
 import dev.cgm.core.PollOutcome
@@ -351,8 +353,18 @@ class PollingService : LifecycleService() {
         val state = repository.state.value
         val now = System.currentTimeMillis()
 
+        // What the engine judges is the worse of the two instruments, never the
+        // blend Home shows. A strip of 55 against a sensor of 75 blends to 63 —
+        // above the measurement it is anchored to, in the one direction where
+        // being wrong is dangerous. See [GlucoseFusion.alarmValue].
+        //
+        // The substituted snapshot is what the notification is built from too, so
+        // an alarm raised by a strip says the strip's number. Announcing an urgent
+        // low and then showing the sensor's comfortable 75 would be unreadable.
+        val judged = judgedSnapshot(state.snapshot)
+
         val decision = alarms.evaluate(
-            snapshot = state.snapshot,
+            snapshot = judged,
             freshness = state.freshness(now),
             settings = configured,
             previous = settings.alarmState(),
@@ -375,7 +387,7 @@ class PollingService : LifecycleService() {
             notifier.notify(
                 kind = kind,
                 setting = configured[kind],
-                snapshot = state.snapshot,
+                snapshot = judged,
                 makeSound = kind in decision.sound,
                 font = readingFont,
             )
@@ -385,10 +397,10 @@ class PollingService : LifecycleService() {
                 // reads every message it is given aloud — so without this gate a
                 // persistent low would be announced on every poll.
                 if (kind in decision.sound) {
-                    val wording = notifier.wording(kind, configured[kind], state.snapshot)
+                    val wording = notifier.wording(kind, configured[kind], judged)
                     carNotifier.show(
                         kind = kind,
-                        snapshot = state.snapshot,
+                        snapshot = judged,
                         title = wording.title,
                         body = wording.body,
                         font = readingFont,
@@ -397,6 +409,33 @@ class PollingService : LifecycleService() {
             }
         }
         settings.saveAlarmState(decision.state)
+    }
+
+    /**
+     * The snapshot the alarm engine should judge: the sensor's, unless a finger prick
+     * beside it read worse.
+     *
+     * Only the value is replaced. The timestamp stays the sensor's, so signal loss
+     * still measures the age of the feed rather than the age of a strip, and the trend
+     * stays the sensor's, so "silence while recovering" still asks the instrument that
+     * can answer which way this is going — a strip is one point and has no direction.
+     *
+     * A strip is read from the database on every poll rather than cached, because the
+     * one that matters most is the one taken thirty seconds ago, in the minute between
+     * two polls, by someone who did not trust the number on screen.
+     */
+    private suspend fun judgedSnapshot(snapshot: GlucoseSnapshot?): GlucoseSnapshot? {
+        if (snapshot == null) return null
+
+        val tests = runCatching { repository.bloodTestsNear(snapshot.reading.timestampMillis) }
+            .onFailure { Log.w(TAG, "could not read finger pricks for alarms", it) }
+            .getOrDefault(emptyList())
+        if (tests.isEmpty()) return snapshot
+
+        val fused = GlucoseFusion.of(snapshot, tests)
+        if (fused.alarmMgdl == snapshot.reading.valueMgdl) return snapshot
+
+        return snapshot.copy(reading = snapshot.reading.copy(valueMgdl = fused.alarmMgdl))
     }
 
     private fun updateNotification() {

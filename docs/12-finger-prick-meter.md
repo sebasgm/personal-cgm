@@ -315,7 +315,17 @@ it from quietly becoming a fact.
    the rest of the day, so there is nothing to hold a connection open for.
 
    **Unconfirmed on hardware.** No device has been on the other end of it.
-3. **Phase 2.** The weighted value, under the rules above.
+3. **Phase 2. ✅ built** in 3.3.0 — `GlucoseFusion` in `:core`, a pure function over a
+   snapshot and the strips near it. Every rule above is in it: the five-minute window
+   shared with the accuracy card, the flat-trace condition at one mg/dL per minute, the
+   60/40 weights as named constants, and `alarmValue`, which hands the engine the worse
+   of the two real measurements and never the blend. Home shows the fused figure with
+   both halves printed underneath; `PollingService` substitutes the judged value into
+   the snapshot the alarms and their notifications are built from. Statistics, the chart
+   and the watch are untouched.
+
+   Twenty-two tests, and the one that matters is the owner's own example: a strip of 55
+   against a sensor of 75 displays 63 and alarms on 55.
 
 ## Open questions
 
@@ -325,7 +335,27 @@ it from quietly becoming a fact.
 - **Is the meter's clock trustworthy** — does Roche set it from the phone at pairing, or
   does it drift on its own?
 - **Do fused values ever enter the aggregate statistics**, and what does the coverage
-  notice say on the day they do?
+  notice say on the day they do? Still open, and still answered "no" by 3.3.0: the blend
+  is on Home and in the alarm decision only. The condition for changing that is the error
+  grid, not a preference.
+- **Is the sensor biased, or just late?** The owner's reading of the early pairs is that
+  the sensor generally sits above the strip, and that the pairs where the strip is lower
+  cluster on falling traces — which is the lag rather than a lean. 3.4.0 builds the
+  measurement that settles it rather than settling it by argument: the comparison card
+  now splits by falling, flat and rising, and the flat row is the one that isolates the
+  instrument from the physiology. The answer needs pairs, not more reasoning.
+- **What replaces filtering the lag out with measuring it?** The next step after the
+  breakdown: re-pair each strip against the sensor value from *t − shift* for shifts of
+  zero to twenty minutes, and take the shift that minimises MARD as this sensor's lag on
+  this arm. What remains after that shift is the real bias — and a measured lag is what
+  would let fusion blend on a moving trace instead of refusing to.
+- **Should a strip stored by the automatic read raise an alarm on the spot?** As built,
+  the judged value is picked up by the next poll, which is under a minute away. That is
+  cheap and it is late, and whether a minute matters at 55 mg/dL is a question about the
+  owner, not about the code.
+- **Is one mg/dL per minute the right place to stop blending?** It is the flat-arrow
+  convention rather than a measurement of this sensor's lag, which is the same kind of
+  borrowed prior the 40/60 split is — and the same paired points settle both.
 - **Does a strip reading belong on the watch?** It is a fact about the last few minutes
   and the watch's whole job is the current value, so probably not — but the payload is
   versioned and the question should be answered deliberately rather than by omission.

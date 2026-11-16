@@ -11,6 +11,105 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.4.0] - unreleased
+
+### Added
+
+- **A finger prick now moves the number on Home.** For the few minutes a strip and a
+  sensor reading describe the same moment, the figure is the two of them together —
+  the strip at 60% and the sensor at 40% — and a line underneath says so, with both
+  measurements printed beside it.
+
+  Never silently. The whole reason the owner wanted a meter in this app is to know when
+  the two instruments disagree, and a number that quietly moved would hide exactly that.
+  So the caption carries the strip, the sensor and the split, and the split is read from
+  the code rather than written into the sentence, so the day 60/40 is replaced by
+  something measured the caption says the new one.
+
+  **The blend is never what an alarm judges.** Take a strip of 55 against a sensor of 75:
+  the blend is 63 — *higher than the reference measurement*, in the one direction where
+  being wrong is dangerous, and higher precisely because the less trusted instrument
+  pulled it there. A weighting that softens a hypo is not a weighting, it is a bug with a
+  rationale. So the alarm engine is handed the worse of the two real measurements and
+  never the average. The symmetric case holds too: a comfortable strip cannot silence a
+  sensor reading 50.
+
+  An alarm raised by a strip shows the strip's number, in the notification and in the car
+  alert both. Announcing an urgent low and then printing the sensor's comfortable 75
+  would be unreadable.
+
+  **A pair is two measurements of one state**, which means one sensor cadence — five
+  minutes, the same window the accuracy card on Trends uses, and deliberately not the
+  fifteen the diary uses to attach a glucose to a dose. Glucose can move 60 mg/dL in
+  fifteen minutes; two values that far apart are not two readings of one moment.
+
+  **The blend only happens on a flat trace.** A strip reads capillary blood and a sensor
+  reads interstitial fluid, which lags blood by five to fifteen minutes and lags further
+  the faster glucose moves. Flat, the two agree about what "now" means. Moving, they are
+  honestly describing different moments, and averaging them produces a number that is
+  wrong in a direction that was predictable — so above one mg/dL per minute, the flat-arrow
+  convention every CGM display already draws, the strip stands alone and the caption says
+  why. No usable delta is treated as moving, not as flat: unknown is not evidence.
+
+  **Nothing is overwritten and nothing is stored.** The reading table still holds what the
+  sensor said and the blood test table what the strip said; the fused figure is derived at
+  read time by a pure function in `:core`. That is the doctrine the diary already follows —
+  a corrected reading would be a falsified record — and it has a practical edge: when the
+  weighting stops being a guess, every past moment re-derives.
+
+  **Statistics stay sensor-only.** Time in range, GMI, the daily pattern and the coverage
+  figure all claim to describe a continuous sensor record, and fused points would make them
+  describe something else while keeping their names. The blend earns its way into the
+  aggregates when the error grid says it is better, not before. The chart is unchanged too:
+  strips stay diamonds beside the trace rather than being folded into it.
+
+  This is fusion, not calibration. The scope is one instant — the matched pair. What is
+  deliberately not built is a correction carried forward, which needs the bias measured
+  rather than asserted, and measuring it is what "the sensor against the strip" on Trends
+  has been collecting pairs for since 3.1.7.
+
+
+- **"The sensor against the strip" now splits by what glucose was doing.** Three rows —
+  falling, flat, rising — each with its own count, median difference and mean difference,
+  under the pooled figures that were there before.
+
+  The pooled figures cannot answer the question anyone actually has about a sensor that
+  reads high. A sensor that leans high on a flat trace is reading high; a sensor that
+  agrees when flat and reads high only while glucose falls is *accurate and behind*,
+  because interstitial fluid lags blood. Those two produce the same pooled median, call
+  for opposite responses, and were previously indistinguishable on this card — which was
+  recorded as a known gap in the code since the card shipped, and is what this closes.
+
+  The slope is recovered from the sensor's own series rather than taken from a trend
+  arrow. The arrow exists only on the live reading and is the vendor's opinion; a slope
+  computed from the surrounding readings can be recovered for every pair already stored,
+  so the breakdown works retroactively over the whole history rather than starting from
+  today. It is the same arithmetic the live display uses for its delta, and the bucket
+  boundary is the same one the blend is gated on, so "this pair is in the flat row" and
+  "the app would have blended this pair" are one statement and not two that drift apart.
+
+  The median is signed and the note above the rows says what the sign means, which pooled
+  bias says in a sentence instead. Three rows of prose would be unreadable; a bare "+18"
+  with no statement of which instrument is which is the kind of number this card exists
+  to avoid printing. The note also states the flat boundary and warns that three groups
+  is a thin split of an already small sample.
+
+  Pairs with no reading far enough before them to measure a slope are counted and named
+  rather than dropped into "flat". Missing data is not evidence of a flat trace, and a
+  breakdown whose parts do not add up to the whole is one the reader is entitled to be
+  told about. The breakdown hides itself entirely below two groups: one row would restate
+  the headline under a second heading and imply a contrast the data has not got.
+
+  Nothing about the pooled figures changed. The breakdown shows what they are made of; it
+  does not correct them, and the correction — shifting the sensor series by a measured lag
+  before comparing — needs this measurement first.
+
+### Changed
+
+- **The comparison loads more sensor history per strip**, 25 minutes before each rather
+  than 5, because a slope is measured against what came before. Still a query per strip
+  rather than the whole window: ninety days of readings is six figures of rows.
+
 ## [3.2.1] - unreleased
 
 ### Added

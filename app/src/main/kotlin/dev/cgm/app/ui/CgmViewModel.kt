@@ -37,6 +37,9 @@ import dev.cgm.core.Forecast
 import dev.cgm.core.ForecastCalibration
 import dev.cgm.core.ForecastCalibrator
 import dev.cgm.core.ForecastModel
+import dev.cgm.core.FusedGlucose
+import dev.cgm.core.FusionBasis
+import dev.cgm.core.GlucoseFusion
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.Report
@@ -311,6 +314,23 @@ class CgmViewModel(
 
     val bloodTests: StateFlow<List<BloodTest>> = repository.recentBloodTests(BLOOD_TEST_LIMIT)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * The current moment as both instruments describe it.
+     *
+     * Null only while there is no reading at all; with a reading and no strip beside
+     * it this still resolves, to the sensor's own value under [FusionBasis.SENSOR].
+     * Screens therefore have one thing to read rather than two to reconcile, and the
+     * question "is this fused" is answered by the value rather than by the caller
+     * guessing from a timestamp.
+     *
+     * Recomputed from [bloodTests] rather than from a window query, because the only
+     * strips that can matter are within five minutes of the newest reading and those
+     * are always among the most recent handful.
+     */
+    val fused: StateFlow<FusedGlucose?> = combine(state, bloodTests) { state, tests ->
+        state.snapshot?.let { GlucoseFusion.of(it, tests) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
      * The tests inside the chart's window, for the markers on it.

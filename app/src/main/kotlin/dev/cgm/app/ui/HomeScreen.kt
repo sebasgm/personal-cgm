@@ -55,6 +55,9 @@ import androidx.compose.ui.unit.sp
 import dev.cgm.app.R
 import dev.cgm.core.ChartZoom
 import dev.cgm.core.Freshness
+import dev.cgm.core.FusedGlucose
+import dev.cgm.core.FusionBasis
+import dev.cgm.core.GlucoseFusion
 import dev.cgm.core.GlucoseSnapshot
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
@@ -92,6 +95,7 @@ fun HomeScreen(viewModel: CgmViewModel) {
     var pickingDate by remember { mutableStateOf(false) }
     var showingSensor by remember { mutableStateOf(false) }
     val sensorLifetime by viewModel.sensorLifetimeDays.collectAsState()
+    val fused by viewModel.fused.collectAsState()
 
     // Ticks regardless of whether data arrives. A frozen "2 min ago" over a dead
     // feed is the exact failure this screen exists to prevent.
@@ -117,7 +121,7 @@ fun HomeScreen(viewModel: CgmViewModel) {
             .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CurrentReading(snapshot, freshness, now)
+        CurrentReading(snapshot, fused, freshness, now)
 
         SignalLossBanner(snapshot, freshness, now)
 
@@ -363,9 +367,21 @@ private fun SignalLossBanner(snapshot: GlucoseSnapshot?, freshness: Freshness, n
  * dropped entirely: a grey number reads as "unknown", which is true, where a
  * green number that happens to be forty minutes old reads as "fine", which is
  * the dangerous lie.
+ *
+ * For the few minutes after a finger prick the figure is no longer the sensor's,
+ * and that is never allowed to be silent: [FusedNote] says underneath which
+ * instruments it came from and what each of them read. A substitution the reader
+ * cannot see is the one thing this screen must not do — the whole reason the
+ * blend exists is that the owner wants to know when the two disagree, and a
+ * number that quietly moved would hide exactly that.
  */
 @Composable
-private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now: Long) {
+private fun CurrentReading(
+    snapshot: GlucoseSnapshot?,
+    fused: FusedGlucose?,
+    freshness: Freshness,
+    now: Long,
+) {
     if (snapshot == null) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             BigNumeral(
@@ -381,11 +397,17 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
     }
 
     val stale = freshness == Freshness.STALE
-    val valueColor = if (stale) ZoneColors.stale else ZoneColors.of(snapshot.zone())
+
+    // What is shown, and therefore what is coloured. Taking the zone from the
+    // snapshot while the numeral came from the fusion would paint a strip of 55
+    // in the sensor's green.
+    val shownMgdl = fused?.mgdl ?: snapshot.reading.valueMgdl
+    val valueColor =
+        if (stale) ZoneColors.stale else ZoneColors.of(snapshot.thresholds.classify(shownMgdl))
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BigNumeral(
-            snapshot.formattedValue(),
+            snapshot.unit.format(shownMgdl),
             color = valueColor,
             // Tabular figures: the layout must not jitter as digits change.
             fontFamily = FontFamily.SansSerif,
@@ -426,6 +448,11 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
             }
         }
 
+        if (fused != null && fused.isFused) {
+            Spacer(Modifier.height(6.dp))
+            FusedNote(fused, snapshot.unit)
+        }
+
         Spacer(Modifier.height(10.dp))
         Text(
             text = ageText(snapshot, freshness, now, LocalContext.current),
@@ -437,6 +464,49 @@ private fun CurrentReading(snapshot: GlucoseSnapshot?, freshness: Freshness, now
             fontWeight = if (freshness == Freshness.STALE) FontWeight.Bold else FontWeight.Normal,
         )
     }
+}
+
+/**
+ * What a fused figure is made of, under the figure.
+ *
+ * Both halves, always, and never a bare label like "weighted": the reader's real
+ * question when these two instruments disagree is *by how much*, and a caption
+ * that hid one of them would answer it by hiding it.
+ *
+ * The weights are read off [GlucoseFusion] rather than written into the string,
+ * so the day the 60/40 prior is replaced by something measured the caption says
+ * the new split without anyone remembering to edit two files.
+ */
+@Composable
+private fun FusedNote(fused: FusedGlucose, unit: GlucoseUnit) {
+    val strip = fused.stripMgdl ?: return
+
+    val text = when (fused.basis) {
+        FusionBasis.BLEND -> stringResource(
+            R.string.home_fused_blend,
+            unit.format(strip),
+            unit.format(fused.sensorMgdl),
+            (GlucoseFusion.STRIP_WEIGHT * 100).roundToInt(),
+            (GlucoseFusion.SENSOR_WEIGHT * 100).roundToInt(),
+        )
+        // A strip beside a moving trace. Saying why it stands alone matters more
+        // than saying that it does: without the reason this reads as the app
+        // having thrown the sensor away.
+        FusionBasis.STRIP -> stringResource(
+            R.string.home_fused_strip,
+            unit.format(strip),
+            unit.format(fused.sensorMgdl),
+        )
+        FusionBasis.SENSOR -> return
+    }
+
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /**
