@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,6 +43,7 @@ import androidx.core.content.ContextCompat
 import dev.cgm.app.R
 import dev.cgm.app.data.ZoneWatcher
 import dev.cgm.app.meter.BondedDevice
+import dev.cgm.app.meter.MeterScope
 import dev.cgm.app.meter.MeterState
 import dev.cgm.app.meter.MeterSyncResult
 import kotlin.math.abs
@@ -81,6 +84,9 @@ fun MeterScreen(viewModel: CgmViewModel) {
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         granted = it
     }
+
+    val chosen by viewModel.meterAddress.collectAsState()
+    val automatic by viewModel.automaticMeterRead.collectAsState()
 
     var devices by remember { mutableStateOf<List<BondedDevice>>(emptyList()) }
     // Re-read when the permission lands and when a read finishes: bonding a meter in
@@ -143,15 +149,50 @@ fun MeterScreen(viewModel: CgmViewModel) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(
-                        onClick = { viewModel.syncMeter(context, device.address, zone) },
-                        enabled = state !is MeterState.Reading,
-                    ) {
-                        Text(stringResource(R.string.meter_read))
+                    if (device.address == chosen) {
+                        TextButton(onClick = { viewModel.selectMeter(null) }) {
+                            Text(stringResource(R.string.meter_forget))
+                        }
+                    } else {
+                        TextButton(onClick = { viewModel.selectMeter(device) }) {
+                            Text(stringResource(R.string.meter_use))
+                        }
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             }
+        }
+
+        chosen?.let { address ->
+            Spacer(Modifier.height(16.dp))
+            Text(
+                stringResource(R.string.meter_in_use),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.height(8.dp))
+            // A diagnosis rather than the routine read, which belongs beside the manual
+            // entry on the Diary: this one is here because this is the screen you are on
+            // when a meter will not talk at all, and it is what prints the service list.
+            Button(
+                onClick = { viewModel.syncMeter(context, address, zone, MeterScope.LAST) },
+                enabled = state !is MeterState.Reading,
+            ) {
+                Text(stringResource(R.string.meter_test))
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Text(
+                stringResource(R.string.meter_auto_last),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            automatic?.let { Outcome(it) } ?: Text(
+                stringResource(R.string.meter_auto_none),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Spacer(Modifier.height(20.dp))
@@ -168,6 +209,89 @@ fun MeterScreen(viewModel: CgmViewModel) {
 
             is MeterState.Done -> Outcome(current.result)
         }
+    }
+}
+
+/**
+ * Reading the meter, beside the form for typing a result in by hand.
+ *
+ * Here because this is where someone *is* when they have a meter reading in front of
+ * them and it has not arrived: the alternative was a screen in Settings, which is the
+ * wrong place to go looking for a measurement. The scopes exist for the same reason —
+ * the automatic read asks only for what is new, and when something is missing the
+ * question is whether the meter has it at all, which needs a different question asked.
+ */
+@Composable
+internal fun MeterReadControl(viewModel: CgmViewModel) {
+    val context = LocalContext.current
+    val zone by ZoneWatcher.zone.collectAsState()
+    val state by viewModel.meterState.collectAsState()
+    val address by viewModel.meterAddress.collectAsState()
+    val name by viewModel.meterName.collectAsState()
+
+    Text(
+        stringResource(R.string.test_read_title),
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Medium,
+    )
+    Spacer(Modifier.height(6.dp))
+
+    val chosen = address
+    if (chosen == null) {
+        Text(
+            stringResource(R.string.test_read_none),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    Text(
+        stringResource(R.string.test_read_auto, name ?: stringResource(R.string.meter_title)),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    var scope by remember { mutableStateOf(MeterScope.NEW) }
+
+    Spacer(Modifier.height(8.dp))
+    // Scrolled rather than wrapped: five chips do not fit a phone's width, and a row
+    // that reflows puts "all" on a line of its own where it reads as a separate thing.
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MeterScope.entries.forEach { option ->
+            FilterChip(
+                selected = option == scope,
+                onClick = { scope = option },
+                label = { Text(stringResource(option.labelRes)) },
+            )
+        }
+    }
+
+    Spacer(Modifier.height(10.dp))
+    Button(
+        onClick = { viewModel.syncMeter(context, chosen, zone, scope) },
+        enabled = state !is MeterState.Reading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.meter_read))
+    }
+
+    Spacer(Modifier.height(10.dp))
+    when (val current = state) {
+        MeterState.Idle -> Unit
+        MeterState.Reading -> Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(Modifier.height(18.dp))
+            Text(
+                stringResource(R.string.meter_working),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+
+        is MeterState.Done -> Outcome(current.result)
     }
 }
 
@@ -210,6 +334,12 @@ private fun Outcome(result: MeterSyncResult) {
                     if (result.controlSolutions > 0) {
                         Text(
                             stringResource(R.string.meter_controls, result.controlSolutions),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    if (result.outsidePeriod > 0) {
+                        Text(
+                            stringResource(R.string.meter_outside, result.outsidePeriod),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

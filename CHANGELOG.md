@@ -11,6 +11,51 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.2.1] - unreleased
+
+### Added
+
+- **New results arrive on their own.** Choosing a meter in Settings is now the whole
+  setup: from then on the app takes each new result off it without being asked, and the
+  value is in the diary and on the chart before the phone is picked up.
+
+  The meter is the one source here that cannot be polled — it is asleep almost always and
+  wakes for a few seconds after a strip, and nothing tells the phone that it has. What
+  makes this work without scanning, and so without the location permission a scan would
+  need, is that Android's Bluetooth controller will hold a *pending* connection to a
+  bonded device and complete it the moment that device next advertises. The wait costs
+  nothing while it waits.
+
+  It lets go of the connection afterwards rather than holding it open. The meter is also
+  talking to whatever else the owner has paired with it, and a meter generally entertains
+  one connection at a time — holding ours open would make this app the reason the other
+  one stopped working.
+
+  Choosing a meter is the opt-in, and there is no second switch for automatic reading: a
+  chosen meter that was never read would be a setting that does nothing.
+
+### Changed
+
+- **Reading the meter moved to the Diary, beside typing a result in.** It was in Settings,
+  which is the wrong place to go looking for a measurement — the person who wants it is
+  standing there with a meter in one hand, on the screen where the alternative is typing
+  the number by hand. Settings keeps what belongs to it: pairing instructions, which meter
+  to use, a connection test, and what the last automatic read did.
+
+- **A manual read can ask for something other than "what is new".** Five scopes: new, the
+  last one, seven days, thirty days, everything. The automatic read asks only for records
+  above the highest already stored, which is right until something is missing — and then
+  the question becomes whether the meter has it at all, which that request cannot answer.
+
+  A period asks the meter for everything and keeps what falls inside it. The standard does
+  have a time-range filter and it is optional, so meters commonly refuse it; the fallback
+  would be exactly this, and one path that always works beats two where the second is only
+  reached after the first has failed. Records that fall outside the period are counted and
+  reported rather than silently dropped.
+
+  The period is measured on the corrected time rather than the meter's own, so a meter
+  whose clock is two hours out does not lose two hours of the window that was asked for.
+
 ## [3.2.0] - unreleased
 
 ### Added

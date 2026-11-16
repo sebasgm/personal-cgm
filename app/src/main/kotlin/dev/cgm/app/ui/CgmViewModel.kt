@@ -10,8 +10,11 @@ import dev.cgm.core.InsulinReminder
 import dev.cgm.core.InsulinReminders
 import android.content.Context
 import dev.cgm.app.meter.BondedDevice
+import dev.cgm.app.meter.MeterScope
 import dev.cgm.app.meter.MeterState
+import dev.cgm.app.meter.MeterSyncResult
 import dev.cgm.app.meter.MeterSync
+import dev.cgm.app.meter.MeterWatcher
 import dev.cgm.app.reminder.ReminderScheduler
 import dev.cgm.app.service.RelayConfig
 import dev.cgm.app.Features
@@ -378,6 +381,21 @@ class CgmViewModel(
     fun bondedMeters(context: Context): List<BondedDevice> =
         MeterSync(context, repository).bonded()
 
+    /** The meter the automatic read follows, as its address, or null. */
+    val meterAddress: StateFlow<String?> = settings.meterAddress
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val meterName: StateFlow<String?> = settings.meterName
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** What the last automatic read did, or null if none has happened this run. */
+    val automaticMeterRead: StateFlow<MeterSyncResult?> = MeterWatcher.Status.last
+
+    /** Choose the meter to read, or pass null to stop reading one. */
+    fun selectMeter(device: BondedDevice?) {
+        viewModelScope.launch { settings.saveMeter(device?.address, device?.name) }
+    }
+
     /**
      * Reads a meter and stores what is new.
      *
@@ -388,16 +406,22 @@ class CgmViewModel(
      * and the only zone that can be meant is the one the phone is in — which is observed
      * rather than fixed, since the owner travels.
      */
-    fun syncMeter(context: Context, address: String, zone: ZoneId) {
+    fun syncMeter(
+        context: Context,
+        address: String,
+        zone: ZoneId,
+        scope: MeterScope = MeterScope.NEW,
+    ) {
         if (_meterState.value is MeterState.Reading) return
         viewModelScope.launch {
             _meterState.value = MeterState.Reading
             val result = withContext(Dispatchers.IO) {
-                MeterSync(context, repository).sync(address, zone)
+                MeterSync(context, repository).sync(address, zone, scope)
             }
             _meterState.value = MeterState.Done(result)
         }
     }
+
 
     // -- language -----------------------------------------------------------
 

@@ -23,6 +23,7 @@ import dev.cgm.app.alarm.CarAlertNotifier
 import dev.cgm.app.data.GlucoseRepository
 import dev.cgm.app.data.TimeChangeReceiver
 import dev.cgm.app.data.SecureSettings
+import dev.cgm.app.meter.MeterWatcher
 import dev.cgm.core.AlarmEngine
 import dev.cgm.app.ui.MainActivity
 import dev.cgm.core.Freshness
@@ -119,6 +120,12 @@ class PollingService : LifecycleService() {
                 if (kind == SourceKind.XDRIP) registerXdrip() else unregisterXdrip()
             }
         }
+
+        // The meter, if one has been chosen. Here rather than in a screen because a
+        // result pricked while the app is closed should still arrive — which is the
+        // whole difference between this and a button. It follows the setting itself, so
+        // choosing or clearing a meter takes effect without restarting the service.
+        MeterWatcher(this, repository, settings).follow(lifecycleScope)
     }
 
     /**

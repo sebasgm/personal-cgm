@@ -49,6 +49,17 @@ class MeterGatt(
     private val context: Context,
     private val device: BluetoothDevice,
     private val zone: ZoneId,
+    /**
+     * Whether to wait for the meter instead of demanding it be there now.
+     *
+     * `false` is a person pressing a button: connect, or report that it did not work.
+     * `true` hands the wait to the Bluetooth controller, which completes the connection
+     * whenever the device next advertises — which is how a result can arrive on its own
+     * without this app scanning for anything. It needs no timeout because there is
+     * nothing to time out: the wait ends when the meter appears or when the caller is
+     * cancelled.
+     */
+    private val waitForDevice: Boolean = false,
     private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
 
@@ -150,32 +161,34 @@ class MeterGatt(
     }
 
     /**
-     * Connects, takes what has not been taken before, and disconnects.
+     * Connects, asks for what [request] says to ask for, and disconnects.
      *
-     * [nextSequence] is asked, once the meter has named itself, for the record number to
-     * start from — one past the highest already stored for *that* meter — or null to ask
-     * for its whole history. It is a function rather than a number because the name is
-     * what identifies a meter's numbering, and the name is something only the meter can
-     * say: sequence 41 means nothing without knowing whose 41 it is.
-     *
-     * So a meter unsynced for a fortnight fills in at once, and one synced ten minutes
-     * ago answers "nothing newer" and costs a second.
+     * [request] is a function rather than bytes because the decision needs the meter's
+     * name, and only the meter can supply it: a request for "everything after 41" means
+     * nothing without knowing whose 41 it is. So the name is read first and the request
+     * is settled mid-conversation.
      */
-    suspend fun pull(nextSequence: suspend (meterName: String) -> Int?): MeterReading = try {
-        session(nextSequence)
+    suspend fun pull(request: suspend (meterName: String) -> ByteArray): MeterReading = try {
+        session(request)
     } catch (timeout: TimeoutCancellationException) {
         MeterReading.Failed("timed out waiting for the meter")
     } finally {
         close()
     }
 
-    private suspend fun session(nextSequence: suspend (meterName: String) -> Int?): MeterReading {
+    private suspend fun session(request: suspend (meterName: String) -> ByteArray): MeterReading {
         connected = CompletableDeferred()
-        val connection = device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+        val connection =
+            device.connectGatt(context, waitForDevice, callback, BluetoothDevice.TRANSPORT_LE)
             ?: return MeterReading.Failed("could not open a connection")
         gatt = connection
 
-        if (!withTimeout(CONNECT_TIMEOUT_MILLIS) { connected!!.await() }) {
+        val accepted = if (waitForDevice) {
+            connected!!.await()
+        } else {
+            withTimeout(CONNECT_TIMEOUT_MILLIS) { connected!!.await() }
+        }
+        if (!accepted) {
             return MeterReading.Failed("the meter did not accept the connection")
         }
 
@@ -231,9 +244,7 @@ class MeterGatt(
         finished = CompletableDeferred()
 
         val name = manufacturer ?: device.name ?: "meter"
-        val from = nextSequence(name)
-        val request = from?.let(RecordAccess::recordsFrom) ?: RecordAccess.allRecords
-        if (!write(connection, control, request)) {
+        if (!write(connection, control, request(name))) {
             return MeterReading.Failed("the meter would not take the request")
         }
 

@@ -394,6 +394,33 @@ class SecureSettings(private val context: Context) : SessionStore {
         saveAlarmState(snoozed)
     }
 
+    /**
+     * The meter the app reads, as its Bluetooth address, or null for none chosen.
+     *
+     * An address rather than a name: names are duplicated and editable, and the address
+     * is what a connection is actually made to. The name is kept beside it only so a
+     * screen can say which meter is chosen without asking Bluetooth for permission
+     * first.
+     *
+     * Choosing one is the opt-in to automatic reading. There is no separate switch,
+     * because a chosen meter that was never read would be a setting that does nothing.
+     */
+    val meterAddress: Flow<String?> = context.dataStore.data.map { it[KEY_METER_ADDRESS] }
+
+    val meterName: Flow<String?> = context.dataStore.data.map { it[KEY_METER_NAME] }
+
+    suspend fun saveMeter(address: String?, name: String?) {
+        context.dataStore.edit {
+            if (address == null) {
+                it.remove(KEY_METER_ADDRESS)
+                it.remove(KEY_METER_NAME)
+            } else {
+                it[KEY_METER_ADDRESS] = address
+                if (name == null) it.remove(KEY_METER_NAME) else it[KEY_METER_NAME] = name
+            }
+        }
+    }
+
     private companion object {
         val KEY_RELAY_URL: Preferences.Key<String> = stringPreferencesKey("relay_url")
         val KEY_RELAY_SECRET: Preferences.Key<String> = stringPreferencesKey("relay_secret_enc")
@@ -401,6 +428,8 @@ class SecureSettings(private val context: Context) : SessionStore {
         val KEY_ACCESSIBILITY: Preferences.Key<String> = stringPreferencesKey("accessibility")
         val KEY_REPORT: Preferences.Key<String> = stringPreferencesKey("report_preferences")
         val KEY_SOURCE: Preferences.Key<String> = stringPreferencesKey("source_kind")
+        val KEY_METER_ADDRESS: Preferences.Key<String> = stringPreferencesKey("meter_address")
+        val KEY_METER_NAME: Preferences.Key<String> = stringPreferencesKey("meter_name")
         val KEY_TOUR_SEEN: Preferences.Key<Boolean> = booleanPreferencesKey("tour_seen")
         val KEY_FORECAST: Preferences.Key<Boolean> = booleanPreferencesKey("forecast_enabled")
         val KEY_CAR_ALERTS: Preferences.Key<Boolean> = booleanPreferencesKey("car_alerts")

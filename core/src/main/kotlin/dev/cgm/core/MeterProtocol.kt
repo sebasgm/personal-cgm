@@ -67,6 +67,7 @@ object RecordAccess {
 
     private const val OPERATOR_ALL = 0x01
     private const val OPERATOR_GREATER_OR_EQUAL = 0x03
+    private const val OPERATOR_LAST = 0x06
 
     private const val FILTER_SEQUENCE = 0x01
 
@@ -75,6 +76,17 @@ object RecordAccess {
 
     /** Everything the meter holds. The first sync, and nothing else. */
     val allRecords: ByteArray = byteArrayOf(OP_REPORT_RECORDS.toByte(), OPERATOR_ALL.toByte())
+
+    /**
+     * The newest record the meter holds, and nothing else.
+     *
+     * "Last" is the meter's own idea of last, and at least one manufacturer numbers its
+     * records backwards — xDrip+'s implementation carries a comment saying the ordinal
+     * requests need verifying per device. So this is offered where it is cheap and
+     * obvious to check (a reading taken a moment ago, which the owner can see on the
+     * meter's own screen) and the sequence range is what everything else uses.
+     */
+    val lastRecord: ByteArray = byteArrayOf(OP_REPORT_RECORDS.toByte(), OPERATOR_LAST.toByte())
 
     /** How many records are stored, without downloading any of them. */
     val recordCount: ByteArray = byteArrayOf(OP_REPORT_COUNT.toByte(), OPERATOR_ALL.toByte())

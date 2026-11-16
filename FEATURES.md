@@ -177,6 +177,14 @@ That describes the choice, not anyone else's product.
 - **Reading the meter over Bluetooth**, through the Bluetooth SIG's standard Glucose
   Service: the whole stored history on the first read, then only what is new, with the
   meter's clock measured against the phone's and every result corrected by the difference.
+  **New results arrive on their own** — choosing a meter is the whole setup — and a manual
+  read can ask for the last result, a period, or the meter's entire memory when something
+  is missing.
+
+  **Unusual:** no polling and no background scanning. Android holds a pending connection
+  to the bonded meter and completes it the moment the meter next advertises, which costs
+  nothing while it waits; the app then takes what is new and lets go, because the meter
+  entertains one connection at a time and the owner's other app wants it too.
 
   **Unusual:** no scanning, so no location permission. Pairing is done in Android's own
   Bluetooth settings and the app connects to a bonded device by address — scanning is the
