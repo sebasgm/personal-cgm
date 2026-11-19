@@ -6,18 +6,35 @@ Both were written without a device attached. Neither can be proven by the build.
 
 ```sh
 export JAVA_HOME=$HOME/.jdks/jbr-21.0.11
-./gradlew :app:assembleDebug :wear:assembleDebug
+./gradlew :app:versionedApkRelease :wear:versionedApkRelease
 ```
 
 | | Path |
 |---|---|
-| Phone | `app/build/outputs/apk/debug/app-debug.apk` |
-| Watch | `wear/build/outputs/apk/debug/wear-debug.apk` |
+| Phone | `build/apks/cgm-<version>.apk` |
+| Watch | `build/apks/cgm-WATCH-do-not-install-on-phone-<version>.apk` |
+
+Release builds rather than debug ones, since 3.4.0: both are signed with the debug
+key on purpose and both are named after `versionName`, so a file still says which
+build it is once it is off the machine that built it. `assembleDebug` still works
+and still lands in `*/build/outputs/apk/debug/`, but a debug APK is named the same
+thing every time, which is how two field sessions end up unable to say what they
+tested.
+
+The two modules share one version number, from the root `build.gradle.kts`. The
+watch set its own until 3.4.0 and it was left at 3.0.0 through four changes, so a
+wrist could not be asked what it was running — if a watch reports 3.0.0, that is
+what it means, not that it is up to date.
 
 Both carry the application id `dev.cgm.app` — deliberately, because the Wear Data
 Layer delivers only to the same id on the other device — and both are signed with
 the same debug key, which the Data Layer also requires. Installing the phone APK
 over an existing build keeps its database and settings.
+
+**That shared id is why the watch APK's name shouts.** The watch build will install
+cleanly over the phone app and replace it, and the file name is the only warning
+present at the moment that mistake would be made. Always install it with `-s` and a
+transport that is the watch.
 
 ## 1. The complication
 
@@ -27,13 +44,38 @@ The watch needs its own APK; the phone's install does not carry it.
 
 ```sh
 adb devices                                   # phone over USB
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r build/apks/cgm-<version>.apk
 
 # Watch: Settings → Developer options → ADB debugging + Debug over Wi-Fi,
 # which shows an address.
 adb connect <watch-ip>:5555
-adb -s <watch-ip>:5555 install -r wear/build/outputs/apk/debug/wear-debug.apk
+adb -s <watch-ip>:5555 install -r \
+  build/apks/cgm-WATCH-do-not-install-on-phone-<version>.apk
 ```
+
+`-s` is not optional. Without it `adb` picks the only device, or refuses when there
+are two — and the failure that matters is the one where it picks the phone.
+
+**If Wi-Fi debugging cannot reach the watch**, which is the normal case on a network
+that isolates its clients, the phone will relay instead: ADB debugging and *Debug
+over Bluetooth* on the watch, the same switch in the Wear OS companion app, the
+phone on USB, and then
+
+```sh
+adb forward tcp:4444 localabstract:/adb-hub
+adb connect 127.0.0.1:4444
+```
+
+after which the watch is `127.0.0.1:4444` and takes the same `-s` install. Checked
+on a `/17` network where the laptop's ARP table held nothing but the gateway and
+mDNS discovery found no device at all: there is no watch IP to find there, and the
+address the watch prints is not reachable.
+
+**A first install of a release build over an existing debug one** should be an
+in-place replace, since both carry the same debug key. If it is refused with
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE`, `adb -s <watch> uninstall dev.cgm.app` is safe
+on the watch and only on the watch: the watch keeps one cached payload and no
+history. Never run that against the phone, which holds the readings.
 
 ### The open question
 

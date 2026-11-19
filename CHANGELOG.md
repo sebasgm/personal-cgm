@@ -11,6 +11,52 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.5.0] - unreleased
+
+### Added
+
+- **"How these are calculated" now draws the two estimates instead of only naming them.**
+  GMI and the A1C estimate, plotted against mean glucose, with the window's own mean
+  marked on both lines.
+
+  The box already said the two figures "legitimately disagree", which is true and is not
+  something a sentence can demonstrate. Seeing 7.2 and 7.6 on the card, the question is
+  whether one of them is wrong — and the answer is that both are straight lines in mean
+  glucose with different slopes, meeting at exactly one point and diverging in a fixed
+  direction either side of it. They agree at a mean of about 154 mg/dL, which both call
+  7.0%. Below that the ADAG estimate reads lower than GMI; above it, higher, by more the
+  further out you go. That is a picture, not a paragraph.
+
+  The lines are sampled through the formulas rather than drawn as segments between their
+  endpoints, because straightness is the thing being shown: if either published
+  relationship were ever replaced by a curve this would bend with it rather than quietly
+  flattening it. A test asserts that equal steps in glucose give equal steps in both
+  figures, so the claim the picture makes is checked rather than assumed.
+
+  One y axis, since both series are in the same unit — two scales would make their slopes
+  a drawing decision rather than a fact. Each line is labelled at its own end in ordinary
+  ink rather than in its own colour, so identity never rests on colour; the two tones are
+  one hue separated by lightness, which survives colour deficiency and greyscale. The hue
+  is the forecast blue-violet, which in this app already means *not a measurement* — which
+  is exactly what both of these are, and the misreading the box exists to prevent.
+
+  The room reserved for those end labels is measured rather than guessed. A reserve picked
+  by eye already clipped "Est. A1C" in English, and the labels are translated.
+
+### Changed
+
+- **The GMI and A1C formulas are callable for any mean glucose**, not only for a window's.
+  The explanation chart draws them over a range, and a second copy of a published constant
+  in UI code would be the copy nobody checks. The card's figures now go through the same
+  two functions, and the point where they agree is solved from the coefficients rather
+  than written down as 154.
+
+- **The field-testing checklist installs from the release APKs.** It still named the debug
+  paths, which are the same file name on every build — which is how two field sessions end
+  up unable to say what they tested. It also carries the watch's Bluetooth-relay route for
+  when Wi-Fi debugging cannot reach it, which is the normal case on a network that isolates
+  its clients, and the warning never to run `uninstall` against the phone.
+
 ## [3.4.0] - 2026-11-16
 
 ### Added

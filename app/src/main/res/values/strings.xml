@@ -221,6 +221,9 @@
     <string name="confirm_signout_action">Cerrar sesión</string>
     <string name="trends_formula_title">Cómo se calculan</string>
     <string name="trends_formula_close">Entendido</string>
+    <string name="trends_formula_axis_x">Glucosa media (%1$s)</string>
+    <string name="trends_formula_yours">tu media</string>
+    <string name="trends_formula_shape">Las dos son rectas y se cruzan en un solo punto: una media de alrededor de %1$s %2$s, que ambas llaman 7,0%%. Por debajo de ahí la A1C estimada queda más baja que el GMI y por encima queda más alta, y más cuanto más lejos. Así que dos cifras que no coinciden son dos fórmulas que no coinciden, no el sensor equivocándose, y ninguna de las dos es un análisis de sangre.</string>
     <string name="set_forecast">Proyección en el gráfico</string>
     <string name="set_forecast_desc">Dibuja hacia dónde podría ir la glucosa en las próximas dos horas, con una banda de confianza. Es una estimación, nunca una medición, y no dispara alarmas.</string>
     <string name="forecast_uncalibrated">Banda provisional: aún no hay historial suficiente para medir el error real de este modelo.</string>

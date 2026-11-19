@@ -30,7 +30,7 @@ data class GlucoseStatistics(
      * An estimate from sensor data, not a laboratory value, and unreliable below
      * [RELIABLE_COVERAGE] or over less than about 14 days. The UI says so.
      */
-    val gmiPercent: Double? get() = meanMgdl?.let { 3.31 + 0.02392 * it }
+    val gmiPercent: Double? get() = meanMgdl?.let(::gmiPercentFor)
 
     /**
      * Estimated A1C from mean glucose, inverting the ADAG eAG relationship:
@@ -39,7 +39,7 @@ data class GlucoseStatistics(
      * Differs from [gmiPercent] by design — they are two different published
      * estimates of the same thing, and issue #7 asks for both.
      */
-    val estimatedA1cPercent: Double? get() = meanMgdl?.let { (it + 46.7) / 28.7 }
+    val estimatedA1cPercent: Double? get() = meanMgdl?.let(::estimatedA1cPercentFor)
 
     /**
      * Below this, clinical guidance treats CGM summary metrics as unreliable.
@@ -54,6 +54,38 @@ data class GlucoseStatistics(
 
         /** Below roughly two weeks, GMI and A1C estimates are not meaningful. */
         const val MIN_DAYS_FOR_A1C = 14
+
+        /**
+         * GMI for any mean glucose, as a function rather than only of this window.
+         *
+         * Split out so that the screen explaining the formula can draw it over a
+         * range instead of restating the arithmetic in UI code. Two copies of a
+         * published constant are two copies that can disagree, and the one on the
+         * explanation screen would be the copy nobody checks.
+         */
+        fun gmiPercentFor(mgdl: Double): Double = 3.31 + 0.02392 * mgdl
+
+        /** The ADAG estimate for any mean glucose. See [gmiPercentFor]. */
+        fun estimatedA1cPercentFor(mgdl: Double): Double = (mgdl + 46.7) / 28.7
+
+        /**
+         * The mean glucose at which the two estimates agree, about 154 mg/dL.
+         *
+         * Solved rather than measured: both are straight lines in mean glucose, so
+         * they meet exactly once, and where they meet is the one point on the
+         * explanation chart worth naming. Either side of it the two disagree in a
+         * fixed direction — the ADAG estimate reads lower below it and higher above
+         * it — which is the fact the chart exists to show.
+         *
+         * Derived from the published coefficients rather than written as 154, so it
+         * cannot drift from the two functions above.
+         */
+        val AGREEMENT_MGDL: Double = run {
+            // 3.31 + 0.02392 g = (g + 46.7) / 28.7
+            val a1cSlope = 1.0 / 28.7
+            val a1cIntercept = 46.7 / 28.7
+            (a1cIntercept - 3.31) / (0.02392 - a1cSlope)
+        }
     }
 }
 

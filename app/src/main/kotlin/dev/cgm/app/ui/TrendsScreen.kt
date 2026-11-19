@@ -1,5 +1,14 @@
 package dev.cgm.app.ui
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -109,7 +118,7 @@ fun TrendsScreen(viewModel: CgmViewModel) {
             // to go looking for reads as a footnote to the charts rather than as the
             // summary they support. The coverage notice stays above it, because how much
             // of the window this rests on governs how the figure should be read.
-            A1cCard(stats, period)
+            A1cCard(stats, period, state.unit)
             TimeInRangeCard(
                 stats = stats,
                 // The effective thresholds, not the defaults: the figures were
@@ -510,7 +519,7 @@ private fun ZoneBar(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
+private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod, unit: GlucoseUnit) {
     val enoughDays = period.days >= GlucoseStatistics.MIN_DAYS_FOR_A1C
 
     Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -528,7 +537,7 @@ private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
                     stringResource(R.string.trends_a1c),
                     stats.estimatedA1cPercent?.let { "%.1f%%".format(it) } ?: "—",
                 )
-                FormulaTooltip()
+                FormulaTooltip(meanMgdl = stats.meanMgdl, unit = unit)
             }
             if (!enoughDays) {
                 Spacer(Modifier.height(8.dp))
@@ -558,7 +567,7 @@ private fun A1cCard(stats: GlucoseStatistics, period: TrendPeriod) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FormulaTooltip() {
+private fun FormulaTooltip(meanMgdl: Double?, unit: GlucoseUnit) {
     val state = rememberTooltipState(isPersistent = true)
     val scope = rememberCoroutineScope()
 
@@ -574,7 +583,24 @@ private fun FormulaTooltip() {
                     }
                 },
             ) {
-                Text(stringResource(R.string.trends_formula_explanation))
+                Column {
+                    Text(stringResource(R.string.trends_formula_explanation))
+                    Spacer(Modifier.height(14.dp))
+                    EstimateShapeChart(
+                        meanMgdl = meanMgdl,
+                        unit = unit,
+                        modifier = Modifier.fillMaxWidth().height(140.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(
+                            R.string.trends_formula_shape,
+                            unit.format(GlucoseStatistics.AGREEMENT_MGDL),
+                            unit.suffix,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         },
     ) {
@@ -667,3 +693,170 @@ internal fun Metric(label: String, value: String) {
         )
     }
 }
+
+/**
+ * GMI and the A1C estimate drawn against mean glucose, with the reader's own mean
+ * marked on both.
+ *
+ * The explanation says the two figures "legitimately disagree", which is true and is
+ * not something a sentence can show. Both are straight lines in mean glucose, so the
+ * disagreement is not noise and not a sensor fault: it is two published formulas with
+ * different slopes, agreeing at exactly one point and diverging in a fixed direction
+ * either side of it. A reader who sees 7.2 and 7.6 on the card wants to know whether
+ * one of them is wrong, and the answer — neither, and here is how far apart they are
+ * where you sit — is a picture.
+ *
+ * Both lines are sampled through [GlucoseStatistics.gmiPercentFor] and
+ * [GlucoseStatistics.estimatedA1cPercentFor] rather than drawn as two segments between
+ * endpoints. Straightness is the thing being shown, so it has to be the formulas'
+ * straightness and not the drawing's: if either published relationship were ever
+ * replaced by a curve, this would bend with it instead of quietly flattening it.
+ *
+ * One y axis, because both series are in the same unit. Two scales would make their
+ * slopes a drawing decision rather than a fact, which is the one thing this chart must
+ * not do.
+ */
+@Composable
+private fun EstimateShapeChart(meanMgdl: Double?, unit: GlucoseUnit, modifier: Modifier = Modifier) {
+    val tones = EstimateColors.tones
+    val grid = MaterialTheme.colorScheme.outlineVariant
+    val ink = MaterialTheme.colorScheme.onSurfaceVariant
+    val measurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(fontSize = 9.sp, color = ink)
+    val seriesStyle = TextStyle(fontSize = 10.sp, color = ink, fontWeight = FontWeight.Medium)
+
+    val gmiLabel = stringResource(R.string.trends_gmi)
+    val a1cLabel = stringResource(R.string.trends_a1c)
+    val yoursLabel = stringResource(R.string.trends_formula_yours)
+    val axisLabel = stringResource(R.string.trends_formula_axis_x, unit.suffix)
+
+    Canvas(modifier) {
+        val gutter = 24.dp.toPx()
+        // Measured, not guessed. These two labels are translated, and "Est. A1C"
+        // already overruns a reserve picked by eye in English — in another language
+        // or at another font scale the overrun is simply larger. The room the labels
+        // need is a fact about the labels.
+        val endRoom = maxOf(
+            measurer.measure(gmiLabel, seriesStyle).size.width,
+            measurer.measure(a1cLabel, seriesStyle).size.width,
+        ) + 8.dp.toPx()
+        val footer = 26.dp.toPx()
+        val plotWidth = (size.width - gutter - endRoom).coerceAtLeast(1f)
+        val plotHeight = (size.height - footer).coerceAtLeast(1f)
+
+        fun x(mgdl: Double) = gutter + ((mgdl - X_MIN) / (X_MAX - X_MIN) * plotWidth).toFloat()
+        fun y(percent: Double) =
+            (plotHeight - (percent - Y_MIN) / (Y_MAX - Y_MIN) * plotHeight).toFloat()
+
+        // Grid first, so every mark sits on top of it. Recessive on purpose: it is
+        // there to let a value be read off, not to be looked at.
+        for (tick in Y_TICKS) {
+            val ty = y(tick)
+            drawLine(grid, Offset(gutter, ty), Offset(gutter + plotWidth, ty), 1.dp.toPx())
+            val text = measurer.measure("${tick.toInt()}%", labelStyle)
+            drawText(
+                text,
+                topLeft = Offset(
+                    gutter - text.size.width - 4.dp.toPx(),
+                    ty - text.size.height / 2f,
+                ),
+            )
+        }
+
+        fun lineOf(formula: (Double) -> Double): Path = Path().apply {
+            repeat(SAMPLES + 1) { step ->
+                val mgdl = X_MIN + (X_MAX - X_MIN) * step / SAMPLES
+                val point = Offset(x(mgdl), y(formula(mgdl)))
+                if (step == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
+            }
+        }
+
+        val stroke = Stroke(width = 2.dp.toPx())
+        drawPath(lineOf(GlucoseStatistics::estimatedA1cPercentFor), tones.a1c, style = stroke)
+        drawPath(lineOf(GlucoseStatistics::gmiPercentFor), tones.gmi, style = stroke)
+
+        // Where they agree. A ring rather than a filled dot, because nothing was
+        // measured here — it is the one point the arithmetic says they share.
+        val crossX = x(GlucoseStatistics.AGREEMENT_MGDL)
+        val crossY = y(GlucoseStatistics.gmiPercentFor(GlucoseStatistics.AGREEMENT_MGDL))
+        drawCircle(ink, radius = 4.dp.toPx(), center = Offset(crossX, crossY), style = Stroke(1.5.dp.toPx()))
+
+        // The labels sit in ink rather than in each series' colour, and each one sits
+        // at the end of its own line: identity by position, which survives any colour
+        // deficiency and greyscale both.
+        val labelEnd = gutter + plotWidth + 4.dp.toPx()
+
+        /**
+         * Centred on its line's end, but never off the top or bottom of the canvas.
+         * The A1C estimate reaches 12.1% at 300 mg/dL, which is within a label's
+         * half-height of the ceiling — centred naively its text is clipped.
+         */
+        fun endLabel(label: String, percent: Double) {
+            val text = measurer.measure(label, seriesStyle)
+            val top = (y(percent) - text.size.height / 2f)
+                .coerceIn(0f, (plotHeight - text.size.height).coerceAtLeast(0f))
+            drawText(text, topLeft = Offset(labelEnd, top))
+        }
+
+        endLabel(gmiLabel, GlucoseStatistics.gmiPercentFor(X_MAX))
+        endLabel(a1cLabel, GlucoseStatistics.estimatedA1cPercentFor(X_MAX))
+
+        // Where the reader actually sits, if the window has a mean at all, and only
+        // when it is on the chart: a mean outside 70-300 would otherwise be drawn
+        // clamped to the edge, which is a marker pointing at the wrong glucose.
+        val mean = meanMgdl?.takeIf { it in X_MIN..X_MAX }
+        if (mean != null) {
+            val mx = x(mean)
+            drawLine(
+                ink,
+                Offset(mx, 0f),
+                Offset(mx, plotHeight),
+                1.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(
+                    floatArrayOf(3.dp.toPx(), 3.dp.toPx()),
+                ),
+            )
+            drawCircle(tones.gmi, 4.dp.toPx(), Offset(mx, y(GlucoseStatistics.gmiPercentFor(mean))))
+            drawCircle(
+                tones.a1c,
+                4.dp.toPx(),
+                Offset(mx, y(GlucoseStatistics.estimatedA1cPercentFor(mean))),
+            )
+
+            val yours = measurer.measure("$yoursLabel ${unit.format(mean)}", labelStyle)
+            // Kept inside the plot: at a mean near either end the label would
+            // otherwise hang off the chart.
+            val left = (mx - yours.size.width / 2f)
+                .coerceIn(gutter, gutter + plotWidth - yours.size.width)
+            drawText(yours, topLeft = Offset(left, plotHeight + 2.dp.toPx()))
+        }
+
+        val axis = measurer.measure(axisLabel, labelStyle)
+        drawText(
+            axis,
+            topLeft = Offset(
+                gutter + (plotWidth - axis.size.width) / 2f,
+                size.height - axis.size.height,
+            ),
+        )
+    }
+}
+
+/** The span of mean glucose worth drawing: below 70 and above 300 nobody lives. */
+private const val X_MIN = 70.0
+private const val X_MAX = 300.0
+
+/** Chosen to hold both lines across that span, with a little air. */
+private const val Y_MIN = 3.8
+private const val Y_MAX = 12.4
+
+/** Four gridlines, not eight: this is 140dp tall and a label every point is clutter. */
+private val Y_TICKS = listOf(5.0, 7.0, 9.0, 11.0)
+
+/**
+ * Points per line.
+ *
+ * More than the two a straight line needs, because the straightness is the finding
+ * rather than an assumption the drawing is allowed to make.
+ */
+private const val SAMPLES = 48

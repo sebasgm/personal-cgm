@@ -186,6 +186,52 @@ object ChartColors {
 }
 
 /**
+ * GMI and estimated A1C, as one hue in two tones.
+ *
+ * The hue is the forecast blue-violet, and it is the same hue for the same reason:
+ * in this app that colour means **not a measurement**. Both of these figures are
+ * estimates calculated from sensor readings, neither is a laboratory result, and the
+ * one misreading the card has to prevent is someone taking either for a blood test.
+ * Reusing the hue adds no new meaning to the palette — red is "may not be true",
+ * amber and green and orange are zones, violet is insulin, teal is the interface.
+ *
+ * Two tones of one hue rather than two colours, exactly as [InsulinColors] is and for
+ * the same argument: these are two estimates *of one quantity*. Two unrelated colours
+ * would read as two unrelated measurements, where the point of showing them together
+ * is that they are answers to one question that disagree.
+ *
+ * Separated by lightness rather than hue, which is why there is no colour-blind
+ * variant here: a deep tone against a pale one survives any colour deficiency and
+ * survives greyscale. Only the high-contrast palette gets its own pair, pushed
+ * further apart. Both lines are directly labelled besides, so identity never rests
+ * on colour at all.
+ *
+ * The deep tone is GMI, which is the figure derived for continuous sensor data and
+ * the first of the two the card shows.
+ */
+object EstimateColors {
+
+    /** The deep tone for GMI, the pale one for the A1C estimate. */
+    data class Tones(val gmi: Color, val a1c: Color)
+
+    private val light = Tones(gmi = Color(0xFF3E4D96), a1c = Color(0xFF7382CC))
+    private val dark = Tones(gmi = Color(0xFF8090D8), a1c = Color(0xFFC3CDF2))
+
+    private val lightHighContrast = Tones(gmi = Color(0xFF1F2C6E), a1c = Color(0xFF5C6BB8))
+    private val darkHighContrast = Tones(gmi = Color(0xFF9FAEE8), a1c = Color(0xFFDDE3FA))
+
+    fun of(vision: ColorVision, dark: Boolean): Tones = when {
+        vision == ColorVision.HIGH_CONTRAST && dark -> darkHighContrast
+        vision == ColorVision.HIGH_CONTRAST -> lightHighContrast
+        dark -> this.dark
+        else -> light
+    }
+
+    val tones: Tones
+        @Composable get() = of(LocalColorVision.current, isDarkTheme)
+}
+
+/**
  * The two kinds of insulin, as one hue in two tones.
  *
  * One hue because they are two parts of one quantity: a day's insulin, split by

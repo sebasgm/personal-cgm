@@ -221,6 +221,9 @@
     <string name="confirm_signout_action">Sign out</string>
     <string name="trends_formula_title">How these are calculated</string>
     <string name="trends_formula_close">Got it</string>
+    <string name="trends_formula_axis_x">Mean glucose (%1$s)</string>
+    <string name="trends_formula_yours">yours</string>
+    <string name="trends_formula_shape">Both are straight lines, and they meet at one point: a mean of about %1$s %2$s, which both call 7.0%%. Below that the A1C estimate reads lower than GMI and above it reads higher, by more the further out you go. So two figures that disagree are two formulas disagreeing, not the sensor being wrong — and neither of them is a blood test.</string>
     <string name="set_forecast">Projection on the chart</string>
     <string name="set_forecast_desc">Draws where glucose might go over the next two hours, with a confidence band. It is an estimate, never a measurement, and it never triggers alarms.</string>
     <string name="forecast_uncalibrated">Provisional band: there is not yet enough history to measure this model\'s real error.</string>

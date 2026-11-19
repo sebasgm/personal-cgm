@@ -22,7 +22,7 @@ plugins {
  * changelog makes about builds that are sideloaded one at a time: the only way to tell
  * two of them apart is a number that cannot be forgotten.
  */
-val cgmVersionName = "3.4.0"
+val cgmVersionName = "3.5.0"
 
 /**
  * The integer Android orders installs by, derived rather than written.

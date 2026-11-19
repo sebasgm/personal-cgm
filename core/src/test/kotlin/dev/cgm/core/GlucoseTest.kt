@@ -463,6 +463,81 @@ class EstimatedA1cTest {
         assertTrue(s.gmiPercent!! != s.estimatedA1cPercent!!)
         assertTrue(s.gmiPercent!! > 10.0 && s.estimatedA1cPercent!! > 11.0)
     }
+
+    // -- the functions the explanation chart draws ------------------------
+
+    @Test
+    fun `the window figures are the standalone formulas, not a second copy`() {
+        // The explanation screen draws the formulas over a range, and it must draw
+        // the same arithmetic the card reports.
+        listOf(70.0, 100.0, 154.0, 200.0, 300.0).forEach { mean ->
+            val stats = statsWithMean(mean)
+            assertEquals(
+                GlucoseStatistics.gmiPercentFor(mean),
+                stats.gmiPercent!!,
+                1e-12,
+                "GMI at $mean",
+            )
+            assertEquals(
+                GlucoseStatistics.estimatedA1cPercentFor(mean),
+                stats.estimatedA1cPercent!!,
+                1e-12,
+                "estimated A1C at $mean",
+            )
+        }
+    }
+
+    @Test
+    fun `the agreement point is where the two formulas actually meet`() {
+        val mean = GlucoseStatistics.AGREEMENT_MGDL
+
+        assertEquals(
+            GlucoseStatistics.gmiPercentFor(mean),
+            GlucoseStatistics.estimatedA1cPercentFor(mean),
+            1e-9,
+            "solved, so they must agree to within rounding",
+        )
+        // The canonical figure: a mean of about 154 is an A1C of about 7%.
+        assertEquals(154.0, mean, 0.5)
+        assertEquals(7.0, GlucoseStatistics.gmiPercentFor(mean), 0.02)
+    }
+
+    @Test
+    fun `the A1C estimate reads low below the agreement point and high above it`() {
+        // This is the claim the explanation chart and its caption both make, and the
+        // direction is the whole content of it.
+        val below = GlucoseStatistics.AGREEMENT_MGDL - 50
+        val above = GlucoseStatistics.AGREEMENT_MGDL + 50
+
+        assertTrue(
+            GlucoseStatistics.estimatedA1cPercentFor(below) <
+                GlucoseStatistics.gmiPercentFor(below),
+            "below the crossing the ADAG estimate is the lower of the two",
+        )
+        assertTrue(
+            GlucoseStatistics.estimatedA1cPercentFor(above) >
+                GlucoseStatistics.gmiPercentFor(above),
+            "above it, the higher",
+        )
+    }
+
+    @Test
+    fun `both formulas are straight lines, which is what the chart shows`() {
+        // Equal steps in mean glucose must produce equal steps in both figures. If
+        // either published relationship were ever replaced by a curve this fails,
+        // which is the point: the chart samples the functions rather than drawing
+        // two segments, so it would bend with them.
+        fun steps(formula: (Double) -> Double): List<Double> =
+            (70..290 step 20).map { formula((it + 20).toDouble()) - formula(it.toDouble()) }
+
+        listOf(
+            "GMI" to GlucoseStatistics::gmiPercentFor,
+            "estimated A1C" to GlucoseStatistics::estimatedA1cPercentFor,
+        ).forEach { (name, formula) ->
+            val deltas = steps(formula)
+            deltas.forEach { assertEquals(deltas.first(), it, 1e-9, "$name is linear") }
+        }
+    }
 }
 
 class AccessibilityPreferencesTest {
