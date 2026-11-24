@@ -13,6 +13,7 @@ enum class TrendPeriod(val label: String, val duration: Duration) {
     D7("7d", 7.days),
     D14("14d", 14.days),
     D30("30d", 30.days),
+    D45("45d", 45.days),
     D90("90d", 90.days);
 
     val millis: Long get() = duration.inWholeMilliseconds

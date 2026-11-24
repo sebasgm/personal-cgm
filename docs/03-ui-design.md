@@ -119,7 +119,7 @@ Dense by design — this is where the second layer lives.
 ```
 ┌──────────────────────────────────────┐
 │  Trends                              │
-│   7d    14d    30d    90d            │
+│  24h  7d  14d  30d  45d  90d   →     │
 │                                      │
 │   ⓘ based on 6 of 90 days            │   coverage, always
 │                                      │

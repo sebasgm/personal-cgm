@@ -11,6 +11,34 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.6.0] - unreleased
+
+### Added
+
+- **A 45-day window on Trends**, between 30d and 90d.
+
+  Thirty days is too short to see whether a change held and ninety is mostly empty
+  until the app has been running that long — LibreLinkUp cannot backfill, so the
+  longest window is the one that spends the most time lying by omission. Forty-five
+  days sits where a lab A1C's own three-month lookback is roughly half spent, which
+  is the point at which the estimate on this screen stops being a guess about the
+  next draw and starts being a prediction of it.
+
+  Every card on the screen follows the chips through the window's duration rather
+  than through a case per preset, so time in range, the A1C estimates, the daily
+  pattern, the insulin totals and the sensor-agreement figures all answer for 45
+  days without being told about it. The insulin bars drop their weekday initials
+  above a fortnight, as they already did at 30d and 90d; forty-five bars have no
+  room for them.
+
+### Changed
+
+- **The Trends window chips scroll sideways.** Six of them do not fit across a
+  narrow phone, and the row was a plain one — so the sixth chip would have been
+  clipped off the edge with nothing to say it was there, hiding 90d from exactly
+  the people who had scrolled looking for it. The report section's chip rows have
+  scrolled for this reason since they were written.
+
 ## [3.5.0] - unreleased
 
 ### Added
