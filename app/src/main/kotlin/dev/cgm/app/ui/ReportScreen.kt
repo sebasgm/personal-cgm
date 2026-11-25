@@ -82,9 +82,16 @@ fun ReportSection(viewModel: CgmViewModel) {
     /** True while the printable report is open. */
     var previewing by remember { mutableStateOf(false) }
 
+    // The document's own words, from this context so they follow the chosen
+    // language. Remembered on the context rather than read per recomposition:
+    // twenty resource lookups is nothing, but the report is keyed on this below
+    // and a fresh equal-but-not-identical bundle every frame would rebuild it.
+    val labels = remember(context) { reportLabels(context) }
+
     // Rebuilds on arrival and whenever the choices change, which is the only
-    // thing that can alter the shape of it.
-    LaunchedEffect(preferences) { viewModel.refreshReport(preferences) }
+    // thing that can alter the shape of it — plus the language, which changes
+    // every word in it.
+    LaunchedEffect(preferences, labels) { viewModel.refreshReport(preferences, labels) }
 
     /** The report once it has something in it, which is when it can be exported. */
     val ready = report?.takeIf { it.hasData }

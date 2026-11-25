@@ -43,6 +43,7 @@ import dev.cgm.core.GlucoseFusion
 import dev.cgm.core.GlucoseReading
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.Report
+import dev.cgm.core.ReportLabels
 import dev.cgm.core.ReportPreferences
 import dev.cgm.core.ReportSpec
 import dev.cgm.core.ReportSplit
@@ -692,7 +693,15 @@ class CgmViewModel(
      * runs on different targets would disagree with every other view in the app,
      * and the file is the copy that gets shown to someone else.
      */
-    fun refreshReport(preferences: ReportPreferences = reportPreferences.value) {
+    /**
+     * [labels] comes from the screen because it comes from `strings.xml`, which a
+     * ViewModel has no context to read. They travel with the report rather than
+     * being applied when it is exported: see [dev.cgm.core.ReportLabels].
+     */
+    fun refreshReport(
+        preferences: ReportPreferences = reportPreferences.value,
+        labels: ReportLabels = ReportLabels.English,
+    ) {
         viewModelScope.launch {
             _reportBuilding.value = true
             try {
@@ -707,7 +716,9 @@ class CgmViewModel(
                     thresholds = snapshot?.thresholds ?: GlucoseThresholds.Default,
                     unit = snapshot?.unit ?: GlucoseUnit.MGDL,
                 )
-                _report.value = withContext(Dispatchers.IO) { repository.buildReport(spec, now) }
+                _report.value = withContext(Dispatchers.IO) {
+                    repository.buildReport(spec, now, labels)
+                }
             } finally {
                 _reportBuilding.value = false
             }

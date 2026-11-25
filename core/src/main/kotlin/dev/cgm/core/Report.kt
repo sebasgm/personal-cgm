@@ -177,6 +177,13 @@ data class Report(
      * many went is what stops the remainder looking like the whole period.
      */
     val skippedRanges: Int = 0,
+    /**
+     * The words this report is written in. See [ReportLabels].
+     *
+     * On the report rather than passed to the exporter, so the screen and every
+     * exported format name the same things the same way by construction.
+     */
+    val labels: ReportLabels = ReportLabels.English,
 ) {
     val hasData: Boolean get() = overall.hasData
 
@@ -200,6 +207,7 @@ object ReportBuilder {
         hourStartMillis: (HourlyBin) -> Long,
         generatedAtMillis: Long,
         zone: ZoneId = ZoneId.systemDefault(),
+        labels: ReportLabels = ReportLabels.English,
     ): Report {
         val bounds = boundaries(spec, zone)
 
@@ -222,8 +230,9 @@ object ReportBuilder {
             generatedAtMillis = generatedAtMillis,
             spec = spec,
             ranges = populated,
-            overall = summarise("All", spec.startMillis, spec.endMillis, hours, spec),
+            overall = summarise(labels.overall, spec.startMillis, spec.endMillis, hours, spec),
             skippedRanges = all.size - populated.size,
+            labels = labels,
         )
     }
 

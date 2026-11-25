@@ -540,4 +540,26 @@
     <string name="car_alert_channel_desc">Repite una alarma como mensaje para que Android Auto la muestre y la lea en voz alta.</string>
     <string name="car_alerts_title">Avisar en Android Auto</string>
     <string name="car_alerts_subtitle">Repite la alarma como mensaje, el único formato que Android Auto muestra. El auto la lee en voz alta, también para los acompañantes.</string>
+    <!-- The exported/printed report document. These are the only strings that leave
+         the app in a file, so they are read by someone who is not holding the phone. -->
+    <string name="report_doc_title">Informe de glucosa</string>
+    <string name="report_doc_overall">Todo</string>
+    <string name="report_doc_generated">Generado</string>
+    <string name="report_doc_values_in">valores en</string>
+    <string name="report_doc_in_range">en rango</string>
+    <string name="report_doc_summary">Resumen</string>
+    <string name="report_doc_column_range">Tramo</string>
+    <string name="report_doc_column_readings">Lecturas</string>
+    <string name="report_doc_column_coverage">Cobertura</string>
+    <string name="report_doc_column_mean">Media</string>
+    <string name="report_doc_column_median">Mediana</string>
+    <string name="report_doc_column_sd">DE</string>
+    <string name="report_doc_column_cv">CV</string>
+    <string name="report_doc_column_in_range">En rango</string>
+    <string name="report_doc_median_by_time">Mediana por momento del día</string>
+    <string name="report_doc_disclaimer">No es un consejo médico ni un producto sanitario. Estas cifras vienen de un sensor de consumo leído por una vía no oficial, pueden estar incompletas y no las evaluó ningún organismo regulador. No las uses para decidir un tratamiento.</string>
+    <string name="report_doc_skipped_ranges">%1$s tramo(s) de este período no tenían ninguna lectura y no figuran. La fila de resumen de abajo sigue cubriendo el período completo, huecos incluidos — mirá su cifra de cobertura.</string>
+    <string name="report_doc_thin_ranges">Los tramos en ámbar tienen menos del %1$s de cobertura. Sus cifras describen las horas registradas, no el tramo completo.</string>
+    <string name="report_doc_bands_note">Cada cifra es la mediana de ese momento del día local, sobre los días de ese tramo. Las franjas siguen la hora del reloj, así que siguen siendo comparables después de un cambio de zona horaria.</string>
+    <string name="report_doc_range_headline">%1$s lecturas · %2$s de cobertura</string>
 </resources>

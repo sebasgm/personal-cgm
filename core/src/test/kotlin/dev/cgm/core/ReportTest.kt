@@ -322,6 +322,150 @@ class ReportExportTest {
         assertTrue(ReportExport.fileName(report, ReportFormat.HTML, madrid).endsWith(".html"))
     }
 
+    // -- translation ----------------------------------------------------------
+
+    /** A plausible Spanish bundle, which is what the app passes in on its default language. */
+    private val spanish = ReportLabels(
+        languageTag = "es",
+        title = "Informe de glucosa",
+        overall = "Todo",
+        generated = "Generado",
+        valuesIn = "valores en",
+        inRange = "en rango",
+        summary = "Resumen",
+        columnRange = "Tramo",
+        columnReadings = "Lecturas",
+        columnCoverage = "Cobertura",
+        columnMean = "Media",
+        columnMedian = "Mediana",
+        columnSd = "DE",
+        columnCv = "CV",
+        columnInRange = "En rango",
+        medianByTimeOfDay = "Mediana por momento del día",
+        disclaimer = "No es un consejo médico ni un producto sanitario.",
+        skippedRanges = "%1\$s tramo(s) no tenían ninguna lectura.",
+        thinRanges = "Los tramos en ámbar tienen menos del %1\$s de cobertura.",
+        bandsNote = "Cada cifra es la mediana de ese momento del día local.",
+        rangeHeadline = "%1\$s lecturas · %2\$s de cobertura",
+    )
+
+    private fun translated(
+        split: ReportSplit = ReportSplit.DAY,
+        bandsPerDay: Int = 0,
+    ): Report {
+        val start = LocalDateTime.parse("2026-09-24T00:00").atZone(madrid).toInstant().toEpochMilli()
+        return ReportBuilder.build(
+            spec = ReportSpec(
+                startMillis = start,
+                endMillis = start + 86_400_000L,
+                split = split,
+                bandsPerDay = bandsPerDay,
+            ),
+            hours = listOf(
+                HourlyBin(
+                    localDate = "2026-09-24", localHour = 8,
+                    bins = GlucoseHistogram.of(List(12) { 120.0 } + List(4) { 250.0 }),
+                    readingCount = 16, coverageBuckets = 12,
+                )
+            ),
+            hourStartMillis = { start + 8 * 3_600_000L },
+            generatedAtMillis = now,
+            zone = madrid,
+            labels = spanish,
+        )
+    }
+
+    @Test
+    fun `the document is written in the words it was given`() {
+        // The figures were always locale-correct and the prose was forty English
+        // literals, which on a Spanish build produced "Range / Readings / Coverage"
+        // over rows reading "24 sept 2026" — a document in neither language.
+        val html = ReportExport.export(translated(bandsPerDay = 6), ReportFormat.HTML, madrid)
+
+        listOf(
+            "Informe de glucosa", "Generado", "valores en", "en rango", "Resumen",
+            "Tramo", "Lecturas", "Cobertura", "Media", "Mediana", "DE", "CV",
+            "Mediana por momento del día", "Todo",
+        ).forEach { assertTrue(html.contains(it), "the document is missing \"$it\"") }
+
+        listOf("Glucose report", "Generated", "Readings", "Median by time of day").forEach {
+            assertTrue(!html.contains(it), "English leaked into the document: \"$it\"")
+        }
+    }
+
+    @Test
+    fun `the html says which language it is in`() {
+        // A printed report is hyphenated and a shared one is read aloud; both ask
+        // the document before the first word, and an unlabelled page is assumed
+        // English by every renderer there is.
+        assertTrue(
+            ReportExport.export(translated(), ReportFormat.HTML, madrid)
+                .contains("<html lang=\"es\""),
+        )
+        assertTrue(
+            ReportExport.export(report, ReportFormat.HTML, madrid).contains("<html lang=\"en\""),
+        )
+    }
+
+    @Test
+    fun `every format carries the disclaimer in the reader's language`() {
+        // The one paragraph that has to be understood, in all three formats — the
+        // CSV and JSON keys around it stay English, but this is prose.
+        ReportFormat.entries.forEach { format ->
+            val text = ReportExport.export(translated(), format, madrid)
+            assertTrue(
+                text.contains("No es un consejo médico"),
+                "${format.name} exported the disclaimer untranslated",
+            )
+            assertTrue(
+                !text.contains("Not medical advice"),
+                "${format.name} exported the English disclaimer as well",
+            )
+        }
+    }
+
+    @Test
+    fun `a translated template keeps the figures it was given`() {
+        // The templates take their numbers already written out, so no translation
+        // has to carry a literal percent sign — the classic way a formatted string
+        // crashes in the one language nobody tested.
+        val start = LocalDateTime.parse("2026-09-01T00:00").atZone(madrid).toInstant().toEpochMilli()
+        val sparse = ReportBuilder.build(
+            spec = ReportSpec(start, start + 4 * 86_400_000L, ReportSplit.DAY),
+            hours = listOf(
+                HourlyBin(
+                    localDate = "2026-09-01", localHour = 8,
+                    bins = GlucoseHistogram.of(List(12) { 120.0 }),
+                    readingCount = 12, coverageBuckets = 12,
+                )
+            ),
+            hourStartMillis = { start + 8 * 3_600_000L },
+            generatedAtMillis = now,
+            zone = madrid,
+            labels = spanish,
+        )
+        val html = ReportExport.export(sparse, ReportFormat.HTML, madrid)
+
+        assertTrue(html.contains("3 tramo(s) no tenían"), "the count was not filled in")
+        assertTrue(html.contains("menos del 70% de cobertura"), "the threshold was not filled in")
+        assertTrue(html.contains("12 lecturas · 4% de cobertura"), "the headline was not filled in")
+        assertTrue(!html.contains("%1\$s"), "a placeholder reached the document")
+    }
+
+    @Test
+    fun `the machine-readable names stay English whatever language the prose is in`() {
+        // A column header is a field identifier that a spreadsheet formula or a
+        // script refers to by name. One that moved with the phone's language would
+        // break every one of them on the day someone switched.
+        val csv = ReportExport.export(translated(), ReportFormat.CSV, madrid)
+        assertTrue(csv.contains("section,range,start,end,readings,coverage,mean_mgdl"))
+
+        val json = ReportExport.export(translated(), ReportFormat.JSON, madrid)
+        kotlinx.serialization.json.Json.parseToJsonElement(json)
+        assertTrue(json.contains("\"meanMgdl\""))
+        assertTrue(json.contains("\"timeInRange\""))
+    }
+
     // -- locale ---------------------------------------------------------------
 
     /**

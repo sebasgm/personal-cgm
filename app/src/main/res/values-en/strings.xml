@@ -540,4 +540,26 @@
     <string name="car_alert_channel_desc">Repeats an alarm as a message so Android Auto shows it and reads it aloud.</string>
     <string name="car_alerts_title">Announce in Android Auto</string>
     <string name="car_alerts_subtitle">Repeats the alarm as a message, the only shape Android Auto surfaces. The car reads it aloud, to passengers as well as you.</string>
+    <!-- The exported/printed report document. These are the only strings that leave
+         the app in a file, so they are read by someone who is not holding the phone. -->
+    <string name="report_doc_title">Glucose report</string>
+    <string name="report_doc_overall">All</string>
+    <string name="report_doc_generated">Generated</string>
+    <string name="report_doc_values_in">values in</string>
+    <string name="report_doc_in_range">in range</string>
+    <string name="report_doc_summary">Summary</string>
+    <string name="report_doc_column_range">Range</string>
+    <string name="report_doc_column_readings">Readings</string>
+    <string name="report_doc_column_coverage">Coverage</string>
+    <string name="report_doc_column_mean">Mean</string>
+    <string name="report_doc_column_median">Median</string>
+    <string name="report_doc_column_sd">SD</string>
+    <string name="report_doc_column_cv">CV</string>
+    <string name="report_doc_column_in_range">In range</string>
+    <string name="report_doc_median_by_time">Median by time of day</string>
+    <string name="report_doc_disclaimer">Not medical advice and not a medical device. These figures come from a consumer sensor read through an unofficial interface, may be incomplete, and have not been assessed by any regulator. Do not use them to make treatment decisions.</string>
+    <string name="report_doc_skipped_ranges">%1$s range(s) in this period had no readings at all and are not listed. The summary row below still covers the whole period, gaps included — see its coverage figure.</string>
+    <string name="report_doc_thin_ranges">Ranges shown in amber have under %1$s coverage. Their figures describe the hours recorded, not the whole range.</string>
+    <string name="report_doc_bands_note">Each figure is the median of that part of the local day, over the days in that range. Bands follow wall-clock hours, so they stay comparable across a time zone change.</string>
+    <string name="report_doc_range_headline">%1$s readings · %2$s coverage</string>
 </resources>

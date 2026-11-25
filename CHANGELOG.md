@@ -11,6 +11,43 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.7.0] - unreleased
+
+### Fixed
+
+- **The exported report is no longer English-only.** Its figures were always
+  locale-correct — dates come out of the chosen language and numbers deliberately
+  do not — but every word around them was an English literal inlined in the
+  exporter. On this app, whose default language is Spanish, that produced a
+  document headed `Range / Readings / Coverage` over rows reading `1 nov 2026`:
+  worse than either language on its own, because it reads as a half-finished
+  translation. The disclaimer went out in English too, which is the one paragraph
+  in the file that has to be understood.
+
+  The HTML and the PDF it prints to are now translated throughout — title,
+  heading, column headers, the summary row's name, the time-of-day table and both
+  explanatory notes — and the disclaimer is translated in all three formats. The
+  page also declares `lang`, which it never did: a printer hyphenates by it and a
+  screen reader picks its voice from it, and an unlabelled page is assumed English
+  by both.
+
+  **The CSV headers and JSON keys stay English**, deliberately. They are field
+  identifiers that a spreadsheet formula or a script refers to by name, and a
+  header that moved with the phone's language would break every one of them on the
+  day someone switched.
+
+  The strings live in `strings.xml` with the rest of the app's translations, and
+  are passed into `:core` as a `ReportLabels` bundle — `:core` is plain Kotlin/JVM
+  and shared with the watch, so it has no resources to read and must keep having
+  none. The bundle travels on the `Report` itself rather than being handed to the
+  exporter, so the screen and every exported format name the same things the same
+  way by construction. Its parameterised strings take their numbers already
+  written out, so no translation has to carry a literal `%` — the most common way
+  a formatted Android string crashes, in whichever language nobody tested.
+
+  Known gap: the **insulin diary** export has the same problem and is not covered
+  here. It shares only the disclaimer, which it still emits in English.
+
 ## [3.6.0] - unreleased
 
 ### Added

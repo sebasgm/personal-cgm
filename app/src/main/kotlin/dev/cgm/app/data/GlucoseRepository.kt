@@ -34,6 +34,7 @@ import dev.cgm.core.SensorInfo
 import dev.cgm.core.RawExport
 import dev.cgm.core.Report
 import dev.cgm.core.ReportBuilder
+import dev.cgm.core.ReportLabels
 import dev.cgm.core.ReportFormat
 import dev.cgm.core.ReportSpec
 import dev.cgm.core.SourceKind
@@ -440,9 +441,19 @@ class GlucoseRepository(
      * report reads a few thousand summarised rows rather than the hundreds of
      * thousands of readings behind them.
      */
-    suspend fun buildReport(spec: ReportSpec, nowMillis: Long = clock()): Report {
+    suspend fun buildReport(
+        spec: ReportSpec,
+        nowMillis: Long = clock(),
+        labels: ReportLabels = ReportLabels.English,
+    ): Report {
         val dao = rollupDao
-            ?: return ReportBuilder.build(spec, emptyList(), { 0 }, nowMillis)
+            ?: return ReportBuilder.build(
+                spec = spec,
+                hours = emptyList(),
+                hourStartMillis = { 0 },
+                generatedAtMillis = nowMillis,
+                labels = labels,
+            )
 
         val rows = dao.between(spec.startMillis, spec.endMillis)
         val starts = rows.associateBy(
@@ -465,6 +476,7 @@ class GlucoseRepository(
             hours = byBin.keys.toList(),
             hourStartMillis = { byBin.getValue(it) },
             generatedAtMillis = nowMillis,
+            labels = labels,
         )
     }
 

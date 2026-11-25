@@ -22,11 +22,14 @@ enum class ReportFormat(val extension: String, val mimeType: String) {
  */
 object ReportExport {
 
-    const val DISCLAIMER =
-        "Not medical advice and not a medical device. These figures come from a " +
-            "consumer sensor read through an unofficial interface, may be incomplete, " +
-            "and have not been assessed by any regulator. Do not use them to make " +
-            "treatment decisions."
+    /**
+     * The English disclaimer, for exports that have no labels of their own.
+     *
+     * A report carries its own translated copy on [Report.labels]; this is what
+     * the diary export in [TreatmentExport] still uses, and the default
+     * [ReportLabels] text, so the paragraph exists once.
+     */
+    val DISCLAIMER: String get() = ReportLabels.English.disclaimer
 
     fun export(report: Report, format: ReportFormat, zone: ZoneId = ZoneId.systemDefault()): String =
         when (format) {
@@ -49,7 +52,11 @@ object ReportExport {
      * any shape, and cannot easily unpivot a table whose columns are bins.
      */
     private fun csv(report: Report, zone: ZoneId): String = buildString {
-        appendLine("# $DISCLAIMER")
+        // The prose is translated; the column names below are not. They are field
+        // identifiers that a spreadsheet formula or a script refers to by name, and
+        // a header that changed with the phone's language would break every one of
+        // them on the day someone switched.
+        appendLine("# ${report.labels.disclaimer}")
         appendLine("# generated,${iso(report.generatedAtMillis, zone)}")
         appendLine("# unit,${report.spec.unit.suffix}")
         appendLine("# ranges_omitted_no_data,${report.skippedRanges}")
@@ -122,7 +129,7 @@ object ReportExport {
 
     private fun json(report: Report, zone: ZoneId): String = buildString {
         appendLine("{")
-        appendLine("""  "disclaimer": ${jsonString(DISCLAIMER)},""")
+        appendLine("""  "disclaimer": ${jsonString(report.labels.disclaimer)},""")
         appendLine("""  "generated": ${jsonString(iso(report.generatedAtMillis, zone))},""")
         appendLine("""  "unit": ${jsonString(report.spec.unit.suffix)},""")
         appendLine("""  "thresholdsMgdl": {""")
@@ -185,8 +192,13 @@ $pad}"""
      * print pipeline renders this, which types it better than hand-drawing one.
      */
     private fun html(report: Report, zone: ZoneId): String = buildString {
-        appendLine("<!doctype html><html><head><meta charset=\"utf-8\">")
-        appendLine("<title>Glucose report</title><style>")
+        val labels = report.labels
+        // `lang` matters more here than anywhere else in the app: this page is read
+        // aloud by screen readers and hyphenated by printers, and both need to be
+        // told which language before the first word.
+        appendLine("<!doctype html><html lang=\"${escapeHtml(labels.languageTag)}\">")
+        appendLine("<head><meta charset=\"utf-8\">")
+        appendLine("<title>${escapeHtml(labels.title)}</title><style>")
         appendLine(
             """
             body{font:14px/1.5 system-ui,sans-serif;margin:24px;color:#171d1a;max-width:900px}
@@ -202,24 +214,30 @@ $pad}"""
         )
         appendLine("</style></head><body>")
 
-        appendLine("<h1>Glucose report</h1>")
-        appendLine("<p class=\"muted\">Generated ${iso(report.generatedAtMillis, zone)} · ")
-        appendLine("values in ${escapeHtml(report.spec.unit.suffix)} · ")
-        appendLine("in range ${report.spec.thresholds.lowMgdl.toInt()}–${report.spec.thresholds.highMgdl.toInt()} mg/dL</p>")
-        appendLine("<div class=\"warn\">${escapeHtml(DISCLAIMER)}</div>")
+        appendLine("<h1>${escapeHtml(labels.title)}</h1>")
+        appendLine("<p class=\"muted\">${escapeHtml(labels.generated)} ${iso(report.generatedAtMillis, zone)} · ")
+        appendLine("${escapeHtml(labels.valuesIn)} ${escapeHtml(report.spec.unit.suffix)} · ")
+        appendLine(
+            "${escapeHtml(labels.inRange)} ${report.spec.thresholds.lowMgdl.toInt()}–" +
+                "${report.spec.thresholds.highMgdl.toInt()} mg/dL</p>"
+        )
+        appendLine("<div class=\"warn\">${escapeHtml(labels.disclaimer)}</div>")
 
         if (report.skippedRanges > 0) {
-            appendLine(
-                "<p class=\"muted\">${report.skippedRanges} range(s) in this period had no " +
-                    "readings at all and are not listed. The summary row below still covers " +
-                    "the whole period, gaps included — see its coverage figure.</p>"
-            )
+            val note = labels.fill(labels.skippedRanges, report.skippedRanges.toString())
+            appendLine("<p class=\"muted\">${escapeHtml(note)}</p>")
         }
 
-        appendLine("<h2>Summary</h2><table>")
+        appendLine("<h2>${escapeHtml(labels.summary)}</h2><table>")
         appendLine(
-            "<tr><th>Range</th><th>Readings</th><th>Coverage</th><th>Mean</th>" +
-                "<th>Median</th><th>SD</th><th>CV</th><th>In range</th></tr>"
+            "<tr><th>${escapeHtml(labels.columnRange)}</th>" +
+                "<th>${escapeHtml(labels.columnReadings)}</th>" +
+                "<th>${escapeHtml(labels.columnCoverage)}</th>" +
+                "<th>${escapeHtml(labels.columnMean)}</th>" +
+                "<th>${escapeHtml(labels.columnMedian)}</th>" +
+                "<th>${escapeHtml(labels.columnSd)}</th>" +
+                "<th>${escapeHtml(labels.columnCv)}</th>" +
+                "<th>${escapeHtml(labels.columnInRange)}</th></tr>"
         )
         (report.ranges + report.overall).forEach { r ->
             val thin = if (r.hasData && !r.isReliable) " class=\"thin\"" else ""
@@ -235,10 +253,9 @@ $pad}"""
         appendLine("</table>")
 
         if (report.hasUnreliableRanges) {
+            val threshold = "${(GlucoseStatistics.RELIABLE_COVERAGE * 100).toInt()}%"
             appendLine(
-                "<p class=\"muted\">Ranges shown in amber have under " +
-                    "${(GlucoseStatistics.RELIABLE_COVERAGE * 100).toInt()}% coverage. " +
-                    "Their figures describe the hours recorded, not the whole range.</p>"
+                "<p class=\"muted\">${escapeHtml(labels.fill(labels.thinRanges, threshold))}</p>"
             )
         }
 
@@ -246,8 +263,8 @@ $pad}"""
         // the whole feature exists for — one row per week with six figures on it
         // says where a day goes wrong, which no single mean can.
         if (report.spec.bandsPerDay > 0 && report.overall.bands.isNotEmpty()) {
-            appendLine("<h2>Median by time of day</h2>")
-            appendLine("<table><tr><th>Range</th>")
+            appendLine("<h2>${escapeHtml(labels.medianByTimeOfDay)}</h2>")
+            appendLine("<table><tr><th>${escapeHtml(labels.columnRange)}</th>")
             report.overall.bands.forEach { appendLine("<th>${escapeHtml(it.label)}</th>") }
             appendLine("</tr>")
             (report.ranges + report.overall).forEach { r ->
@@ -259,16 +276,17 @@ $pad}"""
                 appendLine("</tr>")
             }
             appendLine("</table>")
-            appendLine(
-                "<p class=\"muted\">Each figure is the median of that part of the " +
-                    "local day, over the days in that range. Bands follow wall-clock " +
-                    "hours, so they stay comparable across a time zone change.</p>"
-            )
+            appendLine("<p class=\"muted\">${escapeHtml(labels.bandsNote)}</p>")
         }
 
         report.ranges.forEach { r ->
             appendLine("<div class=\"page\"><h2>${escapeHtml(r.label)}</h2>")
-            appendLine("<p class=\"muted\">${r.readingCount} readings · ${pct(r.coverage)} coverage</p>")
+            val headline = labels.fill(
+                labels.rangeHeadline,
+                r.readingCount.toString(),
+                pct(r.coverage),
+            )
+            appendLine("<p class=\"muted\">${escapeHtml(headline)}</p>")
             appendLine(histogramSvg(r, report.spec))
             appendLine("</div>")
         }
