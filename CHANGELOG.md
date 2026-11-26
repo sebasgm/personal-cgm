@@ -11,6 +11,40 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
+## [3.8.0] - unreleased
+
+### Changed
+
+- **All six trend windows fit across one row.** `FilterChip` reserves its own
+  padding and a 48dp touch target apiece, which put six of them past the width of
+  a 360dp phone and left the row scrolling sideways — and a chip row that scrolls
+  hides its tail behind a gesture nobody makes on something that looks complete.
+  The two longest windows were the ones off the edge.
+
+  The tile is now sized here: a 46x40dp floor with tight padding, which puts six
+  across at 301dp inside the 320dp a 360dp phone leaves. The floor is also what
+  keeps them even — "7d" is narrower than "24h", and tiles that each hugged their
+  own label would read as six unrelated buttons rather than one choice of six. The
+  row still flows rather than being forced onto one line, so at a large text scale
+  — this app's own goes to 1.6x on top of the system's — it wraps to two short
+  lines instead of clipping. Built from `Surface` and `selectable`, which means
+  declaring the semantics a chip gave for free: a radio role inside a selectable
+  group, so a screen reader reads one choice rather than six toggles.
+
+- **The logged rows on Trends and the Diary are behind a dropdown.** Three lists
+  had the same shape — a short answer, then every row it was computed from — and
+  each one sat between the reader and the control below it. The report's ranges
+  (thirty rows, for a month split by day) were above the export buttons; the
+  diary's fortnight of day totals was above both the export controls and the
+  entries themselves. The two things most often wanted on those screens were the
+  two furthest down them.
+
+  Each list now collapses behind a heading that says how many rows it holds, and
+  starts collapsed: these are a record to consult, not a figure to watch, and the
+  summaries above them already carry the answer. What stays in the open is what
+  has to be read on arrival — the report's summary row and its count of ranges
+  omitted for having no data, today's insulin totals in the diary.
+
 ## [3.7.0] - unreleased
 
 ### Fixed

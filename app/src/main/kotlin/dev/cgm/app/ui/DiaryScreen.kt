@@ -470,24 +470,18 @@ fun DiaryScreen(viewModel: CgmViewModel) {
         DiaryExport(viewModel, zone)
 
         Spacer(Modifier.height(16.dp))
-        Text(
-            stringResource(R.string.diary_recent),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Medium,
-        )
-        Text(
-            stringResource(R.string.diary_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-        Spacer(Modifier.height(4.dp))
 
         // One list, in time order, rather than a column each. A bolus at 13:05 and the
         // 60 g it covered at 13:00 only make sense beside each other, and that is also
         // how you spot the meal you forgot to dose for.
         val recent = remember(doses, carbs, tests) { merged(doses, carbs, tests) }
         if (recent.isEmpty()) {
+            Text(
+                stringResource(R.string.diary_recent),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(R.string.diary_empty),
                 style = MaterialTheme.typography.bodySmall,
@@ -496,28 +490,40 @@ fun DiaryScreen(viewModel: CgmViewModel) {
             return@Column
         }
 
-        recent.forEach { row ->
-            when (row) {
-                is DiaryRow.Dose -> DoseRow(
-                    dose = row.dose,
-                    zone = zone,
-                    unit = state.unit,
-                    onDelete = { viewModel.deleteDose(row.dose) },
-                )
-                is DiaryRow.Carbs -> CarbRow(
-                    entry = row.entry,
-                    zone = zone,
-                    onDelete = { viewModel.deleteCarbs(row.entry) },
-                    onViewPhoto = { viewingPhoto = it },
-                )
-                is DiaryRow.Test -> TestRow(
-                    test = row.test,
-                    zone = zone,
-                    unit = state.unit,
-                    onDelete = { viewModel.deleteBloodTest(row.test) },
-                )
+        // Behind a disclosure like the day totals above it. Every entry ever logged
+        // ran down the bottom of this screen, which is a long way past the form at
+        // the top that is what the screen is for — and the rows are a record to
+        // consult rather than something to read on the way to logging a dose.
+        CollapsibleRows(
+            title = stringResource(R.string.diary_recent),
+            note = stringResource(R.string.diary_note),
+            count = stringResource(R.string.diary_recent_count, recent.size),
+        ) {
+            Column {
+                recent.forEach { row ->
+                    when (row) {
+                        is DiaryRow.Dose -> DoseRow(
+                            dose = row.dose,
+                            zone = zone,
+                            unit = state.unit,
+                            onDelete = { viewModel.deleteDose(row.dose) },
+                        )
+                        is DiaryRow.Carbs -> CarbRow(
+                            entry = row.entry,
+                            zone = zone,
+                            onDelete = { viewModel.deleteCarbs(row.entry) },
+                            onViewPhoto = { viewingPhoto = it },
+                        )
+                        is DiaryRow.Test -> TestRow(
+                            test = row.test,
+                            zone = zone,
+                            unit = state.unit,
+                            onDelete = { viewModel.deleteBloodTest(row.test) },
+                        )
+                    }
+                    HorizontalDivider()
+                }
             }
-            HorizontalDivider()
         }
     }
 
@@ -1017,20 +1023,13 @@ private fun ByDaySummary(doses: List<InsulinDose>, carbs: List<CarbEntry>, zone:
         InsulinDiary.byDay(doses, carbs, zone, limitDays = BY_DAY_LIMIT)
     }
 
-    Text(
-        stringResource(R.string.diary_by_day),
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Medium,
-    )
-    Text(
-        stringResource(R.string.diary_by_day_note),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 2.dp),
-    )
-    Spacer(Modifier.height(8.dp))
-
     if (days.isEmpty()) {
+        Text(
+            stringResource(R.string.diary_by_day),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium,
+        )
+        Spacer(Modifier.height(4.dp))
         Text(
             stringResource(R.string.diary_by_day_empty),
             style = MaterialTheme.typography.bodySmall,
@@ -1039,41 +1038,53 @@ private fun ByDaySummary(doses: List<InsulinDose>, carbs: List<CarbEntry>, zone:
         return
     }
 
-    days.forEach { day ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    dayLabel(day.date, zone),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                )
-                // Grams sit under the units as context, and say plainly when some
-                // of the day's meals carry no count at all.
-                carbNote(day)?.let {
+    // A fortnight of day totals is a fortnight of rows, and they sat between the
+    // save button and both the export controls and the entries themselves. Today's
+    // figures are already above this; these answer "what does a normal day look
+    // like", which is a question asked occasionally rather than on arrival.
+    CollapsibleRows(
+        title = stringResource(R.string.diary_by_day),
+        note = stringResource(R.string.diary_by_day_note),
+        count = stringResource(R.string.diary_by_day_count, days.size),
+    ) {
+        Column {
+            days.forEach { day ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            dayLabel(day.date, zone),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        // Grams sit under the units as context, and say plainly when
+                        // some of the day's meals carry no count at all.
+                        carbNote(day)?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     Text(
-                        it,
+                        stringResource(
+                            R.string.diary_day_units,
+                            formatUnits(day.totals.totalUnits),
+                            formatUnits(day.totals.basalUnits),
+                            formatUnits(day.totals.bolusUnits),
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             }
-            Text(
-                stringResource(
-                    R.string.diary_day_units,
-                    formatUnits(day.totals.totalUnits),
-                    formatUnits(day.totals.basalUnits),
-                    formatUnits(day.totals.bolusUnits),
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
     }
 }
 

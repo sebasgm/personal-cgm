@@ -11,10 +11,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,11 +36,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -60,6 +64,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 import dev.cgm.core.GlucoseStatistics
 import dev.cgm.core.GlucoseThresholds
 import dev.cgm.core.GlucoseUnit
@@ -93,21 +98,7 @@ fun TrendsScreen(viewModel: CgmViewModel) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Scrollable sideways: six windows do not fit across a narrow phone, and a
-        // chip row that silently clips its tail hides the longest window from the
-        // people most likely to want it.
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            TrendPeriod.entries.forEach { p ->
-                FilterChip(
-                    selected = p == period,
-                    onClick = { viewModel.selectPeriod(p) },
-                    label = { Text(p.label) },
-                )
-            }
-        }
+        PeriodChips(selected = period, onSelect = viewModel::selectPeriod)
 
         CoverageNotice(stats, period)
 
@@ -161,6 +152,88 @@ fun TrendsScreen(viewModel: CgmViewModel) {
         // belongs at the end of the screen rather than competing at the top.
         HorizontalDivider()
         ReportSection(viewModel)
+    }
+}
+
+/**
+ * The window chips: all six across one row, at any width worth supporting.
+ *
+ * `FilterChip` could not do this. Its own padding and minimum touch size put six
+ * of them well past a 360dp phone, so the row had to scroll sideways — and a chip
+ * row that scrolls hides its tail behind a gesture nobody makes on something that
+ * looks like it is already showing everything. The two longest windows were the
+ * ones off the edge.
+ *
+ * So the tile is sized here instead: a floor of [CHIP_MIN_WIDTH] by
+ * [CHIP_MIN_HEIGHT] with tight padding, which puts six of them at 301dp across
+ * including the gaps — inside the 320dp a 360dp phone leaves. The floor is also
+ * what keeps them even: "7d" is narrower than "24h", and a row of tiles that each
+ * hugged its own label would read as six unrelated buttons rather than one
+ * choice.
+ *
+ * A [FlowRow] rather than a plain one, and no `weight`: weight would force all six
+ * into a single line whatever the width, which is the clipping problem again.
+ * Flowing means the row wraps to a second line in the cases this cannot fit —
+ * this app has its own text scale that goes to 1.6x on top of the system's, and
+ * past about 1.3x six tiles genuinely do not fit a phone. Two short lines is the
+ * right answer there; sideways scrolling and truncated labels are not.
+ *
+ * Built from `Surface` and `selectable` rather than from a chip, which also means
+ * declaring the semantics a chip would have given: a radio role inside a
+ * [selectableGroup], so a screen reader reads this as one choice of six rather
+ * than as six independent toggles.
+ */
+@Composable
+private fun PeriodChips(selected: TrendPeriod, onSelect: (TrendPeriod) -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(CHIP_GAP),
+        verticalArrangement = Arrangement.spacedBy(CHIP_GAP),
+    ) {
+        TrendPeriod.entries.forEach { period ->
+            val chosen = period == selected
+            val interaction = remember { MutableInteractionSource() }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (chosen) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+                contentColor = if (chosen) {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.selectable(
+                    selected = chosen,
+                    interactionSource = interaction,
+                    // Explicit, because a bare `selectable` takes whatever
+                    // indication is in scope rather than Material's: without this
+                    // the tiles acknowledge a tap with nothing at all, which on the
+                    // one already selected looks like the tap missed.
+                    indication = ripple(),
+                    role = Role.RadioButton,
+                    onClick = { onSelect(period) },
+                ),
+            ) {
+                Box(
+                    Modifier
+                        .defaultMinSize(minWidth = CHIP_MIN_WIDTH, minHeight = CHIP_MIN_HEIGHT)
+                        .padding(horizontal = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        period.label,
+                        style = MaterialTheme.typography.labelLarge,
+                        // Selected is carried by the fill as well, so weight is a
+                        // second cue rather than the only one.
+                        fontWeight = if (chosen) FontWeight.Medium else FontWeight.Normal,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -867,3 +940,29 @@ private val Y_TICKS = listOf(5.0, 7.0, 9.0, 11.0)
  * rather than an assumption the drawing is allowed to make.
  */
 private const val SAMPLES = 48
+
+/**
+ * Wide enough for "24h" with room around it, and the same floor for all six.
+ *
+ * Six of these plus five [CHIP_GAP]s come to 301dp, inside the 320dp a 360dp
+ * phone leaves after this screen's 20dp padding, and well inside the 372dp of a
+ * 412dp one. A 320dp phone has 280dp and wraps to two lines, which is the right
+ * outcome there and the reason this is a [FlowRow].
+ *
+ * Sized up to the largest floor that still fits rather than down to the smallest
+ * that works: this is a touch target, and the 19dp of slack left on a 360dp phone
+ * buys nothing.
+ */
+private val CHIP_MIN_WIDTH = 46.dp
+
+/**
+ * As tall as a Material segmented button, which is what this row now is.
+ *
+ * Below the 48dp a standalone button should be, and deliberately: six windows have
+ * to fit across a phone and `FilterChip` reserving 48dp apiece is what forced the
+ * row to scroll. 40dp is the height Material's own single-choice row ships at, so
+ * it is a documented density rather than a number picked to make the sums work.
+ */
+private val CHIP_MIN_HEIGHT = 40.dp
+
+private val CHIP_GAP = 5.dp

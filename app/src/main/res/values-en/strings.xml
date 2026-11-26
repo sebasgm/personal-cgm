@@ -562,4 +562,11 @@
     <string name="report_doc_thin_ranges">Ranges shown in amber have under %1$s coverage. Their figures describe the hours recorded, not the whole range.</string>
     <string name="report_doc_bands_note">Each figure is the median of that part of the local day, over the days in that range. Bands follow wall-clock hours, so they stay comparable across a time zone change.</string>
     <string name="report_doc_range_headline">%1$s readings · %2$s coverage</string>
+    <!-- Collapsible lists of logged rows. See CollapsibleRows. -->
+    <string name="common_show">Show</string>
+    <string name="common_hide">Hide</string>
+    <string name="diary_by_day_count">%1$d days</string>
+    <string name="diary_recent_count">%1$d entries</string>
+    <string name="report_preview_ranges">Report ranges</string>
+    <string name="report_preview_count">%1$d ranges</string>
 </resources>

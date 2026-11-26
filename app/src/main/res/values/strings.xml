@@ -562,4 +562,11 @@
     <string name="report_doc_thin_ranges">Los tramos en ámbar tienen menos del %1$s de cobertura. Sus cifras describen las horas registradas, no el tramo completo.</string>
     <string name="report_doc_bands_note">Cada cifra es la mediana de ese momento del día local, sobre los días de ese tramo. Las franjas siguen la hora del reloj, así que siguen siendo comparables después de un cambio de zona horaria.</string>
     <string name="report_doc_range_headline">%1$s lecturas · %2$s de cobertura</string>
+    <!-- Collapsible lists of logged rows. See CollapsibleRows. -->
+    <string name="common_show">Mostrar</string>
+    <string name="common_hide">Ocultar</string>
+    <string name="diary_by_day_count">%1$d días</string>
+    <string name="diary_recent_count">%1$d registros</string>
+    <string name="report_preview_ranges">Tramos del informe</string>
+    <string name="report_preview_count">%1$d tramos</string>
 </resources>

@@ -281,10 +281,14 @@ private fun ReportPreview(report: Report) {
         Spacer(Modifier.height(12.dp))
     }
 
+    // The summary row stays out in the open. It is the one line that answers the
+    // whole period, and the row the export is checked against before sending it.
     RangeRow(report.overall, report.spec.unit.suffix, header = true)
     HorizontalDivider()
     // Said out loud, because the rows below would otherwise look like the whole
-    // period. The summary row above still covers it, gaps and all.
+    // period. The summary row above still covers it, gaps and all. Outside the
+    // collapsed section on purpose: a count of what is missing is useless if it is
+    // itself hidden behind a tap.
     if (report.skippedRanges > 0) {
         Text(
             stringResource(R.string.report_skipped, report.skippedRanges),
@@ -294,8 +298,23 @@ private fun ReportPreview(report: Report) {
         )
         HorizontalDivider()
     }
-    report.ranges.forEach {
-        RangeRow(it, report.spec.unit.suffix, header = false)
+
+    // The per-range rows behind a disclosure. A month split by day is thirty rows
+    // of six figures, and they used to sit between the summary above and the
+    // export buttons below — so the control this whole section exists to reach was
+    // the furthest thing on the screen from the top of it.
+    if (report.ranges.isNotEmpty()) {
+        CollapsibleRows(
+            title = stringResource(R.string.report_preview_ranges),
+            count = stringResource(R.string.report_preview_count, report.ranges.size),
+        ) {
+            Column {
+                report.ranges.forEach {
+                    RangeRow(it, report.spec.unit.suffix, header = false)
+                    HorizontalDivider()
+                }
+            }
+        }
         HorizontalDivider()
     }
 }
