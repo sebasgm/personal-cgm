@@ -73,7 +73,7 @@ in `core/…/Freshness.kt` should be tuned against.
 ## Stage 2 — build and install the phone app
 
 ```bash
-./gradlew test           # 509 tests, no device needed
+./gradlew test           # 518 tests, no device needed
 ./gradlew :app:assembleDebug
 ~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -82,10 +82,10 @@ For a build to keep rather than develop against:
 
 ```bash
 ./gradlew :app:versionedApkRelease
-~/Android/Sdk/platform-tools/adb install -r build/apks/cgm-3.4.0.apk
+~/Android/Sdk/platform-tools/adb install -r build/apks/cgm-3.8.0.apk
 ```
 
-The task copies the APK to `build/apks` named after `versionName` — `cgm-3.4.0.apk` — so a
+The task copies the APK to `build/apks` named after `versionName` — `cgm-3.8.0.apk` — so a
 sideloaded file still says which build it is once it is off the machine that built it. Release
 builds are signed with the debug key on purpose, so one installs over another without uninstalling
 and losing the reading history; `app/build.gradle.kts` says why, and what that costs.
@@ -96,7 +96,7 @@ and losing the reading history; `app/build.gradle.kts` says why, and what that c
 ./gradlew :wear:versionedApkRelease
 # with the watch paired over adb, on its own transport
 ~/Android/Sdk/platform-tools/adb -s <watch> install -r \
-  build/apks/cgm-WATCH-do-not-install-on-phone-3.4.0.apk
+  build/apks/cgm-WATCH-do-not-install-on-phone-3.8.0.apk
 ```
 
 **Do not install that APK on the phone.** The two modules share an application id — the Data

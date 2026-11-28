@@ -11,7 +11,7 @@ was actually running — which matters most for the builds that are sideloaded o
 the developer's own phone. A version that has been tagged carries its date; one that has only
 been built carries `unreleased` in place of a date, and the number is still there.
 
-## [3.8.0] - unreleased
+## [3.8.0] - 2026-11-28
 
 ### Changed
 
